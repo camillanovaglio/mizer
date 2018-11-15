@@ -46,6 +46,8 @@ NULL
 #' @param n A matrix of species abundances (species x size)
 #' @param n_pp A vector of the plankton abundance by size
 #'   
+#'   trial
+#'   
 #' @return A two dimensional array (predator species x predator size)
 #' @seealso \code{\link{project}}
 #' @export
