@@ -225,6 +225,18 @@ plotBiomass <- function(sim,
             y_ticks = 6, print_it = TRUE,
             ylim = c(NA, NA),
             total = FALSE, background = TRUE, ...){
+  
+    # trial 
+    # sim = SEA1
+    # species = dimnames(sim@n)$sp[!is.na(sim@params@A)]
+    # start_time = as.numeric(dimnames(sim@n)[[1]][1])
+    # end_time = as.numeric(dimnames(sim@n)[[1]][dim(sim@n)[1]])
+    # y_ticks = 6
+    # print_it = TRUE
+    # ylim = c(NA, NA)
+    # total = FALSE
+    # background = TRUE
+
     b <- getBiomass(sim, ...)
     if (start_time >= end_time) {
         stop("start_time must be less than end_time")
@@ -267,18 +279,19 @@ plotBiomass <- function(sim,
                            colour = "lightgrey")
     }
 
-    if ( (length(species) + total) > 12) {
-        p <- p + geom_line(aes(group = Species))
-    } else {
+    # if ( (length(species) + total) > 12) { # CN I think that this was set to avoid legend in case of lots of spp and make it much faster... 
+        # p <- p + geom_line(aes(group = Species))
+    # } else {
         p <- p +
             geom_line(aes(colour = Species, linetype = Species))
-    }
+    # }
     if (print_it) {
         print(p)
     }
     return(p)
 }
 
+# plotBiomass(sim3)
 
 #' Plot the total yield of species through time
 #'
@@ -436,6 +449,9 @@ plotYield <- function(sim, sim2,
 plotYieldGear <- function(sim,
                           species = dimnames(sim@n)$sp,
                           print_it = TRUE, total = FALSE, ...){
+    # trial 
+    y <- getYieldGear(sim)
+    total = TRUE
     y <- getYieldGear(sim, ...)
     y_total <- rowSums(y, dims = 2)
     y <- y[, , dimnames(y)$sp %in% species, drop = FALSE]
@@ -462,6 +478,108 @@ plotYieldGear <- function(sim,
     return(p)
 }
 
+# CN plot effort, yield, revenue and profis when fleetDynamics == TRUE, by fleet 
+
+plotEffort_CN <- function (sim){
+
+  # trial
+  # sim = sim3
+
+  e<-sim@effortOut
+  e<-as.data.frame.table(e) %>% # this is ym above
+    mutate(time = as.numeric(as.character(time)))
+
+  p <- ggplot(e) + geom_line(aes(x = time, y = Freq, group = gear)) +
+    scale_y_continuous(name = "Effort [opn]") +
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear,ncol = length(unique(e$gear)))
+  # print(p)
+
+}
+
+plotYield_CN <- function (sim){
+  
+  # trial
+  # sim = sim3
+  
+  y<-sim@yield
+  y<-rowSums(aperm(y,c(1,2,4,3)),dims=3) # sum over size 
+  y<-as.data.frame.table(y) %>% # this is ym above
+    group_by(time, gear) %>% 
+    dplyr::summarise(value = sum(Freq, na.rm =TRUE)) %>% 
+    # filter(value > 0) %>%
+    mutate(time = as.numeric(as.character(time)))
+  
+  p <- ggplot(y) + geom_line(aes(x = time, y = value, group = gear)) +
+    scale_y_continuous(name = "Yield [g]") + # trans = "log10" it's log10 in Mizer... 
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear,ncol = length(unique(y$gear)))
+  # print(p)
+  
+}
+
+plotRevenue_CN <- function (sim){
+  
+  r<-sim@revenue
+  r<-as.data.frame.table(r) %>% # this is ym above
+    mutate(time = as.numeric(as.character(time)))
+  
+  p <- ggplot(r) + geom_line(aes(x = time, y = Freq, group = gear)) +
+    scale_y_continuous(name = "Revenue [$]") + 
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear, ncol = length(unique(r$gear)))
+  # print(p)
+  
+}
+
+plotProfit_CN <- function (sim){
+  
+  pr<-sim@profit
+  pr<-as.data.frame.table(pr) %>% # this is ym above
+    mutate(time = as.numeric(as.character(time)))
+  
+  p <- ggplot(pr) + geom_line(aes(x = time, y = Freq, group = gear)) +
+    scale_y_continuous(name = "Profit [$]") + 
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear, ncol = length(unique(pr$gear)))
+  # print(p)
+  
+}
+
+# plotProfit_CN(sim3)
+# plotBiomass(sim3)
+
+plotFleet<-function(sim){
+  
+  a<-plotEffort_CN(sim)
+  a<-a + geom_hline(yintercept=0, linetype="dashed", color = "grey")
+  a<-a + theme(legend.position="none")
+  b<-plotYield_CN(sim)
+  b<-b + geom_hline(yintercept=0, linetype="dashed", color = "grey")
+  b<-b + theme(legend.position="none")
+  c<-plotProfit_CN(sim)
+  c<-c + geom_hline(yintercept=0, linetype="dashed", color = "grey")
+  c<-c + theme(legend.position="none")
+  
+  plots <- list(a,b,c)
+  source("/Users/nov017/R_general/FUNplotSize.r")
+  res = plotSize(plots)
+  
+  lay <- rbind(c(1,1),
+               c(2,2),
+               c(3,3))
+  
+  gs<-list(res$grobs[[1]],
+           res$grobs[[2]],
+           res$grobs[[3]])
+  
+  # setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/plots")
+  # jpeg("plotResultsFleet.jpeg", width=18, height=22 ,units="cm",res=400) #, width=10)
+  grid.arrange(grobs = gs, layout_matrix = lay)
+  
+}
+
+# plotFleet(sim3)
 
 #' Plot the abundance spectra
 #' 
@@ -700,24 +818,25 @@ plotFeedingLevel <- function(sim,
     plot_dat <- data.frame(value = c(feed),
                            Species = dimnames(feed)[[1]],
                            w = rep(sim@params@w, each = length(species)))
-    if (length(species) > 12) {
-        p <- ggplot(plot_dat) +
-            geom_line(aes(x = w, y = value, group = Species))
-    } else {
+    # if (length(species) > 12) {
+        # p <- ggplot(plot_dat) +
+            # geom_line(aes(x = w, y = value, group = Species))
+    # } else {
         p <- ggplot(plot_dat) +
             geom_line(aes(x = w, y = value, colour = Species, linetype = Species))
-    }
+    # }
     p <- p +
-        scale_x_continuous(name = "Size [g]", trans = "log10") +
-        scale_y_continuous(name = "Feeding Level", limits = c(0, 1)) +
-        scale_colour_manual(values = sim@params@linecolour) +
-        scale_linetype_manual(values = sim@params@linetype)
+      scale_x_continuous(name = "Size [g]", trans = "log10") +
+      scale_y_continuous(name = "Feeding Level", limits = c(0, 1)) +
+      scale_colour_manual(values = sim@params@linecolour) +
+      scale_linetype_manual(values = sim@params@linetype)
     if (print_it) {
         print(p)
     }
     return(p)
 }
 
+# plotFeedingLevel(sim3)
 
 #' Plot predation mortality rate of each species against size
 #' 
@@ -809,8 +928,18 @@ plotM2 <- function(sim, species = dimnames(sim@n)$sp,
 plotFMort <- function(sim, species = dimnames(sim@n)$sp,
                       time_range = max(as.numeric(dimnames(sim@n)$time)),
                       print_it = TRUE, ...){
+
+  # # trial
+  # sim = sim1
+  # species = dimnames(sim@n)$sp
+  # time_range = max(as.numeric(dimnames(sim@n)$time))
+  # print_it = TRUE
+  # f_time <- getFMort(sim, time_range = time_range, drop = FALSE)
+  # dim(f_time) # [1]   1  38 100 (time X sp X w)
+  
     f_time <- getFMort(sim, time_range = time_range, drop = FALSE, ...)
     f <- apply(f_time, c(2, 3), mean)
+    # dim(f) # 30 100
     f <- f[as.character(dimnames(f)[[1]]) %in% species, , drop = FALSE]
     plot_dat <- data.frame(value = c(f),
                            Species = dimnames(f)[[1]],
@@ -831,6 +960,78 @@ plotFMort <- function(sim, species = dimnames(sim@n)$sp,
         print(p)
     }
     return(p)
+}
+
+# CN fleetDynamic version. this is different because you changed getFMort and you added 
+
+plotFMort_CN <- function(sim, species = dimnames(sim@n)$sp,
+                      time_range = max(as.numeric(dimnames(sim@n)$time)),
+                      print_it = TRUE, ...){
+  
+  # NOTE that this version does not allow for a mean time_range calculation - all at last time step
+  if (missing(time_range)) {
+    time_range <- dimnames(sim@effortOut)$time
+  }
+
+  f_time <- sim@F[time_range,,,]
+  
+  if(length(time_range > 1)){ # if a time range is specified, do the mean 
+    f_time <- rowSums(f_time, dims = 3) # f mort should not go above 1 but it could as I am summing mortalities from fleets and these fleets could hypotetically cacth each all biomass available ... Should change in project? add matrix end of old code
+    f_time <- apply(f_time, c(2, 3), mean)
+  }else{
+    f_time <- rowSums(f_time, dims = 2)
+  }
+
+  plot_dat <- data.frame(value = c(f_time),
+                         Species = dimnames(f_time)[[1]],
+                         w = rep(sim@params@w, each = length(species)))
+  
+  p <- ggplot(plot_dat) +
+    geom_line(aes(x = w, y = value, colour = Species, linetype = Species))+
+    scale_x_continuous(name = "Size [g]", trans = "log10") +
+    scale_y_continuous(name = "Fishing mortality [1/Year]",
+                       limits = c(0, max(plot_dat$value))) +
+    scale_colour_manual(values = sim@params@linecolour) +
+    scale_linetype_manual(values = sim@params@linetype)
+  if (print_it) {
+    print(p)
+  }
+  
+  # my - by spp addition 
+  pSpp <- ggplot(plot_dat) +
+    geom_line(aes(x = w, y = value))+
+    scale_x_continuous(name = "Size [g]", trans = "log10") +
+    scale_y_continuous(name = "Fishing mortality [1/Year]",
+                       limits = c(0, max(plot_dat$value))) +
+    # scale_colour_manual(values = sim@params@linecolour) +
+    # scale_linetype_manual(values = sim@params@linetype) + 
+    facet_wrap(~Species)
+  
+  # # my version: same 
+  #   plot_dat<-as.data.frame(f_time) %>% 
+  #   mutate(Species = rownames(f_time)) %>% 
+  #   gather(w, value, -Species) %>% 
+  #   mutate(w = as.numeric(w))  
+  # 
+  #   str(plot_dat)
+  #   # Setting colors as ggplot supports only 12
+  #   library("RColorBrewer")
+  #   colourCountSp = length(species)+1
+  #   markerSp = list(color = colorRampPalette(brewer.pal(11,"Spectral"))(colourCountSp))
+  #   
+  #   plotCommunity <- ggplot(plot_dat) + 
+  #     geom_line(aes(x=w, y = value, group = Species, colour=Species)) + 
+  #     scale_x_continuous(name = "Size (log g)", trans="log10") +
+  #     scale_color_manual(values= markerSp$color)+
+  #     theme_bw() +
+  #     theme(text = element_text(size=10),
+  #           axis.title.y = element_text(vjust=0.4),
+  #           axis.title.x = element_text(vjust=0.3),
+  #           axis.text.y = element_text(angle=90, hjust=0.5),
+  #           panel.grid.major = element_blank())  
+  #   print (plotCommunity)
+  
+  return(p)
 }
 
 
@@ -1052,3 +1253,33 @@ setMethod("plot", signature(x = "MizerSim", y = "missing"),
                     vp = vplayout(3, 1:2))
           }
 )
+
+# summary plot when fleetDynamics == true
+# plot_CN(sim3)
+
+plot_CN<- function(sim){
+
+  p1 <- plotFeedingLevel(sim, print_it = FALSE)
+  p2 <- plotSpectra(sim, print_it = FALSE)
+  p3 <- plotBiomass(sim, y_ticks = 3, print_it = FALSE)
+  p4 <- plotM2(sim, print_it = FALSE)
+  p5 <- plotFMort_CN(sim, print_it = FALSE)
+  grid::grid.newpage()
+  glayout <- grid::grid.layout(3, 2) # widths and heights arguments
+  vp <- grid::viewport(layout = glayout)
+  grid::pushViewport(vp)
+  vplayout <- function(x, y)
+    grid::viewport(layout.pos.row = x, layout.pos.col = y)
+  print(p1 + theme(legend.position = "none"), vp = vplayout(1, 1))
+  print(p3 + theme(legend.position = "none"), vp = vplayout(1, 2))
+  print(p4 + theme(legend.position = "none"), vp = vplayout(2, 1))
+  print(p5 + theme(legend.position = "none"), vp = vplayout(2, 2))
+  print(p2 + theme(legend.position = "right",
+                   legend.key.size = unit(0.1, "cm")),
+        vp = vplayout(3, 1:2))
+
+
+}
+
+
+

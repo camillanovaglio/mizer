@@ -114,12 +114,22 @@ valid_MizerSim <- function(object){
 #'   
 #' @seealso \code{\link{project}} \code{\link{MizerParams}}
 #' @export
+
+## CN this needs to be changed
 setClass(
     "MizerSim",
     representation(
         params = "MizerParams",
         n = "array",
         effort = "array",
+        
+        # cn adding the fleetDynamics arguments 
+        effortOut = "array",
+        yield = "array",
+        profit = "array",
+        revenue = "array",
+        F = "array",
+        
         n_pp = "array"
     ),
     prototype = prototype(
@@ -130,6 +140,23 @@ setClass(
         effort = array(
             NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
         ),
+        # CN again add the fleetdynamics bit
+        effortOut = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+        yield = array(
+          NA,dim = c(1,1,1,1), dimnames = list(time = NULL, species = NULL, w = NULL, gear = NULL)
+        ),
+        profit = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+        revenue = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+        F = array(
+          NA,dim = c(1,1,1,1), dimnames = list(time = NULL, species = NULL, w = NULL, gear = NULL)
+        ), # is this the right dimension for f_mort_gear?
+        
         n_pp = array(
             NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
         )
@@ -157,6 +184,11 @@ remove(valid_MizerSim)
 #'   
 #' @return An object of type \linkS4class{MizerSim}
 MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
+  
+  # # trial 
+  # params = params 
+  # t_dimnames = t_dimnames
+  
     # If the dimnames for the time dimension not passed in, calculate them
     # from t_max and t_save
     if (any(is.na(t_dimnames))){
@@ -176,12 +208,34 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
     array_n <- array(NA, dim = c(t_dim, no_sp, no_w), 
                      dimnames = list(time = t_dimnames, 
                                      sp = species_names, w = w_names))
-    
+    ## CN this needs to be changed - no 
     no_gears <- dim(params@selectivity)[1]
     gear_names <- dimnames(params@selectivity)$gear
     array_effort <- array(NA, dim = c(t_dim, no_gears), 
                           dimnames = list(time = t_dimnames, 
                                           gear = gear_names))
+    
+    # CN add yiled profit... why so many times? 
+    array_effortOut <- array(NA, dim = c(t_dim, no_gears), 
+                          dimnames = list(time = t_dimnames, 
+                                          gear = gear_names))
+    array_yield <- array(NA, dim = c(t_dim, no_sp, no_w, no_gears), 
+                         dimnames = list(time = t_dimnames,
+                                         species = species_names,
+                                         w = w_names,
+                                         gear = gear_names))
+    array_profit <- array(NA, dim = c(t_dim, no_gears), 
+                          dimnames = list(time = t_dimnames, 
+                                          gear = gear_names))
+    array_revenue <- array(NA, dim = c(t_dim, no_gears), 
+                          dimnames = list(time = t_dimnames, 
+                                          gear = gear_names))
+    array_F <- array(NA, dim = c(t_dim, no_sp, no_w, no_gears), 
+                         dimnames = list(time = t_dimnames,
+                                         species = species_names,
+                                         w = w_names,
+                                         gear = gear_names))
+      
     
     no_w_full <- length(params@w_full)
     w_full_names <- names(params@rr_pp)
@@ -192,6 +246,13 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
     sim <- new('MizerSim',
                n = array_n, 
                effort = array_effort,
+               # Cn add fleet patram... again, Why so many times? 
+               effortOut = array_effortOut,
+               yield = array_yield, 
+               profit = array_profit,
+               revenue = array_revenue,
+               F = array_F, 
+               
                n_pp = array_n_pp,
                params = params)
     return(sim)
