@@ -41,7 +41,12 @@ NULL
 #'   should be a numeric vector of the same length as the \code{w_full} slot of
 #'   the \code{MizerParams} argument. By default the \code{initial_n_pp} slot of the
 #'   \linkS4class{MizerParams} argument is used.
-#' @param shiny_progress A shiny progress object used to update shiny progress bar.
+#'   ##AAsp##
+#' @param initial_n_bb The initial population of the benthic spectrum. At the moment it is
+#'  just follows the same code as for the plankton spectrum 
+#' @param initial_n_aa The initial population of the algal spectrum. At the moment it is
+#'  just follows the same code as for the plankton spectrum 
+#'  @param shiny_progress A shiny progress object used to update shiny progress bar.
 #'   Default NULL.
 #' @param ... Currently unused.
 #' 
@@ -97,12 +102,24 @@ NULL
 #' effort_array[,"Otter"] <- seq(from = 1, to = 0.5, length = length(times))
 #' sim <- project(params, effort = effort_array)
 #' }
+#' 
 project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
+                    temperature = rep(params@t_ref, times = t_max), # what do we do with the t_ref?
                     initial_n = params@initial_n,
-                    initial_n_pp = params@initial_n_pp,
+
+                    # AA
+                    initial_n_pp = params@initial_n_pp, 
+                    initial_n_bb = params@initial_n_bb,
+                    initial_n_aa = params@initial_n_aa,
+                    # CN
                     fleetDynamics, management, price = price, 
                     cost = cost,
-                    shiny_progress = NULL, ...) {
+                    
+                    shiny_progress = NULL, 
+                    # AA
+                    diet_steps=10, ...) {  #default number of years (steps?) to calcualte diet for 
+
+
     validObject(params)
 
     # Do we need to create an effort array?
@@ -153,6 +170,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     if (is.unsorted(time_effort)) {
         stop("The time dimname of the effort argument should be increasing.")
     }
+    
     t_max <- time_effort[length(time_effort)]
     # Blow up effort so that rows are dt spaced
     time_effort_dt <- seq(from = time_effort[1], to = t_max, by = dt)
@@ -162,6 +180,71 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     }
     effort_dt <- t(effort_dt)
     
+    ## AA
+    ## expand temperature vector in the required number of timesteps 
+    ###TODO?####
+    ## at the moment we just repeat yearly values for the entire year, no smothing or interpolation is used
+    if (length(temperature) != t_max) {
+      stop("your temperature input vector is not the same length as t_max")
+    }
+    
+    time_temperature_dt <- rep(temperature, length = t_max/dt, each = 1/dt) # works if t_max = length(temperature)
+    x_axis <- seq(length.out=(t_max/dt),from =1)   # = time vector
+    # need smoothing?
+    # myData <- data.frame("y" = time_temperature_dt, "x" = x_axis) # create dataframe for smoothing (not sure if needed)
+    # temperature_dt <- matrix(predict(loess(y~x, myData, span = 0.1)), dimnames = list(x_axis, "temperature")) # temperature vector following dt
+    
+    temperature_dt <- matrix(time_temperature_dt, dimnames = list(x_axis, "temperature")) # without smoothing
+
+    #arrays with scalar values for all time, species and size
+    metTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    matTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    morTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    intTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    
+# for(iSpecies in as.numeric(params@species_params$species)) # version with deactivation cost
+#     {
+#   metTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt, t_ref = t_ref, 
+#                                         Ea = params@species_params$ea_met[iSpecies], Ed = params@species_params$ed_met[iSpecies],
+#                                         c_a = params@species_params$ca_met[iSpecies], c_d = params@species_params$cd_met[iSpecies], 
+#                                         tmax = params@species_params$tmax_met[iSpecies], w = params@w)
+#   
+#   matTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt, t_ref = t_ref, 
+#                                         Ea = params@species_params$ea_mat[iSpecies], Ed = params@species_params$ed_mat[iSpecies],
+#                                         c_a = params@species_params$ca_mat[iSpecies], c_d = params@species_params$cd_mat[iSpecies], 
+#                                         tmax = params@species_params$tmax_mat[iSpecies], w = params@w)
+#   
+#   morTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt, t_ref = t_ref, 
+#                                         Ea = params@species_params$ea_mor[iSpecies], Ed = params@species_params$ed_mor[iSpecies],
+#                                         c_a = params@species_params$ca_mor[iSpecies], c_d = params@species_params$cd_mor[iSpecies], 
+#                                         tmax = params@species_params$tmax_mor[iSpecies], w = params@w)
+#   
+#   intTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt, t_ref = t_ref, 
+#                                         Ea = params@species_params$ea_int[iSpecies], Ed = params@species_params$ed_int[iSpecies],
+#                                         c_a = params@species_params$ca_int[iSpecies], c_d = params@species_params$cd_int[iSpecies], 
+#                                         tmax = params@species_params$tmax_int[iSpecies], w = params@w)
+#     }
+
+    for(iSpecies in 1:dim(params@species_params)[1])
+    {
+      metTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_met[iSpecies], 
+                                            c_a = params@species_params$ca_met[iSpecies], w = params@w)
+      
+      matTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_mat[iSpecies], 
+                                            c_a = params@species_params$ca_mat[iSpecies],  w = params@w)
+      
+      morTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_mor[iSpecies], 
+                                            c_a = params@species_params$ca_mor[iSpecies],  w = params@w)
+      
+      intTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_int[iSpecies], 
+                                            c_a = params@species_params$ca_int[iSpecies],  w = params@w)
+    }
+
+
     # CN create effortOut, yield, revenue and profit matrices and specify price and costs 
     # All new arguments have the blown up time dimension as effort does
     # CN moved from below:
@@ -212,9 +295,19 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     # CN mizer uses effort and effort_dt. The fleetDynamics version needs these parameters as well (did not want to touch them) but also uses effortOut and effortOut_dt. the first is used to save results (tmax times) and the second to update and store effort values at each time step in the loop (tmax/dt times)  
     # I also created yield_dt, revenue_dt and profit_dt and yield revenue and profit matrices, using the same concept, but I am not using the dt version of these matrices for much (beside the below if statement)
     sim <- MizerSim(params, t_dimnames = t_dimnames) 
+
     # Fill up the effort array
     sim@effort[] <- effort_dt[t_dimnames_index,] # save only some but not all dt steps 
     
+    # AA
+    #attach temperature dimension and all the rate scalars to the sim object, so it is stored and can be viewed later
+    sim@temperature <- temperature_dt
+    sim@metTempScalar <- metTempScalar
+    sim@matTempScalar <- matTempScalar
+    sim@morTempScalar <- morTempScalar
+    sim@intTempScalar <- intTempScalar
+
+
     # CN effortOut etc are created in MizerSim, now you change the time indexing using the previously created effortOut_dt etc. - again I am not sure I actually need the dt version of yields etc for much  
     if(fleetDynamics==TRUE){
       sim@effortOut[] <- effortOut_dt[t_dimnames_index,]
@@ -226,15 +319,23 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     
     # 
     # dim(sim@F)
+
     # Set initial population
     sim@n[1,,] <- initial_n 
     sim@n_pp[1,] <- initial_n_pp
-    
+    sim@n_bb[1,] <- initial_n_bb
+    sim@n_aa[1,] <- initial_n_aa
+
     # Handy things
+
+    # AA
+    no_w_full<- length(sim@params@w_full) # full size spectrum (including background spectra)
+    
     # CN this 3 lines have been moved above
     # no_sp <- nrow(sim@params@species_params) # number of species
     # no_w <- length(sim@params@w) # number of fish size bins
     # idx <- 2:no_w
+
     # Hacky shortcut to access the correct element of a 2D array using 1D notation
     # This references the egg size bracket for all species, so for example
     # n[w_minidx_array_ref] = n[,w_min_idx]
@@ -242,6 +343,13 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     
     # sex ratio - DO SOMETHING LATER WITH THIS
     sex_ratio <- 0.5
+    
+    #create a matrix for diet comparison. For prey it has the number of columns set at no_sp+3 because we have 3 background spectra
+    sim@diet_comp<-array(0, c(no_sp, no_w, no_sp + 3, no_w_full), 
+                         dimnames=list( predator=as.character(params@species_params$species), pred_size = params@w, 
+                                        prey = c(as.character(params@species_params$species), "plankton", "benthos", "algae"),
+                                        prey_size = params@w_full))
+    
     
     # Matrices for solver
     A <- matrix(0, nrow = no_sp, ncol = no_w)
@@ -253,7 +361,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     n <- array(sim@n[1, , ], dim = dim(sim@n)[2:3])
     dimnames(n) <- dimnames(sim@n)[2:3]
     n_pp <- sim@n_pp[1, ]
-    t_steps <- dim(effort_dt)[1] - 1 
+
+    n_bb <- sim@n_bb[1, ]
+    n_aa <- sim@n_aa[1, ]
+
+    t_steps <- dim(effort_dt)[1] - 1
+
     # Set up progress bar
     # CN turn off when running calibration 
     # pb <- progress::progress_bar$new(
@@ -265,25 +378,52 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     #     proginc <- 1/length(t_dimnames_index)
     # }
     
+    # If storing diet compisiton, make diet_comp_all array ahead of main loop 
+    if (diet_steps>0){
+      diet_comp_all<- array(0, dim(sim@diet_comp))
+    }
+
+    for (i_time in 1:t_steps) {
+      # print(i_time)
+
     # CN we could initialise effort for the fleetDynamics too but the first time step is 0 anyway 
     
-    for (i_time in 1:t_steps) {
-      
+    
       # trial   
       # i_time=102
       
         # Do it piece by piece to save repeatedly calling methods
         # Calculate amount E_{a,i}(w) of available food
-        avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp)
-        # Calculate amount f_i(w) of food consumed
-        feeding_level <- getFeedingLevel(sim@params, n = n, n_pp = n_pp,
-                                         avail_energy = avail_energy)
-        # Calculate the predation rate
-        pred_rate <- getPredRate(sim@params, n = n, n_pp = n_pp,
-                                 feeding_level = feeding_level)
-        # Calculate predation mortality on fish \mu_{p,i}(w)
-        m2 <- getPredMort(sim@params, pred_rate = pred_rate)
+        avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)
         
+        # Calculate amount f_i(w) of food consumed
+        feeding_level <- getFeedingLevel(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                         avail_energy = avail_energy)
+        
+        # Calculate the predation rate
+        pred_rate <- getPredRate(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                 intakeScalar = sim@intTempScalar[,,i_time], feeding_level = feeding_level)
+        
+        # Calculate predation mortality on fish \mu_{p,i}(w)
+        # AA
+        m2 <- getPredMort(sim@params, pred_rate = pred_rate, intakeScalar = sim@intTempScalar[,,i_time])
+        
+# Calculate mortality on the plankton spectrum
+        m2_background <- getPlanktonMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                         intakeScalar = sim@intTempScalar[,,i_time], pred_rate = pred_rate)
+
+                #Calculate mortality of the benthis spectrum 
+        m2_benthos <- getBenthosMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                         pred_rate = pred_rate)
+        m2_algae <- getAlgalMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                     pred_rate = pred_rate)
+        
+        # Calculate the resources available for reproduction and growth
+
+        e <- getEReproAndGrowth(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], 
+
+                                feeding_level = feeding_level)
         # CN the fleetDynamic needs more outputs of fishing mortalities use to calcualte parameters for the fleetDynamics eqn, hence functions used below are the _CN versions (sligly different). Also the argument of these functions is effortOut_dt, which is a model output (instead of input) and is updated every time step  
         
         if(fleetDynamics==TRUE){
@@ -296,9 +436,10 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # if you are using eqn with no effort at the denominator you need a starting value
           # effort<-ifelse(i_time ==1, 0.1, effortOut_dt[i_time,]) 
           
-          # Calculate total mortality \mu_i(w)
-          z <- getMort_CN(sim@params, n = n, n_pp = n_pp,
-                       effort = effortOut_dt[i_time,], m2 = m2)
+          # Calculate total mortality \mu_i(w) - update according to getMort below!!!!!!!!! old one:z <- getMort_CN(sim@params, n = n, n_pp = n_pp, effort = effortOut_dt[i_time,], m2 = m2)
+          z <- getMort_CN(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                     intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], 
+                     morScalar = sim@morTempScalar[,,i_time], effort = effortOut_dt[i_time,], e = e, m2 = m2)
 
           # new outputs needed to calcualte yield in fleetDynamics eqn
           F_itime <- getFMort_CN(sim@params, effort = effortOut_dt[i_time,])$f_mort_gear # this will also be saved as F (fishing mortality)
@@ -307,30 +448,45 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           F_itime_FL <-aperm(F_itime_FL, c(2,3,1))
 
         }else{
-
-          # Calculate total mortality \mu_i(w)
-          z <- getMort(sim@params, n = n, n_pp = n_pp,
-                       effort = effort_dt[i_time,], m2 = m2)
+          
+         # AA
+         # Moved total mortality calculation after the e calculation betcause we need e for stravation
+         # Calculate total mortality \mu_i(w)
+         z <- getMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                     intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], 
+                     morScalar = sim@morTempScalar[,,i_time], effort = effort_dt[i_time,], e = e, m2 = m2)
         }
-
-        # Calculate mortality on the plankton spectrum
-        m2_background <- getPlanktonMort(sim@params, n = n, n_pp = n_pp,
-                                         pred_rate = pred_rate)
-        # Calculate the resources available for reproduction and growth
-        e <- getEReproAndGrowth(sim@params, n = n, n_pp = n_pp,
-                                feeding_level = feeding_level)
+        
         # Calculate the resources for reproduction
-        e_repro <- getERepro(sim@params, n = n, n_pp = n_pp, e = e)
+        e_repro <- getERepro(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, e = e, 
+                             intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time])
+        
         # Calculate the growth rate g_i(w)
-        e_growth <- getEGrowth(sim@params, n = n, n_pp = n_pp,
-                               e_repro = e_repro, e = e)
+        # AA
+        e_growth <- getEGrowth(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                               intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], 
+  
         # R_{p,i}
-        rdi <- getRDI(sim@params, n = n, n_pp = n_pp,
+        # AA
+        rdi <- getRDI(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
+                      intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time],
                       e_repro = e_repro, sex_ratio = sex_ratio)
         # R_i
-        rdd <- getRDD(sim@params, n = n, n_pp = n_pp, rdi = rdi)
+        rdd <- getRDD(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, rdi = rdi, 
+                      intakeScalar = sim@intTempScalar[,,i_time],metScalar = sim@metTempScalar[,,i_time])
+
+        # check if diet output is needed and if so call the diet comparison function 
+        diet_store <- tail(t_dimnames_index, diet_steps) %in% (i_time + 1)
+        
+        if (any(diet_store)) {
+          diet_comp_all[]<- getDietComp(sim@params, n=n,  n_pp=n_pp, n_bb = n_bb, n_aa = n_aa, 
+                                        diet_comp_all=diet_comp_all, diet_steps=diet_steps, 
+                                        intakeScalar = sim@intTempScalar[,,i_time])
+          sim@diet_comp[]<-(diet_comp_all/diet_steps) + sim@diet_comp
+        }
 
         # CN this is still a mistery to me... need to ask Asta
+
         # Iterate species one time step forward:
         # See Ken's PDF
         # A_{ij} = - g_i(w_{j-1}) / dw_j dt
@@ -356,12 +512,31 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
         # Dynamics of plankton spectrum uses a semi-chemostat model (de Roos - ask Ken)
         # We use the exact solution under the assumption of constant mortality during timestep
+        ###TODO?#### 
+        # now we need to scale r_pp (not rr_pp!) with the temperature response. 
+        # this could be done at the start again where we create rr_pp object. this means it will have an extra time dimension 
+        # or we calcualte rr_pp scalar here at every time step, which might be simpler 
         tmp <- (sim@params@rr_pp * sim@params@cc_pp / (sim@params@rr_pp + m2_background))
         n_pp <- tmp - (tmp - n_pp) * exp(-(sim@params@rr_pp + m2_background) * dt)
 
         # CN add effortDynamics and management
         # should this be getEffort in project_methods? 
         
+        ##AAsp####
+        # Dynamics of benthic spectrum uses a semi-chemostat model 
+        # currently it follows exactly the same rules as plankton but has it's own parameters
+        tmp <- (sim@params@rr_bb * sim@params@cc_bb / (sim@params@rr_bb + m2_benthos))
+        n_bb <- tmp - (tmp - n_bb) * exp(-(sim@params@rr_bb + m2_benthos) * dt)
+        n_bb[sim@params@initial_n_bb == 0] <- 0 # destroy what's below (and above) threshold sizes
+        
+        # Dynamics of the algal spectrum uses a semi-chemostat model 
+        # currently it follows exactly the same rules as plankton but has it's own parameters
+        tmp <- (sim@params@rr_aa * sim@params@cc_aa / (sim@params@rr_aa + m2_algae))
+        n_aa <- tmp - (tmp - n_aa) * exp(-(sim@params@rr_aa + m2_algae) * dt)
+        n_aa[sim@params@initial_n_aa == 0] <- 0 # destroy what's below (and above) threshold sizes
+        ##AAsp##
+        
+        # CN                       
         if(fleetDynamics==TRUE){
 
           # calcualte yield, revenue and profit - all based on biomass at current time step (B_itime) as per EULER method
@@ -497,10 +672,11 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           effortOut_dt[i_time+1, ]<-Effort_itime
 
         } # end of fleetDynamics = TRUE
-
+       
         # Store results only every t_step steps.
         store <- t_dimnames_index %in% (i_time + 1)
         if (any(store)) {
+
           # Advance progress bar
           # CN you can turn off bar when running calibration 
           # pb$tick()
@@ -508,10 +684,24 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           #   shiny_progress$inc(amount = proginc)
           # }
           
-          # Store result
-          sim@n[which(store), , ] <- n
-          sim@n_pp[which(store), ] <- n_pp
+          # # Store result
+          # sim@n[which(store), , ] <- n
+          # sim@n_pp[which(store), ] <- n_pp
 
+
+            # Advance progress bar
+          #  pb$tick() #Asta commented this out, because this produces huge amount of bars at every time step
+            if (hasArg(shiny_progress)) {
+                shiny_progress$inc(amount = proginc)
+            }
+            # Store result
+            sim@n[which(store), , ] <- n 
+            sim@n_pp[which(store), ] <- n_pp
+            ##AAsp######
+            sim@n_bb[which(store), ] <- n_bb
+            sim@n_aa[which(store), ] <- n_aa
+            ##AAsp#  
+          
           # CN store fleetDynamics results
           if(fleetDynamics == TRUE){
 
@@ -522,6 +712,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
             sim@F[which(store),,,] <- F_itime
             
           }
+
         }
 
     } # end of for loop

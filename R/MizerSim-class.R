@@ -111,6 +111,13 @@ valid_MizerSim <- function(object){
 #'   gear
 #' @slot n_pp Array that stores the projected plankton abundance by time and
 #'   size
+#'   ##AAsp
+#' @slot n_bb Array that stores the projected benthos abundance by time and
+#'   size
+#' @slot n_aa Array that stores the projected algal abundance by time and
+#'   size
+#' @slot diet_comp Array that stores diet composition by predator/size/prey/size 
+#'   for a chosen number of steps (usually last ten years)
 #'   
 #' @seealso \code{\link{project}} \code{\link{MizerParams}}
 #' @export
@@ -122,6 +129,16 @@ setClass(
         params = "MizerParams",
         n = "array",
         effort = "array",
+        # AA
+        n_pp = "array",
+        n_bb = "array",
+        n_aa = "array",
+        diet_comp="array",
+        temperature = "matrix",
+        metTempScalar = "array",
+        matTempScalar = "array",
+        morTempScalar = "array",
+        intTempScalar = "array"
         
         # cn adding the fleetDynamics arguments 
         effortOut = "array",
@@ -131,6 +148,7 @@ setClass(
         F = "array",
         
         n_pp = "array"
+
     ),
     prototype = prototype(
         params = new("MizerParams"),
@@ -140,6 +158,11 @@ setClass(
         effort = array(
             NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
         ),
+
+        temperature = matrix(
+          NA, dimnames = list(time = NULL, temperature = NULL)
+        ),
+
         # CN again add the fleetdynamics bit
         effortOut = array(
           NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
@@ -159,6 +182,27 @@ setClass(
         
         n_pp = array(
             NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
+        ),
+        n_bb = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
+        ),
+        n_aa = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
+        ),
+        diet_comp = array(
+          NA, dim = c(1,1,1,1), dimnames = list( predator= NULL, pred_size = NULL, prey =NULL, prey_size=NULL)
+        ),
+        metTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        ),
+        matTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        ),
+        morTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        ),
+        intTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
         )
     ),
     validity = valid_MizerSim
@@ -214,7 +258,18 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
     array_effort <- array(NA, dim = c(t_dim, no_gears), 
                           dimnames = list(time = t_dimnames, 
                                           gear = gear_names))
+    # temperature scalars
+    matrix_temperature <- matrix(NA, nrow = t_dim, 
+                          dimnames = list(time = t_dimnames, 
+                                          "temperature"))
     
+    # AA
+    array_metTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+    array_matTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+    array_morTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+    array_intTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+
+
     # CN add yiled profit... why so many times? 
     array_effortOut <- array(NA, dim = c(t_dim, no_gears), 
                           dimnames = list(time = t_dimnames, 
@@ -242,10 +297,19 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
     array_n_pp <- array(NA, dim = c(t_dim, no_w_full), 
                         dimnames = list(time=t_dimnames, 
                                         w = w_full_names))
-    
+    array_n_bb <- array(NA, dim = c(t_dim, no_w_full), 
+                        dimnames = list(time=t_dimnames, 
+                                        w = w_full_names))
+    array_n_aa <- array(NA, dim = c(t_dim, no_w_full), 
+                        dimnames = list(time=t_dimnames, 
+                                        w = w_full_names))
     sim <- new('MizerSim',
                n = array_n, 
                effort = array_effort,
+               
+               # AA
+               temperature = matrix_temperature,
+
                # Cn add fleet patram... again, Why so many times? 
                effortOut = array_effortOut,
                yield = array_yield, 
@@ -254,7 +318,14 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
                F = array_F, 
                
                n_pp = array_n_pp,
-               params = params)
+               n_bb = array_n_bb,
+               n_aa = array_n_aa,
+               params = params,
+               diet_comp=as.array(1,dim = c(1,1,1,1)), #place holder for diet comp array; constructed depending on whether diet comp is requested
+               metTempScalar = array_metTempScalar,
+               matTempScalar = array_matTempScalar,
+               morTempScalar = array_morTempScalar,
+               intTempScalar = array_intTempScalar)
     return(sim)
 }
 

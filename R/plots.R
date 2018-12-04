@@ -640,7 +640,7 @@ plotSpectra <- function(object, species = NULL,
                         time_range,
                         min_w, ylim = c(NA, NA),
                         power = 1, biomass = TRUE, print_it = TRUE,
-                        total = FALSE, plankton = TRUE, 
+                        total = FALSE, plankton = TRUE,
                         background = TRUE, ...) {
     if (is(object, "MizerSim")) {
         if (missing(time_range)){
@@ -656,10 +656,13 @@ plotSpectra <- function(object, species = NULL,
         time_elements <- get_time_elements(object,time_range)
         n <- apply(object@n[time_elements, , ,drop = FALSE], c(2, 3), mean)
         n_pp <- apply(object@n_pp[time_elements,,drop = FALSE], 2, mean)
-        ps <- plot_spectra(object@params, n = n, n_pp = n_pp,
+        ##AAsp##
+        #n_bb <- apply(object@n_bb[time_elements,,drop = FALSE], 2, mean)
+        
+        ps <- plot_spectra(object@params, n = n, n_pp = n_pp, 
                            species = species, min_w = min_w, ylim = ylim,
                            power = power, print_it = print_it,
-                           total = total, plankton = plankton,
+                           total = total, plankton = plankton, 
                            background = background)
         return(ps)
     } else {
@@ -673,14 +676,14 @@ plotSpectra <- function(object, species = NULL,
                            n_pp = object@initial_n_pp,
                            species = species, min_w = min_w, ylim = ylim,
                            power = power, print_it = print_it,
-                           total = total, plankton = plankton,
+                           total = total, plankton = plankton, 
                            background = background)
         return(ps)
     }
 }
 
 
-plot_spectra <- function(params, n, n_pp,
+plot_spectra <- function(params, n, n_pp, 
                          species, min_w, ylim, power, print_it,
                          total, plankton, background) {
     if (total) {
@@ -810,7 +813,7 @@ plotFeedingLevel <- function(sim,
             species = dimnames(sim@n)$sp,
             time_range = max(as.numeric(dimnames(sim@n)$time)),
             print_it = TRUE, ...) {
-    feed_time <- getFeedingLevel(sim, time_range = time_range,
+    feed_time <- getFeedingLevel(sim, time_range = time_range, ##AA
                                  drop = FALSE, ...)
     feed <- apply(feed_time, c(2, 3), mean)
     feed <- feed[as.character(dimnames(feed)[[1]]) %in% species, ,
@@ -869,7 +872,7 @@ plotFeedingLevel <- function(sim,
 plotM2 <- function(sim, species = dimnames(sim@n)$sp,
                    time_range = max(as.numeric(dimnames(sim@n)$time)),
                    print_it = TRUE, ...) {
-    m2_time <- getM2(sim, time_range = time_range, drop = FALSE, ...)
+    m2_time <- getM2(sim, time_range = time_range, intakeScalar = sim@intTempScalar[,,time_range], drop = FALSE, ...)
     m2 <- apply(m2_time, c(2, 3), mean)
     m2 <- m2[as.character(dimnames(m2)[[1]]) %in% species, , 
              drop = FALSE]
@@ -1082,7 +1085,7 @@ plotGrowthCurves <- function(object, species,
         ws <- array(dim = c(length(species), length(age)),
                     dimnames = list("Species" = species, "Age" = age))
         g <- getEGrowth(sim@params, sim@n[dim(sim@n)[1], , ], 
-                        sim@n_pp[dim(sim@n)[1], ])
+                        sim@n_pp[dim(sim@n)[1], ], sim@n_bb[dim(sim@n)[1], ], sim@n_aa[dim(sim@n)[1], ], sim@intTempScalar[,,1], sim@metTempScalar[,,1]) #AA
         for (j in 1:length(species)) {
             i <- idx[j]
             g_fn <- stats::approxfun(sim@params@w, g[i, ])
@@ -1137,6 +1140,7 @@ plotGrowthCurves <- function(object, species,
         return(p)
     } else {
         # Plot growth curves using a MizerParams object.
+        sim <- project(object, t_max = 1) # construct the temperature scalars
         params <- object
         if (missing(species)) {
             species <- dimnames(params@initial_n)$sp
@@ -1147,7 +1151,8 @@ plotGrowthCurves <- function(object, species,
         age <- seq(0, max_age, length.out = 50)
         ws <- array(dim = c(length(species), length(age)),
                     dimnames = list(Species = species, Age = age))
-        g <- getEGrowth(params, params@initial_n, params@initial_n_pp)
+        g <- getEGrowth(params, params@initial_n, params@initial_n_pp, params@initial_n_bb, params@initial_n_aa, 
+                        intakeScalar = sim@intTempScalar[,,1], metScalar = sim@metTempScalar[,,1]) ##AA
         for (j in 1:length(species)) {
             i <- idx[j]
             g_fn <- stats::approxfun(params@w, g[i, ])
@@ -1202,6 +1207,146 @@ plotGrowthCurves <- function(object, species,
         return(p)
     }
 }
+
+
+#' Plot diets composition of by predator / prey and their sizes 
+
+plotDietComp<-function(object, prey=dimnames(object@diet_comp)$prey, min_w=.001,
+                       predator=dimnames(object@diet_comp)$predator, timeaverage=FALSE){
+  
+  prey_nam<-prey
+  pred_nam<-predator
+  
+  out<-object@diet_comp 
+  
+  prey<-apply(out, c(1,2,3), FUN=sum) #Sum across size classess with in prey 
+  tot<-apply(prey, c(1,2), FUN=sum) #Sum across prey species 
+  
+  prey_prop<-sweep(prey, c(1,2), tot, "/") # Get proportion of diet for each species
+  
+  no_pred<- length(dimnames(prey_prop)[[1]])
+  no_pred_w<- length(dimnames(prey_prop)[[2]])
+  no_prey<- length(dimnames(prey_prop)[[3]])
+  
+  #Stacked  bar chart 
+  plot_dat<-expand.grid(dimnames(prey_prop)[[1]], dimnames(prey_prop)[[2]], dimnames(prey_prop)[[3]])
+  colnames(plot_dat)<-c("predator","predsize","prey")
+  plot_dat$predsize<-as.numeric(as.character(log10(as.numeric(as.character(plot_dat$predsize)))))
+  
+  plot_dat$value<- as.vector(prey_prop)
+  
+  
+  species<-object@params@species_params$species
+  wmin<-object@params@w[object@params@species_params$w_min_idx]
+  wmax<-object@params@w[object@params@species_params$w_max_idx]
+  
+  for ( i in 1:length(species)){
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize < log10(wmin[i])]<- 0
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize > log10(wmax[i])]<- 0
+  }
+  
+  
+  plot_dat<-subset(plot_dat,predsize> log10(min_w))
+  
+  dsub<-plot_dat[ plot_dat$prey %in% prey_nam, ]
+  dsub<-dsub[ dsub$predator %in% pred_nam, ]
+  dsub[is.na(dsub)]<-0
+  
+  p<-  ggplot(data = dsub, aes(x = predsize, y = value, fill = prey)) + geom_area( position = 'stack')  + facet_wrap(~predator, ncol=5) + scale_color_brewer(palette="Set1") +
+    scale_x_continuous(name = "log10 predator mass (g)") + scale_y_continuous(name = "Proportion of diet by mass (g)")
+  
+  print(p)
+  
+  return(p)
+}
+
+#' Plot PPRM values for the selected time period based on diet compositions 
+
+plotPPMR<-function(object=object, grid=T, observed=FALSE, prey=dimnames(object@diet_comp)$prey, 
+                   predator=dimnames(object@diet_comp)$predator, timeaverage=FALSE ){
+  
+  prey_nam<-prey
+  pred_nam<-predator
+  
+  out<-object@diet_comp 
+  
+  prey<-apply(out, c(1,2,4), FUN=sum) #Sum across size classess with in prey 
+  tot<-apply(prey, c(1,2), FUN=sum) #Sum across prey weight size classes 
+  
+  prop_prey<-sweep(prey, 1:2, tot, "/" ) #proportion of prey weight in each each prey size class
+  prop_prey[is.na(prop_prey)]<-0
+  
+  #make matrix of realized PPMR
+  ppmr_mat<-outer(object@params@w, object@params@w_full, FUN="/")
+  ppmr_frac<-sweep(prop_prey, 2:3, ppmr_mat, "*")
+  ppmr_tot<-apply(ppmr_frac, c(1,2), FUN=sum) #Sum across prey weight size classes 
+  
+  plot_dat<-expand.grid(dimnames(ppmr_tot)[[1]], dimnames(ppmr_tot)[[2]])
+  colnames(plot_dat)<-c("predator","predsize")
+  plot_dat$predsize<-as.numeric(as.character(log10(as.numeric(as.character(plot_dat$predsize)))))
+  
+  plot_dat$value<- as.vector(ppmr_tot)
+  
+  
+  species<-object@params@species_params$species
+  wmin<-object@params@w[object@params@species_params$w_min_idx]
+  wmax<-object@params@w[object@params@species_params$w_max_idx]
+  
+  for ( i in 1:length(species)){
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize < log10(wmin[i])]<- 0
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize > log10(wmax[i])]<- 0
+  }
+  
+  plot_dat$value[plot_dat$value==0]<-NA
+  
+  plot_dat<-plot_dat[!plot_dat$predator=="Benthos",]
+  plot_dat<-plot_dat[!plot_dat$predator=="Detritus",]
+  
+  #Plot realized vs prefferred PPMR; for individuals over 10 g 
+  
+  plot_dat$preferred
+  
+  ma<-match(plot_dat$predator, object@params@species_params$species)
+  
+  plot_dat$preferred<-object@params@species_params$beta[ma]
+  plot_dat$obs_PPMR<- object@params@species_params$obs_beta[ma] #originally I assumed that preferred ppmr was 1.7 times higher than realized (following Harvig simulations)
+  
+  
+  #PPMR vs body size
+  
+  if(observed==FALSE & grid==TRUE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=predsize, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 predator mass (g)", trans="log10") + 
+      scale_y_continuous(name = "log10 realized PPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) + facet_wrap(~predator, ncol=5)
+  } 
+  
+  if(observed==FALSE & grid==FALSE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=predsize, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 predator mass (g)", trans="log10") + 
+      scale_y_continuous(name = "log10 realized PPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) 
+  }
+  
+  if(observed==TRUE & grid==TRUE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=obs_PPMR, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 observed realPPMRbio", trans="log10") + 
+      scale_y_continuous(name = "log10 simulated realPPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) + facet_wrap(~predator, ncol=5)
+  }
+  
+  if(observed==TRUE & grid==FALSE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=obs_PPMR, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 observed realPPMRbio", trans="log10") + 
+      scale_y_continuous(name = "log10 simulated realPPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) 
+  }
+  
+  
+  print(p)
+  return(p)
+}
+
+
+
+
+
 
 
 #### plot ####
