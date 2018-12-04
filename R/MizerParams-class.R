@@ -322,6 +322,8 @@ validMizerParams <- function(object) {
 #'   \linkS4class{MizerSim} objects.
 #' @seealso \code{\link{project}} \code{\link{MizerSim}}
 #' @export
+
+## CN this needs to be changed
 setClass(
     "MizerParams",
     representation(
@@ -346,8 +348,14 @@ setClass(
         species_params = "data.frame",
         interaction = "array",
         srr  = "function",
+        
+        ## CN - these will remain empty if fleetDynamics=FALSE
+        selectivity_params = "data.frame",
+        target = "array", 
+        fleet = "character",
+        
         selectivity = "array",
-        catchability = "array",
+        catchability = "array", # CN turn on if the above is off
         n = "numeric",
         p = "numeric",
         lambda = "numeric",
@@ -417,7 +425,12 @@ setClass(
         ),
         catchability = array(
             NA, dim = c(1,1), dimnames = list(gear = NULL, sp = NULL)
+        ),
+        ## CN add target, which will remain empty if fleetDynamics = FALSE
+        target = array(
+          NA, dim = c(1,1), dimnames = list(gear = NULL, sp = NULL)
         )
+
     ),
     validity = validMizerParams
 )
@@ -442,6 +455,17 @@ setClass(
 emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,  
                         min_w_pp = 1e-10, no_w_pp = NA,  min_w_bb = 1e-10, min_w_aa = 1e-10, ##AAsp
                         species_names=1:object, gear_names=species_names) {
+  
+  # trial 
+  # object = no_sp # this is not the param_df object here....
+  # min_w = min_w
+  # max_w = max_w 
+  # no_w = no_w  
+  # min_w_pp = min_w_pp 
+  # no_w_pp = NA
+  # species_names = 1:object
+  # gear_names = fleet
+  
     if (!is.na(no_w_pp))
         warning("New mizer code does not support the parameter no_w_pp")
     # Some checks
@@ -494,11 +518,14 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
     selectivity <- array(0, dim = c(length(gear_names), no_sp, no_w), 
                          dimnames = list(gear = gear_names, sp = species_names, 
                                        w = signif(w, 3)))
-    catchability <- array(0, dim = c(length(gear_names), no_sp), 
+    
+    catchability <- array(0, dim = c(length(gear_names), no_sp),
                           dimnames = list(gear = gear_names, sp = species_names))
+    
     interaction <- array(1, dim = c(no_sp, no_sp), 
                          dimnames = list(predator = species_names, 
                                          prey = species_names))
+    
     vec1 <- as.numeric(rep(NA, no_w_full))
     names(vec1) <- signif(w_full,3)
     w_min_idx <- rep(1, no_sp)
@@ -512,7 +539,7 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
     # passed in by users (not used in validity check)
     species_params <- data.frame(species = species_names,
                                  z0 = NA, alpha = NA, erepro = NA)
-    
+
     # Make an empty srr function, just to pass validity check
     srr <- function(rdi, species_params) return(0)
     
@@ -659,11 +686,39 @@ multispeciesParams <- function(object, interaction,
                     min_w_pp = 1e-10, no_w_pp = NA,
                     n = 2/3, p = 0.7, q = 0.8, r_pp = 2,
                     kappa = 1e11, lambda = (2 + q - n), w_pp_cutoff = 10,
+
                     min_w_bb = 1e-10, kappa_ben = 1e11, lambda_ben = (2 + q - n), w_bb_cutoff = 10, r_bb = 2,
                     min_w_aa = 1e-10, kappa_alg = 1e11, lambda_alg = (2 + q - n), w_aa_cutoff = 100, r_aa = 2,
                     t_ref = 10,
-                    f0 = 0.6, z0pre = 0.6, z0exp = n - 1) {
+                               
+                    f0 = 0.6, z0pre = 0.6, z0exp = n - 1,
+                    fleetDynamics, selectivity_params, catchability, target # CN arguments
+                    ) {
     
+  # # trial
+  # object = df_param
+  # interaction = theta
+  # # class(theta)
+  # min_w = 0.001
+  # max_w = max(object$w_inf) * 1.1
+  # no_w = 100
+  # min_w_pp = 1e-10
+  # no_w_pp = NA
+  # n = 2/3
+  # p = 0.7
+  # q = 0.8
+  # r_pp = 10
+  # kappa = 1e11
+  # lambda = (2 + q - n)
+  # w_pp_cutoff = 10
+  # f0 = 0.6
+  # z0pre = 0.6
+  # z0exp = n - 1
+  # fleetDynamics = TRUE
+  # selectivity_params = df_selParam
+  # target = df_target
+  # catchability = df_Q
+
     row.names(object) <- object$species
     no_sp <- nrow(object)
     
@@ -672,9 +727,13 @@ multispeciesParams <- function(object, interaction,
     }
     
     ## Set default values for missing values in species params  --------------
+
+    # CN consider the case in which fleetDynamics==TRUE and there are multiple fleets and relative arguments
     # If no gear_name column in object, then named after species
-    if (!("gear" %in% colnames(object))) {
+    if (fleetDynamics==FALSE & !("gear" %in% colnames(object))) {
         object$gear <- object$species
+    }else{
+      fleet = unique(selectivity_params$subfleet)
     }
     
     # If no k (activity coefficient), then set to 0
@@ -704,8 +763,9 @@ multispeciesParams <- function(object, interaction,
         object$erepro[missing] <- 1
     }
     
+    ### CN same as above 
     # If no sel_func column in species_params, set to 'knife_edge'
-    if (!("sel_func" %in% colnames(object))) {
+    if (fleetDynamics==FALSE & !("sel_func" %in% colnames(object))) {
         message("\tNote: No sel_func column in species data frame. Setting selectivity to be 'knife_edge' for all species.")
         object$sel_func <- 'knife_edge'
         # Set default selectivity size
@@ -715,8 +775,9 @@ multispeciesParams <- function(object, interaction,
         }
     }
     
+    ### CN same as above
     # If no catchability column in species_params, set to 1
-    if (!("catchability" %in% colnames(object))) {
+    if (fleetDynamics==FALSE &!("catchability" %in% colnames(object))) {
         object$catchability <- rep(NA, no_sp)
     }
     missing <- is.na(object$catchability)
@@ -1042,6 +1103,13 @@ multispeciesParams <- function(object, interaction,
     # Check essential columns: species (name), wInf, wMat, h, gamma,  ks, beta, sigma 
     check_species_params_dataframe(object)
     
+    ### CN this is only becasue gear_names changes adn cannot be a column of object  
+    if(fleetDynamics==TRUE){
+      res <- emptyParams(no_sp, min_w = min_w, max_w = max_w, no_w = no_w,  
+                         min_w_pp = min_w_pp, no_w_pp = NA, 
+                         species_names = object$species,
+                         gear_names = fleet)
+    }else{
     ## Make an empty object of the right dimensions -----------------------------
     res <- emptyParams(no_sp, min_w = min_w, max_w = max_w, no_w = no_w,  
                        min_w_pp = min_w_pp, no_w_pp = NA, 
@@ -1049,7 +1117,8 @@ multispeciesParams <- function(object, interaction,
                        min_w_bb = min_w_bb, min_w_aa = min_w_aa,
                       ##AAsp##
                        species_names = object$species, 
-                       gear_names = unique(object$gear))
+                       gear_names = unique(object$gear))}
+    
     res@n <- n
     res@p <- p
     res@lambda <- lambda
@@ -1207,30 +1276,70 @@ multispeciesParams <- function(object, interaction,
         return(rdi / (1 + rdi/species_params$r_max))
     }
     
-    # Set fishing parameters: selectivity and catchability -------------
-    # At the moment, each species is only caught by 1 gear so in species_params
-    # there are the columns: gear_name and sel_func.
-    # BEWARE! This routine assumes that each species has only one gear operating on it
-    # So we can just go row by row through the species parameters
-    # However, I really hope we can do something better soon
-    for (g in 1:nrow(object)) {
-        # Do selectivity first
-        # get args
-        # These as.characters are annoying - but factors everywhere
-        arg <- names(formals(as.character(object[g,'sel_func'])))
-        # lop off w as that is always the first argument of the selectivity functions
-        arg <- arg[!(arg %in% "w")]
-        if (!all(arg %in% colnames(object))) {
-            stop("All of the arguments needed for the selectivity function are not in the parameter dataframe")
+    ### CN - selectivity becomes fleet and species-specific here 
+    # what happens if a species is caught by both gillnet and trawl? it should be OK as this is done by fleet
+    # may need to do a bit of checking on whether selectivity parameters are available for each spp caught - as done in original loop (see below) 
+    if(fleetDynamics==TRUE){
+      
+      res@fleet = fleet # specified above
+
+      for (fleet_count in fleet) 
+        # e.g. fleet_count = "South East Trawl Fishery - Otter trawl shelf" # for each fleet
+        for (sp_count in as.character(unique(selectivity_params[selectivity_params$subfleet==fleet_count,"species"]))){
+          # e.g. sp_count = "centroberyx affinis"
+          # find the selectivity fucntion for that specific fleet/gear and species (e.g. trawl)
+          selfunc <- as.character(selectivity_params[selectivity_params$subfleet==fleet_count & selectivity_params$species==sp_count,"gear"][1]) 
+          # get parameters for selectivity function
+          params <- selectivity_params[selectivity_params$subfleet==fleet_count & selectivity_params$species==sp_count,c("param_name","param_value")]
+          # check parameters and transform params (df) into a list for the next do.call()
+          params <- params[params$param_name %in% names(formals(as.character(selfunc))),]
+          param_list <- as.list(params$param_value)
+          names(param_list) <- params$param_name
+          param_list[["w"]] <- res@w 
+          # apply the selectivity function (uploaded in selectivity_funcs.R)
+          res@selectivity[fleet_count,sp_count,] <- do.call(selfunc,param_list)
         }
-        # Check that there is only one column in object with the same name
-        # Check that column of arguments exists
-        par <- c(w = list(res@w), as.list(object[g,arg]))
-        sel <- do.call(as.character(object[g, 'sel_func']), args = par)
-        # Dump Sel in the right place
-        res@selectivity[as.character(object[g,'gear']), g, ] <- sel
-        # Now do catchability
-        res@catchability[as.character(object[g,'gear']), g] <- object[g,"catchability"]
+      
+      # check or re-arrange speceis and fleet order in selectivity - this should not be necessary...
+      res@selectivity<-res@selectivity[,order(match(colnames(res@selectivity), object$species)),]
+      res@selectivity<-res@selectivity[fleet,,] 
+      
+      # add catchability and target, which are given as matrix if fleetDynamics = TRUE 
+      # no need to fill these matrices up (as done below) but just re-arrange the order of speceis and fleet to match that in object and selectivity   
+      catchability<-catchability[,order(match(colnames(catchability), object$species))]
+      catchability<-catchability[fleet,] 
+      res@catchability<-catchability
+      target<-target[,order(match(colnames(target), object$species))]
+      target<-target[fleet,]
+      res@target<-target
+    
+    }else{
+      
+      # Set fishing parameters: selectivity and catchability -------------
+      # At the moment, each species is only caught by 1 gear so in species_params
+      # there are the columns: gear_name and sel_func.
+      # BEWARE! This routine assumes that each species has only one gear operating on it
+      # So we can just go row by row through the species parameters
+      # However, I really hope we can do something better soon
+      for (g in 1:nrow(object)) {
+          # Do selectivity first
+          # get args
+          # These as.characters are annoying - but factors everywhere
+          arg <- names(formals(as.character(object[g,'sel_func'])))
+          # lop off w as that is always the first argument of the selectivity functions
+          arg <- arg[!(arg %in% "w")]
+          if (!all(arg %in% colnames(object))) {
+              stop("All of the arguments needed for the selectivity function are not in the parameter dataframe")
+          }
+          # Check that there is only one column in object with the same name
+          # Check that column of arguments exists
+          par <- c(w = list(res@w), as.list(object[g,arg]))
+          sel <- do.call(as.character(object[g, 'sel_func']), args = par)
+          # Dump Sel in the right place
+          res@selectivity[as.character(object[g,'gear']), g, ] <- sel
+          # Now do catchability
+          res@catchability[as.character(object[g,'gear']), g] <- object[g,"catchability"]
+      }
     }
     
     # Store colours and linetypes in slots if contained in species parameters
@@ -1245,8 +1354,13 @@ multispeciesParams <- function(object, interaction,
     
     # Remove catchabiliy from species data.frame, now stored in slot
     #params@species_params[,names(params@species_params) != "catchability"]
+
+    # CN this column is not created when fleetDynamics = FALSE                                                       
+    if(fleetDynamics==FALSE){                                                      
     res@species_params <- res@species_params[, -which(names(res@species_params) == "catchability")]
+    }
     res@initial_n <- res@psi  ###AAsp_DO ####    #what is the point of this line
+
     res@initial_n <- get_initial_n(res)
     res@A <- rep(1, no_sp)
     return(res)

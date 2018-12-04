@@ -49,6 +49,8 @@ NULL
 #' @param n_bb A vector of the benthos abundance by size
 #' @param n_aa A vector of the algal abundance by size
 #'   
+#'   trial3
+#'   
 #' @return A two dimensional array (predator species x predator size)
 #' @seealso \code{\link{project}}
 #' @export
@@ -583,15 +585,16 @@ getM2Background <- getPlanktonMort
 #' }
 #' 
 getFMortGear <- function(object, effort, time_range) {
-    if (is(object, "MizerSim")) {
+    
+  if (is(object, "MizerSim")) {
         if (missing(time_range)) {
             time_range <- dimnames(object@effort)$time
         }
         time_elements <- get_time_elements(object, time_range, slot_name = "effort")
         f_mort_gear <- getFMortGear(object@params, object@effort)
         return(f_mort_gear[time_elements, , , , drop = FALSE])
-    } else {
-        if (is(effort, "numeric")) {
+    } else { 
+        if (is(effort, "numeric")) { 
             no_gear <- dim(object@catchability)[1]
             # If a single value, just repeat it for all gears
             if (length(effort) == 1) {
@@ -602,7 +605,7 @@ getFMortGear <- function(object, effort, time_range) {
             }
             # Streamlined for speed increase - note use of recycling
             out <- object@selectivity
-            out[] <- effort * c(object@catchability) * c(object@selectivity)
+            out[] <- effort * c(object@catchability) * c(object@selectivity) 
             return(out)
         } else {
             # assuming effort is a matrix, and object is of MizerParams class
@@ -622,6 +625,28 @@ getFMortGear <- function(object, effort, time_range) {
             return(out)
         }
     }
+}
+
+
+getFMortGear_CN <- function(object, effort, time_range) {
+  
+  # similar to getFMortGear_CN above but only used in case of fleetDynamics (simplyfied to exclude all alternatives). Might need to work out how to get info for plotting (see function above)
+  
+  no_gear <- dim(object@catchability)[1]
+  # If a single value, just repeat it for all gears
+  if (length(effort) == 1) {
+    effort <- rep(effort, no_gear)
+  }
+  if (length(effort) != no_gear) {
+    stop("Effort must be a single value or a vector as long as the number of gears\n")
+  }
+  # Streamlined for speed increase - note use of recycling
+  out <- object@selectivity
+  out[] <- effort * c(object@catchability) * c(object@selectivity) # fishing mortality fleet X species X w - as per Mizer 
+  out2 <- object@selectivity
+  out2[] <- c(object@catchability) * c(object@selectivity) # fishing mortality fleet X species X w - no effort to calcaulte 'potential' yield for fleetDynamic eqn 
+  
+  return(list(out = out, out2 = out2))
 }
 
 
@@ -689,27 +714,49 @@ getFMortGear <- function(object, effort, time_range) {
 #' getFMort(sim, time_range = c(10,20))
 #' }
 getFMort <- function(object, effort, time_range, drop=TRUE){
+  
+  # object = sim
+  # time_range = time_range
+  # drop=TRUE
+  # effort = object@effort
+  
+  # for plotting -> mizerSim -> effort = matrix -> dim(f_mort_gear) [1] 201   6  38 100, ....  dim(f_mort[time_elements, , , drop = drop]) -> [1] 38 100
+  
     if (is(object, "MizerParams")) {
-        if (is(effort, "numeric")) {
+        if (is(effort, "numeric")) { 
             f_mort_gear <- getFMortGear(object, effort)
-            f_mort <- colSums(f_mort_gear)
+            f_mort <- colSums(f_mort_gear) 
             return(f_mort)
         } else {
-            #assuming effort is a matrix
+            # assuming effort is a matrix
             f_mort_gear <- getFMortGear(object, effort)
             f_mort <- apply(f_mort_gear, c(1, 3, 4), sum)
             return(f_mort)
         }
-    } else {
-        #case where object is mizersim, and we use effort from there
+    } else {   
+        # case where object is mizersim, and we use effort from there
         if (missing(time_range)) {
             time_range <- dimnames(object@effort)$time
         }
         time_elements <- get_time_elements(object, time_range, slot_name = "effort")
         f_mort <- getFMort(object@params, object@effort)
         return(f_mort[time_elements, , , drop = drop])
-    }}
+    }
+  
+  }
 
+getFMort_CN <- function(object, effort, time_range, drop=TRUE){
+  
+  # similar to getFMort above but only used in case of fleetDynamics (simplyfied to exclude all alternatives). Might need to work out how to get info for plotting (see function above). 
+  # note that this function could actually be skipped as getFMortGear_CN() does it all and here you are just calling outputs
+  
+  f_mort_gear <- getFMortGear_CN(object, effort)$out # fishing mortality fleet X species X w 
+  f_mort_gear_FL <- getFMortGear_CN(object, effort)$out2 # fishing mortality fleet X species X w - no effort to calcaulte 'potential' yield for fleetDynamic eqn  
+  f_mort <- colSums(f_mort_gear) # fishing mortality species X w - as per Mizer 
+
+  return(list(f_mort = f_mort, f_mort_gear = f_mort_gear, f_mort_gear_FL = f_mort_gear_FL))
+  
+}
 
 #' Get total mortality rate
 #'
@@ -751,7 +798,29 @@ getMort <- function(object, n, n_pp, n_bb, n_aa, effort, intakeScalar, metScalar
              length(object@w), ")")
     }
     return(m2 + object@mu_b*morScalar + getFMort(object, effort = effort) + getSMort(object, n=n, n_pp=n_pp, n_bb = n_bb, n_aa = n_aa, e = e, metScalar = metScalar)) 
+
 }
+
+getMort_CN <- function(object, n, n_pp, effort,
+                    m2 = getPredMort(object, n = n, n_pp = n_pp)){
+  
+  # # trial
+  # object = sim@params 
+  # n = n 
+  # n_pp = n_pp
+  # effort = effortOut_dt[i_time,] 
+  # m2 = m2
+  
+  if (!all(dim(m2) == c(nrow(object@species_params), length(object@w)))) {
+    stop("m2 argument must have dimensions: no. species (",
+         nrow(object@species_params), ") x no. size bins (",
+         length(object@w), ")")
+  }
+  
+  return(m2 + object@mu_b*morScalar + getFMort_CN(object, effort = effort)$f_mort + getSMort(object, n=n, n_pp=n_pp, n_bb = n_bb, n_aa = n_aa, e = e, metScalar = metScalar))
+# CN addded $f_mort here as not this function outputs other info. this could be an if statement 
+}
+
 
 #' Alias for getMort
 #' 
@@ -1095,6 +1164,7 @@ get_time_elements <- function(sim, time_range, slot_name = "n"){
     return(time_elements)
 }
 
+
 #' Get diet composition
 #'
 #' Returns diet composition by predator/size/prey/size for the selected number of years
@@ -1210,4 +1280,5 @@ tempFun <- function(temperature, t_ref, Ea, c_a, w) # default are 0 for now as d
 
                          return(temperatureScalar)
 }
+
 
