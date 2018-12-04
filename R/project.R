@@ -255,14 +255,15 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     n_pp <- sim@n_pp[1, ]
     t_steps <- dim(effort_dt)[1] - 1 
     # Set up progress bar
-    pb <- progress::progress_bar$new(
-        format = "[:bar] :percent ETA: :eta",
-        total = length(t_dimnames_index), width = 60)
-    if (hasArg(shiny_progress)) {
-        # We have been passed a shiny progress object
-        shiny_progress$set(message = "Running simulation", value = 0)
-        proginc <- 1/length(t_dimnames_index)
-    }
+    # CN turn off when running calibration 
+    # pb <- progress::progress_bar$new(
+    #     format = "[:bar] :percent ETA: :eta",
+    #     total = length(t_dimnames_index), width = 60)
+    # if (hasArg(shiny_progress)) {
+    #     # We have been passed a shiny progress object
+    #     shiny_progress$set(message = "Running simulation", value = 0)
+    #     proginc <- 1/length(t_dimnames_index)
+    # }
     
     # CN we could initialise effort for the fleetDynamics too but the first time step is 0 anyway 
     
@@ -435,9 +436,9 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
               if(is.na(match('bio48check',Bio[[i]]$bioLim)) & is.na(match('bio40check',Bio[[i]]$bioLim)) & is.na(match('bio20check',Bio[[i]]$bioLim)))
               {
                 # if no spp below any bioref limts
-                # Effort_itime_change[i]<-ke*(profit_itime_FL[[i]])
+                Effort_itime_change[i]<-ke*(profit_itime_FL[[i]])
                 # instead use eqn with no effort at the denominator (and no target matrix)
-                Effort_itime_change[i]<-ke*(profit_itime[[i]])
+                # Effort_itime_change[i]<-ke*(profit_itime[[i]])
                 Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
 
               }else if(!is.na(match('bio48check',Bio[[i]]$bioLim)) & is.na(match('bio20check',Bio[[i]]$bioLim)) & is.na(match('bio40check',Bio[[i]]$bioLim))){
@@ -446,9 +447,9 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                   Effort_itime_change[i]<-0
                   Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
                 }else{ # if fishing is not profitable and it is decreasing, let it decrease
-                  # Effort_itime_change[i]<-ke*(profit_itime_FL[[i]])
+                  Effort_itime_change[i]<-ke*(profit_itime_FL[[i]])
                   # instead use eqn with no effort at the denominator (and no target matrix)
-                  Effort_itime_change[i]<-ke*(profit_itime[[i]])
+                  # Effort_itime_change[i]<-ke*(profit_itime[[i]])
                   Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
                 }
 
@@ -475,9 +476,9 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
             for(i in 1:length(fleet)){
 
-              # Effort_itime_change[i]<-ke*(profit_itime_FL[[i]])
+              Effort_itime_change[i]<-ke*(profit_itime_FL[[i]])
               # instead use eqn with no effort at the denominator (and no target matrix)
-              Effort_itime_change[i]<-ke*(profit_itime[[i]])
+              # Effort_itime_change[i]<-ke*(profit_itime[[i]])
               Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
 
               names(Effort_itime_change)[i]<-fleet[i]
@@ -501,10 +502,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
         store <- t_dimnames_index %in% (i_time + 1)
         if (any(store)) {
           # Advance progress bar
-          pb$tick()
-          if (hasArg(shiny_progress)) {
-            shiny_progress$inc(amount = proginc)
-          }
+          # CN you can turn off bar when running calibration 
+          # pb$tick()
+          # if (hasArg(shiny_progress)) {
+          #   shiny_progress$inc(amount = proginc)
+          # }
+          
           # Store result
           sim@n[which(store), , ] <- n
           sim@n_pp[which(store), ] <- n_pp
