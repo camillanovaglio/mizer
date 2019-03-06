@@ -1242,8 +1242,8 @@ setBackground <- function(params, species = dimnames(params@initial_n)$sp) {
 #'   species. Default value is 1/100.
 #' @export
 steady <- function(params, effort = 0, t_max = 50, t_per = 2, tol = 10^(-2),
-                   shiny_progress = NULL) {
-  sim <- project(params, t_max = 1) # just to create the scalar arrays
+                   shiny_progress = NULL,fleetDynamics = fleetDynamics, management = management, price = price, cost = cost) { # CN adding fleetDynamic arguments 
+  sim <- project(params, t_max = 1, fleetDynamics = fleetDynamics, management = management, price = price, cost = cost, diet_steps = 0) # just to create the scalar arrays. CN adding fleetparam values otherwise the function does not run 
     p <- params
     
     if (hasArg(shiny_progress)) {
@@ -1262,7 +1262,7 @@ steady <- function(params, effort = 0, t_max = 50, t_per = 2, tol = 10^(-2),
     old_rdi <- getRDI(p, n, n_pp, n_bb, n_aa, intakeScalar = sim@intTempScalar[,,1],metScalar = sim@metTempScalar[,,1] ) #AA
     for (ti in (1:ceiling(t_max/t_per))){
         sim <- project(p, t_max = t_per, t_save = t_per, effort = effort, 
-                       initial_n = n, initial_n_pp = n_pp, initial_n_bb = n_bb, initial_n_aa = n_aa) ##AA
+                       initial_n = n, initial_n_pp = n_pp, initial_n_bb = n_bb, initial_n_aa = n_aa,fleetDynamics = fleetDynamics, management = management, price = price, cost = cost, diet_steps = 0) ##AA # CN adding fleetDynamics 
         # advance shiny progress bar
         if (hasArg(shiny_progress)) {
             shiny_progress$inc(amount = proginc)

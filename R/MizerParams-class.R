@@ -695,7 +695,7 @@ multispeciesParams <- function(object, interaction,
                     fleetDynamics, selectivity_params, catchability, target # CN arguments
                     ) {
     
-  # # trial
+  # # # trial
   # object = df_param
   # interaction = theta
   # # class(theta)
@@ -1322,6 +1322,10 @@ multispeciesParams <- function(object, interaction,
       # So we can just go row by row through the species parameters
       # However, I really hope we can do something better soon
       for (g in 1:nrow(object)) {
+        
+        # trial 
+        # g =2
+        
           # Do selectivity first
           # get args
           # These as.characters are annoying - but factors everywhere
@@ -1364,6 +1368,7 @@ multispeciesParams <- function(object, interaction,
     res@initial_n <- get_initial_n(res)
     res@A <- rep(1, no_sp)
     return(res)
+
 }
 
 #' Alias for multispeciesParams

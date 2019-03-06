@@ -500,7 +500,7 @@ plotEffort_CN <- function (sim){
 plotYield_CN <- function (sim){
   
   # trial
-  # sim = sim3
+  # sim = sim_fitted_FD
   
   y<-sim@yield
   y<-rowSums(aperm(y,c(1,2,4,3)),dims=3) # sum over size 
@@ -514,7 +514,7 @@ plotYield_CN <- function (sim){
     scale_y_continuous(name = "Yield [g]") + # trans = "log10" it's log10 in Mizer... 
     scale_x_continuous(name = "Year")+
     facet_wrap(~gear,ncol = length(unique(y$gear)))
-  # print(p)
+  print(p)
   
 }
 
@@ -1073,6 +1073,16 @@ plotFMort_CN <- function(sim, species = dimnames(sim@n)$sp,
 #' }
 plotGrowthCurves <- function(object, species,
             max_age = 20, percentage = FALSE, print_it = TRUE) {
+  
+  # # trial
+  # object = sim_calibrated 
+  # species = sim_calibrated@params@species_params$species[1]
+  # max_age = 20
+  # percentage = FALSE 
+  # print_it = TRUE
+  
+  
+  
     if (is(object, "MizerSim")) {
         sim <- object
         if (missing(species)) {
@@ -1265,6 +1275,14 @@ plotDietComp<-function(object, prey=dimnames(object@diet_comp)$prey, min_w=.001,
 plotPPMR<-function(object=object, grid=T, observed=FALSE, prey=dimnames(object@diet_comp)$prey, 
                    predator=dimnames(object@diet_comp)$predator, timeaverage=FALSE ){
   
+  # # trial 
+  # object=sim_calibrated 
+  # grid=T
+  # observed=FALSE
+  # prey=dimnames(object@diet_comp)$prey
+  # predator=dimnames(object@diet_comp)$predator
+  # timeaverage=FALSE 
+  
   prey_nam<-prey
   pred_nam<-predator
   
@@ -1311,7 +1329,6 @@ plotPPMR<-function(object=object, grid=T, observed=FALSE, prey=dimnames(object@d
   plot_dat$preferred<-object@params@species_params$beta[ma]
   plot_dat$obs_PPMR<- object@params@species_params$obs_beta[ma] #originally I assumed that preferred ppmr was 1.7 times higher than realized (following Harvig simulations)
   
-  
   #PPMR vs body size
   
   if(observed==FALSE & grid==TRUE){
@@ -1337,7 +1354,6 @@ plotPPMR<-function(object=object, grid=T, observed=FALSE, prey=dimnames(object@d
       scale_size(range = c(2))+ scale_x_continuous(name = "log10 observed realPPMRbio", trans="log10") + 
       scale_y_continuous(name = "log10 simulated realPPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) 
   }
-  
   
   print(p)
   return(p)

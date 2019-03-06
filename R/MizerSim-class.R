@@ -138,16 +138,16 @@ setClass(
         metTempScalar = "array",
         matTempScalar = "array",
         morTempScalar = "array",
-        intTempScalar = "array"
+        intTempScalar = "array",
         
         # cn adding the fleetDynamics arguments 
         effortOut = "array",
         yield = "array",
         profit = "array",
         revenue = "array",
-        F = "array",
+        F = "array"
         
-        n_pp = "array"
+        # n_pp = "array"
 
     ),
     prototype = prototype(
@@ -183,6 +183,8 @@ setClass(
         n_pp = array(
             NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
         ),
+        
+        # AA
         n_bb = array(
           NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
         ),
