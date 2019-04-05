@@ -285,9 +285,9 @@ plotBiomass <- function(sim,
         p <- p +
             geom_line(aes(colour = Species, linetype = Species))
     # }
-    if (print_it) {
-        print(p)
-    }
+    # if (print_it) {
+    #     print(p)
+    # }
     return(p)
 }
 
@@ -514,7 +514,7 @@ plotYield_CN <- function (sim){
     scale_y_continuous(name = "Yield [g]") + # trans = "log10" it's log10 in Mizer... 
     scale_x_continuous(name = "Year")+
     facet_wrap(~gear,ncol = length(unique(y$gear)))
-  print(p)
+  # print(p)
   
 }
 
@@ -642,6 +642,21 @@ plotSpectra <- function(object, species = NULL,
                         power = 1, biomass = TRUE, print_it = TRUE,
                         total = FALSE, plankton = TRUE,
                         background = TRUE, ...) {
+  
+  # # trial 
+  # object = sim1
+  # species = NULL
+  # time_range = max(as.numeric(dimnames(object@n)$time))
+  # min_w = min(object@params@w) / 100
+  # ylim = c(NA, NA)
+  # power = 1
+  # biomass = TRUE
+  # print_it = TRUE
+  # total = FALSE 
+  # plankton = TRUE
+  # background = TRUE
+  
+  
     if (is(object, "MizerSim")) {
         if (missing(time_range)){
             time_range  <- max(as.numeric(dimnames(object@n)$time))
@@ -657,7 +672,7 @@ plotSpectra <- function(object, species = NULL,
         n <- apply(object@n[time_elements, , ,drop = FALSE], c(2, 3), mean)
         n_pp <- apply(object@n_pp[time_elements,,drop = FALSE], 2, mean)
         ##AAsp##
-        #n_bb <- apply(object@n_bb[time_elements,,drop = FALSE], 2, mean)
+        # n_bb <- apply(object@n_bb[time_elements,,drop = FALSE], 2, mean)
         
         ps <- plot_spectra(object@params, n = n, n_pp = n_pp, 
                            species = species, min_w = min_w, ylim = ylim,
@@ -686,6 +701,24 @@ plotSpectra <- function(object, species = NULL,
 plot_spectra <- function(params, n, n_pp, 
                          species, min_w, ylim, power, print_it,
                          total, plankton, background) {
+  
+  # # trial 
+  # object = sim1
+  # n = object@initial_n
+  # n_pp = object@initial_n_pp
+  # species = dimnames(params@initial_n)$sp[!is.na(params@A)]
+  # object = sim1
+  # species = NULL
+  # time_range = max(as.numeric(dimnames(object@n)$time))
+  # min_w = min(object@params@w) / 100
+  # ylim = c(NA, NA)
+  # power = 1
+  # biomass = TRUE
+  # print_it = TRUE
+  # total = FALSE 
+  # plankton = TRUE
+  # background = TRUE
+  
     if (total) {
         # Calculate total community abundance
         fish_idx <- (length(params@w_full) - length(params@w) + 1):
@@ -728,6 +761,9 @@ plot_spectra <- function(params, n, n_pp,
                                      Species = "Plankton",
                                      w = w_plankton))
     }
+    
+    # if (benthos) ... ask Asta 
+    
     if (total) {
         plot_dat <- rbind(plot_dat,
                           data.frame(value = c(total_n),
@@ -770,13 +806,13 @@ plot_spectra <- function(params, n, n_pp,
             geom_line(aes(group = Species), colour = "grey",
                       data = plot_back)
     }
-    if ( (length(species) + plankton + total) > 13) {
-        p <- p + geom_line(aes(group = Species))
-    } else {
+    # if ( (length(species) + plankton + total) > 13) {
+    #     p <- p + geom_line(aes(group = Species))
+    # } else {
         p <- p + geom_line(aes(colour = Species, linetype = Species))
-    }
-    if (print_it)
-        print(p)
+    # }
+    # if (print_it)
+    #     print(p)
     return(p)
 }
 
@@ -879,13 +915,13 @@ plotM2 <- function(sim, species = dimnames(sim@n)$sp,
     plot_dat <- data.frame(value = c(m2),
                            Species = dimnames(m2)[[1]],
                            w = rep(sim@params@w, each = length(species)))
-    if (length(species) > 12) {
-        p <- ggplot(plot_dat) +
-            geom_line(aes(x = w, y = value, group = Species))
-    } else {
+    # if (length(species) > 12) {
+    #     p <- ggplot(plot_dat) +
+    #         geom_line(aes(x = w, y = value, group = Species))
+    # } else {
         p <- ggplot(plot_dat) +
             geom_line(aes(x = w, y = value, colour = Species, linetype = Species))
-    }
+    # }
     p <- p +
         scale_x_continuous(name = "Size [g]", trans = "log10") +
         scale_y_continuous(name = "Predation mortality [1/year]",
@@ -947,12 +983,12 @@ plotFMort <- function(sim, species = dimnames(sim@n)$sp,
     plot_dat <- data.frame(value = c(f),
                            Species = dimnames(f)[[1]],
                            w = rep(sim@params@w, each = length(species)))
-    if (length(species) > 12) {
-        p <- ggplot(plot_dat) + geom_line(aes(x = w, y = value, group = Species))
-    } else {
+    # if (length(species) > 12) {
+    #     p <- ggplot(plot_dat) + geom_line(aes(x = w, y = value, group = Species))
+    # } else {
         p <- ggplot(plot_dat) +
             geom_line(aes(x = w, y = value, colour = Species, linetype = Species))
-    }
+    # }
     p <- p +
         scale_x_continuous(name = "Size [g]", trans = "log10") +
         scale_y_continuous(name = "Fishing mortality [1/Year]",
@@ -1224,6 +1260,13 @@ plotGrowthCurves <- function(object, species,
 plotDietComp<-function(object, prey=dimnames(object@diet_comp)$prey, min_w=.001,
                        predator=dimnames(object@diet_comp)$predator, timeaverage=FALSE){
   
+  # # trial 
+  # object = sim1
+  # prey=dimnames(object@diet_comp)$prey
+  # min_w=.001
+  # predator=dimnames(object@diet_comp)$predator 
+  # timeaverage=FALSE
+  
   prey_nam<-prey
   pred_nam<-predator
   
@@ -1409,9 +1452,10 @@ setMethod("plot", signature(x = "MizerSim", y = "missing"),
               print(p3 + theme(legend.position = "none"), vp = vplayout(1, 2))
               print(p4 + theme(legend.position = "none"), vp = vplayout(2, 1))
               print(p5 + theme(legend.position = "none"), vp = vplayout(2, 2))
-              print(p2 + theme(legend.position = "right",
-                               legend.key.size = unit(0.1, "cm")),
-                    vp = vplayout(3, 1:2))
+              # print(p2 + theme(legend.position = "right",
+              #                  legend.key.size = unit(0.1, "cm")),
+              #       vp = vplayout(3, 1:2)) # if you need a legend for the full plot...
+              print(p2 + theme(legend.position = "none"),  vp = vplayout(3, 1:2))
           }
 )
 

@@ -696,7 +696,7 @@ multispeciesParams <- function(object, interaction,
                     ) {
     
   # # # trial
-  # object = df_param
+  # object = df_param3
   # interaction = theta
   # # class(theta)
   # min_w = 0.001
@@ -733,7 +733,8 @@ multispeciesParams <- function(object, interaction,
     if (fleetDynamics==FALSE & !("gear" %in% colnames(object))) {
         object$gear <- object$species
     }else{
-      fleet = unique(selectivity_params$subfleet)
+      # fleet = unique(selectivity_params$subfleet)
+      fleet = rownames(target)
     }
     
     # If no k (activity coefficient), then set to 0

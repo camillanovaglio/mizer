@@ -145,7 +145,8 @@ setClass(
         yield = "array",
         profit = "array",
         revenue = "array",
-        F = "array"
+        F = "array",
+        BioOut = "list"
         
         # n_pp = "array"
 
@@ -178,7 +179,9 @@ setClass(
         ),
         F = array(
           NA,dim = c(1,1,1,1), dimnames = list(time = NULL, species = NULL, w = NULL, gear = NULL)
-        ), # is this the right dimension for f_mort_gear?
+        ), 
+        
+        BioOut = list(),
         
         n_pp = array(
             NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
@@ -292,6 +295,7 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
                                          species = species_names,
                                          w = w_names,
                                          gear = gear_names))
+    list_BioOut <- list()
       
     
     no_w_full <- length(params@w_full)
@@ -318,6 +322,7 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
                profit = array_profit,
                revenue = array_revenue,
                F = array_F, 
+               BioOut = list_BioOut,
                
                n_pp = array_n_pp,
                n_bb = array_n_bb,

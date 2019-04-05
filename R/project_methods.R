@@ -590,6 +590,11 @@ getM2Background <- getPlanktonMort
 #' 
 getFMortGear <- function(object, effort, time_range) {
     
+  # # trial 
+  # object = sim@params
+  # effort = effort_dt[i_time,]
+
+  
   if (is(object, "MizerSim")) {
         if (missing(time_range)) {
             time_range <- dimnames(object@effort)$time
@@ -719,10 +724,9 @@ getFMortGear_CN <- function(object, effort, time_range) {
 #' }
 getFMort <- function(object, effort, time_range, drop=TRUE){
   
-  # object = sim
-  # time_range = time_range
-  # drop=TRUE
-  # effort = object@effort
+  # trial 
+  # object = sim@params
+  # effort = effort_dt[i_time,]
   
   # for plotting -> mizerSim -> effort = matrix -> dim(f_mort_gear) [1] 201   6  38 100, ....  dim(f_mort[time_elements, , , drop = drop]) -> [1] 38 100
   
@@ -795,6 +799,20 @@ getFMort_CN <- function(object, effort, time_range, drop=TRUE){
 getMort <- function(object, n, n_pp, n_bb, n_aa, effort, intakeScalar, metScalar, morScalar,
                  m2 = getPredMort(object, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = intakeScalar), 
                  e = getEReproAndGrowth(object, n= n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = intakeScalar,metScalar = metScalar)){
+  
+  # trial
+  # object = sim@params
+  # n = n
+  # n_pp = n_pp
+  # n_bb = n_bb
+  # n_aa = n_aa
+  # intakeScalar = sim@intTempScalar[,,i_time]
+  # metScalar = sim@metTempScalar[,,i_time]
+  # morScalar = sim@morTempScalar[,,i_time]
+  # effort = effort_dt[i_time,]
+  # e = e
+  # m2 = m2
+  
 
     if (!all(dim(m2) == c(nrow(object@species_params), length(object@w)))) {
         stop("m2 argument must have dimensions: no. species (",
@@ -868,14 +886,14 @@ getEReproAndGrowth <- function(object, n, n_pp, n_bb, n_aa, intakeScalar, metSca
                                feeding_level = getFeedingLevel(object, n = n,
                                                                n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)) {
    
-  # # trial  
-  # object =sim@params 
-  # n = n 
-  # n_pp = n_pp 
+  # # trial
+  # object =sim@params
+  # n = n
+  # n_pp = n_pp
   # n_bb = n_bb
-  # n_aa = n_aa 
+  # n_aa = n_aa
   # intakeScalar = sim@intTempScalar[,,i_time]
-  # metScalar = sim@metTempScalar[,,i_time] 
+  # metScalar = sim@metTempScalar[,,i_time]
   # feeding_level = feeding_level
   # feeding_level[1,]<-NA
   # object@intake_max[1,]<-NA
@@ -921,7 +939,7 @@ getSMort <- function(object, n, n_pp, n_bb, n_aa, intakeScalar, metScalar,
                    nrow(object@species_params), ") x no. size bins (",
                    length(object@w), ")")
             }
-
+  
         mu_S <- e # assign net energy to the initial starvation mortality matrix
 
         # Error in mu_S[mu_S < 0] <- x[x < 0] : 

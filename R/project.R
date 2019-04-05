@@ -114,6 +114,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                     # CN
                     fleetDynamics, management, price = price, 
                     cost = cost, scaling_price = scaling_price, ke = ke,
+                    initial_effort = initial_effort,
                     
                     shiny_progress = NULL, 
                     # AA
@@ -121,16 +122,33 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
 
   # # # trial
+  params = params3
+  effort= matrix_effort
+  dt = 0.5
+  fleetDynamics = FALSE
+  management = FALSE
+  price = NA
+  cost = NA
+  diet_steps = 0
+  temperature = rep(params@t_ref, times = t_max)
+  t_save = 1
+  initial_n = params@initial_n
+  initial_n_pp = params@initial_n_pp 
+  initial_n_bb = params@initial_n_bb
+  initial_n_aa = params@initial_n_aa
+  
+  initial_n[] = NA
+  # # unstable community with constant values 
   # params = params_FD
   # effort = 0
   # # effort = relative_effort
-  # t_max = dim(df_price_mean)[1]
+  # t_max = t_max
   # dt = 0.5
   # t_save=1
   # temperature = rep(params@t_ref, times = t_max)
-  # initial_n = initial_n
-  # initial_n_pp = initial_n_pp
-  # initial_n_bb = initial_n_bb
+  # initial_n = initial_n_trial
+  # initial_n_pp = initial_n_pp_trial
+  # initial_n_bb = initial_n_bb_trial
   # initial_n_aa = params@initial_n_aa
   # fleetDynamics = TRUE
   # management = TRUE
@@ -139,7 +157,20 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
   # cost = df_cost_mean2
   # shiny_progress = NULL
   # diet_steps=0
+  # ke = ke
+  # initial_effort = initial_effort_trial
+  
   # 
+  # # check order of fleets and spp 
+  # params_FD@species_params
+  # params_FD@interaction
+  # params_FD@selectivity[,1,1]
+  # params_FD@catchability[,1]
+  # cost[1,,1]
+  # params_FD@fleet
+  # rownames(df_target)
+  
+  
     validObject(params)
 
     # Do we need to create an effort array?
@@ -201,8 +232,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     }
     effort_dt <- t(effort_dt)
     
-    dim(effort_dt)
-    
     ## AA
     ## expand temperature vector in the required number of timesteps 
     ###TODO?####
@@ -218,8 +247,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     # temperature_dt <- matrix(predict(loess(y~x, myData, span = 0.1)), dimnames = list(x_axis, "temperature")) # temperature vector following dt
     
     temperature_dt <- matrix(time_temperature_dt, dimnames = list(x_axis, "temperature")) # without smoothing
-
-    dim(time_temperature_dt)
     
     #arrays with scalar values for all time, species and size
     metTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
@@ -332,49 +359,27 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
         price_dt[,time_price_dt >= time_price[i]] <- price[i,]
       }
       price_dt <- t(price_dt)
-      
-      dim(price_dt)
-      
-      # effort_dt[,1]
-      # price_dt[,1]
-      ### NOTE that price_dt was a df not a matrix so will need to change things from here on (line 653)
     
- 
-      ##### trial 
       # need to adjust effort_dt so that it can have the same time dimention as price. effort dt is a vector of 0 if fleetDynamics is on and is blown up to a matrix using the function argument t_max (see above), which her is overwrittent by the price dimention 
       effort_dt <- t(array(NA, dim = c(length(time_price_dt), dim(effort)[2]), dimnames=list(time = time_price_dt, dimnames(effort)[[2]])))
       # effort_dt <- t(array(NA, dim = c(length(time_price_dt), length(species)), dimnames=list(time = time_price_dt, species))) # no
       effort_dt <- t(effort_dt)
-      dim(effort_dt)
-      
-      ### end trial 
-      
-      
-      
-      # # then cost but with same size than price and no setting size for other things 
-      # cost = df_cost_opn
-      # df_cost_opn_mean # this is different.... 
-      # str(cost)
-      # cost<-cost %>% 
-      #   group_by(subfleet, year) %>% # calcualte total costs - this chould be changed in a later version 
-      #   dplyr::summarise(cost = sum(param_value, na.rm=TRUE))
-      # cost<-acast(cost, formula = year ~ subfleet, value.var = "cost") # matrix of time X fleet
-      # cost<-cost[,params@fleet]
-      # # cost need to have the same years as price!!! just a trial here 
-      # addCost<-cost[8:9,]
-      # rownames(addCost)<-c(2015, 2016)
-      # cost<-rbind(cost, addCost)
-      
-      ###### 
       
       # blow up costs with same dimension as price
-      cost_dt <- t(array(NA, dim = c(length(time_price_dt), dim(cost)[2]), dimnames=list(time = time_price_dt, dimnames(cost)[[2]])))
+      # new version with fixed and variable costs considered
+      cost_dt_fixed <- t(array(NA, dim = c(length(time_price_dt), dim(cost)[2]), dimnames=list(time = time_price_dt, dimnames(cost)[[2]])))
       for (i in 1:(length(time_price)-1)){ # I m not sure why this is -1
-        cost_dt[,time_price_dt >= time_price[i]] <- cost[i,]
+        cost_dt_fixed[,time_price_dt >= time_price[i]] <- cost[i,,1]
       }
-      cost_dt <- t(cost_dt)
+      cost_dt_fixed <- t(cost_dt_fixed)
       
-      dim(cost_dt)
+      cost_dt_variable <- t(array(NA, dim = c(length(time_price_dt), dim(cost)[2]), dimnames=list(time = time_price_dt, dimnames(cost)[[2]])))
+      for (i in 1:(length(time_price)-1)){ # I m not sure why this is -1
+        cost_dt_variable[,time_price_dt >= time_price[i]] <- cost[i,,2]
+      }
+      cost_dt_variable <- t(cost_dt_variable)
+      # this has become a list of matrix 
+      cost_dt<-list(fixed = cost_dt_fixed, variable = cost_dt_variable)
       
       # then create all other matrices but with price determining their dimention
       
@@ -539,7 +544,11 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
       t_steps <- dim(effort_dt)[1] - 1
     }
     
-
+    if(fleetDynamics == TRUE){
+      # set initial effort 
+      sim@effortOut[1,]<-initial_effort # if you do this inside the loop the output for i_time = 1 will be 0
+    }
+    
     # Set up progress bar
     # CN turn off when running calibration 
     # pb <- progress::progress_bar$new(
@@ -555,15 +564,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     if (diet_steps>0){
       diet_comp_all<- array(0, dim(sim@diet_comp))
     }
-
+    
     for (i_time in 1:t_steps) {
       # print(i_time)
-
-    # CN we could initialise effort for the fleetDynamics too but the first time step is 0 anyway 
-    
-    
-      # trial   
-      # i_time=1
+  
+    # for (i_time in 1:22) {
+      i_time=1
       
         # Do it piece by piece to save repeatedly calling methods
         # Calculate amount E_{a,i}(w) of available food
@@ -581,11 +587,11 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
         # AA
         m2 <- getPredMort(sim@params, pred_rate = pred_rate, intakeScalar = sim@intTempScalar[,,i_time])
         
-# Calculate mortality on the plankton spectrum
+        # Calculate mortality on the plankton spectrum
         m2_background <- getPlanktonMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
                                          intakeScalar = sim@intTempScalar[,,i_time], pred_rate = pred_rate)
 
-                #Calculate mortality of the benthis spectrum 
+        #Calculate mortality of the benthis spectrum 
         m2_benthos <- getBenthosMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
                                          pred_rate = pred_rate)
         m2_algae <- getAlgalMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
@@ -595,7 +601,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
         e <- getEReproAndGrowth(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
                                 intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], 
-
                                 feeding_level = feeding_level)
         # CN the fleetDynamic needs more outputs of fishing mortalities use to calcualte parameters for the fleetDynamics eqn, hence functions used below are the _CN versions (sligly different). Also the argument of these functions is effortOut_dt, which is a model output (instead of input) and is updated every time step  
         
@@ -606,8 +611,14 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # calcualte biomass at this time step and important to calucalte yield in fleetDynamics eqn
           B_itime<-sweep(n, 2, sim@params@w * sim@params@dw, "*") # is n updated every time step?
           
+          # trial 
+          # track_B<-rowSums(B_itime)
+          # track_n<-rowSums(n)
+          # end
+          
           # if you are using eqn with no effort at the denominator you need a starting value
-          # effort<-ifelse(i_time ==1, 0.1, effortOut_dt[i_time,]) 
+          # effort<-ifelse(i_time ==1, 0.1, effortOut_dt[i_time,])
+          effortOut_dt[1,]<-sim@effortOut[1,] # set an intial value of effort also for effortOut_dt
           
           # Calculate total mortality \mu_i(w)
           # dim(e)
@@ -626,12 +637,17 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # Fmortality = catchability * selectivity
           F_itime_FL <- getFMort_CN(sim@params, effort = effortOut_dt[i_time,])$f_mort_gear_FL
           F_itime_FL <-aperm(F_itime_FL, c(2,3,1))
+          
+          # trial
+          # track_F<-rowSums(F_itime)
+
 
         }else{
           
          # AA
          # Moved total mortality calculation after the e calculation betcause we need e for stravation
          # Calculate total mortality \mu_i(w)
+          # CN same error as above (z) and due to getEReproAndGrowth. no, it goes futher than that but the error is visible only here. it's because n or initila_n is NA and I don't understand why it happens in calibration
          z <- getMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, 
                      intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], 
                      morScalar = sim@morTempScalar[,,i_time], effort = effort_dt[i_time,], e = e, m2 = m2)
@@ -665,8 +681,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           sim@diet_comp[]<-(diet_comp_all/diet_steps) + sim@diet_comp
         }
 
-        # CN this is still a mistery to me... need to ask Asta
-
         # Iterate species one time step forward:
         # See Ken's PDF
         # A_{ij} = - g_i(w_{j-1}) / dw_j dt
@@ -690,6 +704,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                                 A = A, B = B, S = S,
                                 w_min_idx = sim@params@w_min_idx)
 
+        # trial 
+        # rowSums(n)
+        # track_n
+        # rowSums(sim@n[1,,])
+        # # end .... n are already different here... 
+        
         # Dynamics of plankton spectrum uses a semi-chemostat model (de Roos - ask Ken)
         # We use the exact solution under the assumption of constant mortality during timestep
         ###TODO?#### 
@@ -722,48 +742,62 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # calcualte yield, revenue and profit - all based on biomass at current time step (B_itime) as per EULER method
 
           # yield (spp X w X fleet) yield by fleet and total
-          yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")*scaling_price
-
-          # yield for fleetdyncamic eqn (no effort and considering target matrix)
-          yield_itime_FL <- sweep(F_itime_FL,c(1,2), B_itime, "*")*scaling_price
-          # do not consider target is target == catchability and catchability was used to calculate F_itime
-          # yield_itime_FL <- sweep(yield_itime_FL,c(1,3), t(sim@params@target), "*")
+          yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
+          
+          # trial 
+          # track_yield<-rowSums(yield_itime)
+          # rowSums(sim_FD@yield[400,,,]) # yes similar 
+          
+          # # yield for fleetdyncamic eqn (no effort)
+          # yield_itime_FL <- sweep(F_itime_FL,c(1,2), B_itime, "*")
+          # # do not consider target - target == catchability and catchability was used to calculate F_itime
+          # # yield_itime_FL <- sweep(yield_itime_FL,c(1,3), t(sim@params@target), "*")
 
           # price
-          # price_itime<-split(price_dt, price_dt$time)
-          # price_itime<-price_itime[[i_time]]
-          price_itime<-price_dt[i_time,]
-
-          # revenue ()
-          # revenue_itime<-sweep(yield_itime, c(1), price_itime$price,"*")
+          price_itime<-price_dt[i_time,]*scaling_price # *1000000000 # slightly positive profits 
+          # price_itime<-price_dt[i_time,]*1000000 # when scaling is this or lower than this quantity, revenues are so small that they don't count in the eqn and profits = - cost
+          # price_itime<-price_dt[i_time,]*1
+          
+          # revenue
           revenue_itime<-sweep(yield_itime, c(1), price_itime,"*")
           revenue_itime_tot<-apply(revenue_itime, 3, sum)
+          
+          #trial
+          # sim_FD@revenue[400,]
 
-          # revenue for fleetdyncamic eqn
-          # revenue_itime_FL<-sweep(yield_itime_FL, c(1), price_itime$price,"*")
-          revenue_itime_FL<-sweep(yield_itime_FL, c(1), price_itime,"*")
-          revenue_itime_FL_tot<-apply(revenue_itime_FL, 3, sum)
+          # # revenue for fleetdyncamic eqn
+          # # revenue_itime_FL<-sweep(yield_itime_FL, c(1), price_itime$price,"*")
+          # revenue_itime_FL<-sweep(yield_itime_FL, c(1), price_itime,"*")
+          # revenue_itime_FL_tot<-apply(revenue_itime_FL, 3, sum)
 
           # cost
-          cost_itime<-cost_dt[i_time,]
+          # cost_itime<-cost_dt[i_time,]
+          # new version with fixed and variable costs 
+          cost_itime_fixed<-cost_dt$fixed[i_time,]
+          cost_itime_variable<-cost_dt$variable[i_time,]
 
           # profit
-          profit_itime<-revenue_itime_tot - cost_itime*effortOut_dt[i_time,] # NOTE: it was effort_dt ?!
-          profit_itime_FL<-revenue_itime_FL_tot - cost_itime
-
+          # profit_itime<-revenue_itime_tot - cost_itime*effortOut_dt[i_time,] 
+          # profit_itime_FL<-revenue_itime_FL_tot - cost_itime
+          # new version with fixed and variable costs 
+          profit_itime<-revenue_itime_tot - (cost_itime_fixed + (cost_itime_variable*effortOut_dt[i_time,]))
+          profit_itime<-ifelse(is.na(profit_itime),0, profit_itime) # not sure about this but may be important when calibrating: error profit_itime[[i]]>0 (below) no value for profit
+          
+          # trial 
+          # sim_FD@profit[400,]
+          
           # fleet adjusment constant
-          # ke= 0.00000001
           ke= ke
-
+          
           # effort will be calcuated in loop and depends on the management component
           Effort_itime_change <-list()
-          Effort_itime <-list()
+          Effort_itime_next <-list()
 
           if(management == TRUE){
 
             # biomass reference points for management at start of projections (i_time = 1) or as given 
             
-            if("bioUnfished" %in% colnames(params@species_params) == TRUE){
+            if("Bref" %in% colnames(params@species_params) == TRUE){ # it was bioUnfished
               Blim<-params@species_params$Bref
             }else{
               Blim<-rowSums(sweep(sim@n[1,,],2,sim@params@w * sim@params@dw,"*"))
@@ -791,70 +825,78 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
             # merge information on biomass level and biomass ref points with target/bycatch spp
             Bio<-merge(Bio,target)
+            Bio$timestep<-i_time
             Bio<-split(Bio, Bio$fleet)
             Bio<-lapply(Bio, function(x) x[-which(x$target == 0 | x$bioStatus =="Above"),])
 
+            # output this info 
+            BioOut<-do.call("rbind",Bio) %>% 
+              select(-c(target, bioStatus))
+            rownames(BioOut)<-NULL
+  
             # calcualte effort of each fleet for the next time step and based on profits
             # whether effort is allowed to increase or forced to decrease is based on whether the biomass of speceis under management have reached the treshold biomass (e.g. 20, 40 or 48%). How much effort changes is given by profits, which are calcualted considering only the target spp of each fleet as we are considering fishers expectation on target
 
             for(i in 1:length(Bio)){
-
-              # i=1
+              
               if(is.na(match('bio48check',Bio[[i]]$bioLim)) & is.na(match('bio40check',Bio[[i]]$bioLim)) & is.na(match('bio20check',Bio[[i]]$bioLim)))
+                # if all these conditions are true at the same time ....
               {
                 # if no spp below any bioref limts
                 # print("all good")
-                Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime_FL[[i]])
-                # instead use eqn with no effort at the denominator (and no target matrix)
-                # Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
-                Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                # Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime_FL[[i]])
+                # instead use eqn with no effort at the denominator
+                Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+                Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
 
               }else if(!is.na(match('bio48check',Bio[[i]]$bioLim)) & is.na(match('bio20check',Bio[[i]]$bioLim)) & is.na(match('bio40check',Bio[[i]]$bioLim))){
+                # if any speceis below 48 but above 40 and 20 .... 
+                
                 # if some specied below 48%
                 # print("some below 48%")
                 if(profit_itime[[i]]>0) { # if fishing is profitable, do not allow any increase in effort
                   Effort_itime_change[i]<-0
-                  Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                  Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
                 }else{ # if fishing is not profitable and it is decreasing, let it decrease
-                  Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime_FL[[i]])
-                  # instead use eqn with no effort at the denominator (and no target matrix)
-                  # Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
-                  Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                  # Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime_FL[[i]])
+                  # instead use eqn with no effort at the denominator
+                  Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+                  Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
                 }
 
-              }else if(!is.na(match('bio48check',Bio[[i]]$bioLim)) & !is.na(match('bio20check',Bio[[i]]$bioLim)) & is.na(match('bio40check',Bio[[i]]$bioLim))){
+              }else if(!is.na(match('bio48check',Bio[[i]]$bioLim)) & is.na(match('bio20check',Bio[[i]]$bioLim)) & !is.na(match('bio40check',Bio[[i]]$bioLim))){
+                # if any speceis below 48 and below 40 but 20 .... 
+                
                 # if some species below 40%
                 # print("some below 40%")
                 Effort_itime_change[i]<-NA
-                Effort_itime[i]<-effortOut_dt[i_time,][i] * (1 - 0.2*dt) # force a descrease in effort
+                Effort_itime_next[i]<-effortOut_dt[i_time,][i] * (1 - 0.2*dt) # force a descrease in effort
 
               }else{
                 # if some speceis below 20%
                 # print("some below 20%")
                 Effort_itime_change[i]<-0
-                Effort_itime[i]<-0
+                Effort_itime_next[i]<-0
               }
 
-              names(Effort_itime_change)[i]<-names(Bio)[i]
-              names(Effort_itime)[i]<-names(Bio)[i]
-              
-              # do not allow for negative effort
-              Effort_itime[[i]]<-ifelse(is.na(Effort_itime[[i]]) | Effort_itime[[i]]<0 | is.infinite(Effort_itime[[i]]),0, Effort_itime[[i]])
+              names(Effort_itime_change)[i]<-fleet[i]
+              names(Effort_itime_next)[i]<-fleet[i]
+              Effort_itime_next[[i]]<-ifelse(is.na(Effort_itime_next[[i]]) | Effort_itime_next[[i]]<0 | is.infinite(Effort_itime_next[[i]]),0, Effort_itime_next[[i]])
 
             } # end of for loop
 
           }else{ # management = FALSE
 
             for(i in 1:length(fleet)){
-
-              Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime_FL[[i]])
-              # instead use eqn with no effort at the denominator (and no target matrix)
-              # Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
-              Effort_itime[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+              
+              # Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime_FL[[i]])
+              # instead use eqn with no effort at the denominator
+              Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+              Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
 
               names(Effort_itime_change)[i]<-fleet[i]
-              names(Effort_itime)[i]<-fleet[i]
-              Effort_itime[[i]]<-ifelse(is.na(Effort_itime[[i]]) | Effort_itime[[i]]<0 | is.infinite(Effort_itime[[i]]),0, Effort_itime[[i]])
+              names(Effort_itime_next)[i]<-fleet[i]
+              Effort_itime_next[[i]]<-ifelse(is.na(Effort_itime_next[[i]]) | Effort_itime_next[[i]]<0 | is.infinite(Effort_itime_next[[i]]),0, Effort_itime_next[[i]])
 
             } # end of fo loop
 
@@ -862,15 +904,22 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
           # change format of effort
           Effort_itime_change<-t(do.call("rbind", Effort_itime_change))
-          Effort_itime<-t(do.call("rbind", Effort_itime))
+          Effort_itime_next<-t(do.call("rbind", Effort_itime_next))
 
           # update effort for next time step
-          effortOut_dt[i_time+1, ]<-Effort_itime
+          effortOut_dt[i_time+1, ]<-Effort_itime_next
+          
+          # yield, revenue and profits in df format - important when saving these data below 
+          # I am not sure how you'd have to save them in case you are using the FL versions 
+          yield_dt[i_time,,,]<-yield_itime
+          revenue_dt[i_time,]<-revenue_itime_tot
+          profit_dt[i_time,]<-profit_itime
+          F_dt[i_time,,,]<-F_itime
 
         } # end of fleetDynamics = TRUE
        
         # Store results only every t_step steps.
-        store <- t_dimnames_index %in% (i_time + 1)
+        store <- t_dimnames_index %in% (i_time + 1) # CN it saves 2,4,6, etc and gets to last step. data at time step 1 are initial values of n, n_pp, effort etc. specified above
         if (any(store)) {
 
           # Advance progress bar
@@ -902,19 +951,38 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           if(fleetDynamics == TRUE){
 
             # sim@effort
-            sim@effortOut[which(store), ] <- Effort_itime
+            sim@effortOut[which(store), ] <- effortOut_dt[i_time,] # instead of Effort_itime_next - less confusion
             sim@yield[which(store),,,] <- yield_itime
             sim@revenue[which(store), ] <- revenue_itime_tot
             sim@profit[which(store), ] <- profit_itime
             sim@F[which(store),,,] <- F_itime
             
+            # add values for time step 1. this is because n, n_pp etc and effort are initialised above (before the loop) while these parameters at time step = 1 are calcualted withing the loop. The loop saves from time step 2 leaving 1 at initial values.  
+            sim@yield[1,,,]<-yield_dt[1,,,]
+            sim@revenue[1,]<-revenue_dt[1,]
+            sim@profit[1,]<-profit_dt[1,]
+            sim@F[1,,,] <-F_dt[1,,,]
+            
           }
 
+        }
+        
+        if(fleetDynamics == TRUE & management == TRUE){
+          # info on declining spp - could be moved in if above 
+          # stop for calibration
+          sim@BioOut[[i_time]]<-BioOut
         }
 
     } # end of for loop
 
     return(sim)
+    
+    # # trial ... OK to change but gust a little? 
+    # dim(sim@n)
+    # n_initial<-rowSums(sim@n[1,,])
+    # n_initial2<-rowSums(sim@n[2,,])
+    # n_initial200<-rowSums(sim@n[200,,])
+
 
  } # end of function
 
