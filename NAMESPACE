@@ -2,11 +2,13 @@
 
 export(MizerParams)
 export(addSpecies)
+export(change_pred_kernel)
 export(display_frames)
 export(getAvailEnergy)
 export(getBiomass)
 export(getBiomassFrame)
 export(getCommunitySlope)
+export(getDiet)
 export(getEGrowth)
 export(getERepro)
 export(getEReproAndGrowth)

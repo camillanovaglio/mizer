@@ -21,8 +21,11 @@ Calculates the amount \eqn{E_{a,i}(w)} of food exposed to each predator as
 a function of predator size.
 }
 \details{
-This method is used by the \code{\link{project}} method for
+This function is used by the \code{\link{project}} method for
 performing simulations.
+
+The function returns values also for sizes outside the size-range of the
+species. These values should not be trusted, as they are meaningless.
 }
 \examples{
 \dontrun{
