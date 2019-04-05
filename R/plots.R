@@ -225,6 +225,18 @@ plotBiomass <- function(sim,
             y_ticks = 6, print_it = TRUE,
             ylim = c(NA, NA),
             total = FALSE, background = TRUE, ...){
+  
+    # trial 
+    # sim = SEA1
+    # species = dimnames(sim@n)$sp[!is.na(sim@params@A)]
+    # start_time = as.numeric(dimnames(sim@n)[[1]][1])
+    # end_time = as.numeric(dimnames(sim@n)[[1]][dim(sim@n)[1]])
+    # y_ticks = 6
+    # print_it = TRUE
+    # ylim = c(NA, NA)
+    # total = FALSE
+    # background = TRUE
+
     b <- getBiomass(sim, ...)
     if (start_time >= end_time) {
         stop("start_time must be less than end_time")
@@ -267,18 +279,19 @@ plotBiomass <- function(sim,
                            colour = "lightgrey")
     }
 
-    if ( (length(species) + total) > 12) {
-        p <- p + geom_line(aes(group = Species))
-    } else {
+    # if ( (length(species) + total) > 12) { # CN I think that this was set to avoid legend in case of lots of spp and make it much faster... 
+        # p <- p + geom_line(aes(group = Species))
+    # } else {
         p <- p +
             geom_line(aes(colour = Species, linetype = Species))
-    }
-    if (print_it) {
-        print(p)
-    }
+    # }
+    # if (print_it) {
+    #     print(p)
+    # }
     return(p)
 }
 
+# plotBiomass(sim3)
 
 #' Plot the total yield of species through time
 #'
@@ -436,6 +449,9 @@ plotYield <- function(sim, sim2,
 plotYieldGear <- function(sim,
                           species = dimnames(sim@n)$sp,
                           print_it = TRUE, total = FALSE, ...){
+    # trial 
+    y <- getYieldGear(sim)
+    total = TRUE
     y <- getYieldGear(sim, ...)
     y_total <- rowSums(y, dims = 2)
     y <- y[, , dimnames(y)$sp %in% species, drop = FALSE]
@@ -462,6 +478,108 @@ plotYieldGear <- function(sim,
     return(p)
 }
 
+# CN plot effort, yield, revenue and profis when fleetDynamics == TRUE, by fleet 
+
+plotEffort_CN <- function (sim){
+
+  # trial
+  # sim = sim3
+
+  e<-sim@effortOut
+  e<-as.data.frame.table(e) %>% # this is ym above
+    mutate(time = as.numeric(as.character(time)))
+
+  p <- ggplot(e) + geom_line(aes(x = time, y = Freq, group = gear)) +
+    scale_y_continuous(name = "Effort [opn]") +
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear,ncol = length(unique(e$gear)))
+  # print(p)
+
+}
+
+plotYield_CN <- function (sim){
+  
+  # trial
+  # sim = sim_fitted_FD
+  
+  y<-sim@yield
+  y<-rowSums(aperm(y,c(1,2,4,3)),dims=3) # sum over size 
+  y<-as.data.frame.table(y) %>% # this is ym above
+    group_by(time, gear) %>% 
+    dplyr::summarise(value = sum(Freq, na.rm =TRUE)) %>% 
+    # filter(value > 0) %>%
+    mutate(time = as.numeric(as.character(time)))
+  
+  p <- ggplot(y) + geom_line(aes(x = time, y = value, group = gear)) +
+    scale_y_continuous(name = "Yield [g]") + # trans = "log10" it's log10 in Mizer... 
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear,ncol = length(unique(y$gear)))
+  # print(p)
+  
+}
+
+plotRevenue_CN <- function (sim){
+  
+  r<-sim@revenue
+  r<-as.data.frame.table(r) %>% # this is ym above
+    mutate(time = as.numeric(as.character(time)))
+  
+  p <- ggplot(r) + geom_line(aes(x = time, y = Freq, group = gear)) +
+    scale_y_continuous(name = "Revenue [$]") + 
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear, ncol = length(unique(r$gear)))
+  # print(p)
+  
+}
+
+plotProfit_CN <- function (sim){
+  
+  pr<-sim@profit
+  pr<-as.data.frame.table(pr) %>% # this is ym above
+    mutate(time = as.numeric(as.character(time)))
+  
+  p <- ggplot(pr) + geom_line(aes(x = time, y = Freq, group = gear)) +
+    scale_y_continuous(name = "Profit [$]") + 
+    scale_x_continuous(name = "Year")+
+    facet_wrap(~gear, ncol = length(unique(pr$gear)))
+  # print(p)
+  
+}
+
+# plotProfit_CN(sim3)
+# plotBiomass(sim3)
+
+plotFleet<-function(sim){
+  
+  a<-plotEffort_CN(sim)
+  a<-a + geom_hline(yintercept=0, linetype="dashed", color = "grey")
+  a<-a + theme(legend.position="none")
+  b<-plotYield_CN(sim)
+  b<-b + geom_hline(yintercept=0, linetype="dashed", color = "grey")
+  b<-b + theme(legend.position="none")
+  c<-plotProfit_CN(sim)
+  c<-c + geom_hline(yintercept=0, linetype="dashed", color = "grey")
+  c<-c + theme(legend.position="none")
+  
+  plots <- list(a,b,c)
+  source("/Users/nov017/R_general/FUNplotSize.r")
+  res = plotSize(plots)
+  
+  lay <- rbind(c(1,1),
+               c(2,2),
+               c(3,3))
+  
+  gs<-list(res$grobs[[1]],
+           res$grobs[[2]],
+           res$grobs[[3]])
+  
+  # setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/plots")
+  # jpeg("plotResultsFleet.jpeg", width=18, height=22 ,units="cm",res=400) #, width=10)
+  grid.arrange(grobs = gs, layout_matrix = lay)
+  
+}
+
+# plotFleet(sim3)
 
 #' Plot the abundance spectra
 #' 
@@ -522,8 +640,23 @@ plotSpectra <- function(object, species = NULL,
                         time_range,
                         min_w, ylim = c(NA, NA),
                         power = 1, biomass = TRUE, print_it = TRUE,
-                        total = FALSE, plankton = TRUE, 
+                        total = FALSE, plankton = TRUE,
                         background = TRUE, ...) {
+  
+  # # trial 
+  # object = sim1
+  # species = NULL
+  # time_range = max(as.numeric(dimnames(object@n)$time))
+  # min_w = min(object@params@w) / 100
+  # ylim = c(NA, NA)
+  # power = 1
+  # biomass = TRUE
+  # print_it = TRUE
+  # total = FALSE 
+  # plankton = TRUE
+  # background = TRUE
+  
+  
     if (is(object, "MizerSim")) {
         if (missing(time_range)){
             time_range  <- max(as.numeric(dimnames(object@n)$time))
@@ -538,10 +671,13 @@ plotSpectra <- function(object, species = NULL,
         time_elements <- get_time_elements(object,time_range)
         n <- apply(object@n[time_elements, , ,drop = FALSE], c(2, 3), mean)
         n_pp <- apply(object@n_pp[time_elements,,drop = FALSE], 2, mean)
-        ps <- plot_spectra(object@params, n = n, n_pp = n_pp,
+        ##AAsp##
+        # n_bb <- apply(object@n_bb[time_elements,,drop = FALSE], 2, mean)
+        
+        ps <- plot_spectra(object@params, n = n, n_pp = n_pp, 
                            species = species, min_w = min_w, ylim = ylim,
                            power = power, print_it = print_it,
-                           total = total, plankton = plankton,
+                           total = total, plankton = plankton, 
                            background = background)
         return(ps)
     } else {
@@ -555,16 +691,34 @@ plotSpectra <- function(object, species = NULL,
                            n_pp = object@initial_n_pp,
                            species = species, min_w = min_w, ylim = ylim,
                            power = power, print_it = print_it,
-                           total = total, plankton = plankton,
+                           total = total, plankton = plankton, 
                            background = background)
         return(ps)
     }
 }
 
 
-plot_spectra <- function(params, n, n_pp,
+plot_spectra <- function(params, n, n_pp, 
                          species, min_w, ylim, power, print_it,
                          total, plankton, background) {
+  
+  # # trial 
+  # object = sim1
+  # n = object@initial_n
+  # n_pp = object@initial_n_pp
+  # species = dimnames(params@initial_n)$sp[!is.na(params@A)]
+  # object = sim1
+  # species = NULL
+  # time_range = max(as.numeric(dimnames(object@n)$time))
+  # min_w = min(object@params@w) / 100
+  # ylim = c(NA, NA)
+  # power = 1
+  # biomass = TRUE
+  # print_it = TRUE
+  # total = FALSE 
+  # plankton = TRUE
+  # background = TRUE
+  
     if (total) {
         # Calculate total community abundance
         fish_idx <- (length(params@w_full) - length(params@w) + 1):
@@ -607,6 +761,9 @@ plot_spectra <- function(params, n, n_pp,
                                      Species = "Plankton",
                                      w = w_plankton))
     }
+    
+    # if (benthos) ... ask Asta 
+    
     if (total) {
         plot_dat <- rbind(plot_dat,
                           data.frame(value = c(total_n),
@@ -649,13 +806,13 @@ plot_spectra <- function(params, n, n_pp,
             geom_line(aes(group = Species), colour = "grey",
                       data = plot_back)
     }
-    if ( (length(species) + plankton + total) > 13) {
-        p <- p + geom_line(aes(group = Species))
-    } else {
+    # if ( (length(species) + plankton + total) > 13) {
+    #     p <- p + geom_line(aes(group = Species))
+    # } else {
         p <- p + geom_line(aes(colour = Species, linetype = Species))
-    }
-    if (print_it)
-        print(p)
+    # }
+    # if (print_it)
+    #     print(p)
     return(p)
 }
 
@@ -692,7 +849,7 @@ plotFeedingLevel <- function(sim,
             species = dimnames(sim@n)$sp,
             time_range = max(as.numeric(dimnames(sim@n)$time)),
             print_it = TRUE, ...) {
-    feed_time <- getFeedingLevel(sim, time_range = time_range,
+    feed_time <- getFeedingLevel(sim, time_range = time_range, ##AA
                                  drop = FALSE, ...)
     feed <- apply(feed_time, c(2, 3), mean)
     feed <- feed[as.character(dimnames(feed)[[1]]) %in% species, ,
@@ -700,24 +857,25 @@ plotFeedingLevel <- function(sim,
     plot_dat <- data.frame(value = c(feed),
                            Species = dimnames(feed)[[1]],
                            w = rep(sim@params@w, each = length(species)))
-    if (length(species) > 12) {
-        p <- ggplot(plot_dat) +
-            geom_line(aes(x = w, y = value, group = Species))
-    } else {
+    # if (length(species) > 12) {
+        # p <- ggplot(plot_dat) +
+            # geom_line(aes(x = w, y = value, group = Species))
+    # } else {
         p <- ggplot(plot_dat) +
             geom_line(aes(x = w, y = value, colour = Species, linetype = Species))
-    }
+    # }
     p <- p +
-        scale_x_continuous(name = "Size [g]", trans = "log10") +
-        scale_y_continuous(name = "Feeding Level", limits = c(0, 1)) +
-        scale_colour_manual(values = sim@params@linecolour) +
-        scale_linetype_manual(values = sim@params@linetype)
+      scale_x_continuous(name = "Size [g]", trans = "log10") +
+      scale_y_continuous(name = "Feeding Level", limits = c(0, 1)) +
+      scale_colour_manual(values = sim@params@linecolour) +
+      scale_linetype_manual(values = sim@params@linetype)
     if (print_it) {
         print(p)
     }
     return(p)
 }
 
+# plotFeedingLevel(sim3)
 
 #' Plot predation mortality rate of each species against size
 #' 
@@ -750,20 +908,20 @@ plotFeedingLevel <- function(sim,
 plotM2 <- function(sim, species = dimnames(sim@n)$sp,
                    time_range = max(as.numeric(dimnames(sim@n)$time)),
                    print_it = TRUE, ...) {
-    m2_time <- getM2(sim, time_range = time_range, drop = FALSE, ...)
+    m2_time <- getM2(sim, time_range = time_range, intakeScalar = sim@intTempScalar[,,time_range], drop = FALSE, ...)
     m2 <- apply(m2_time, c(2, 3), mean)
     m2 <- m2[as.character(dimnames(m2)[[1]]) %in% species, , 
              drop = FALSE]
     plot_dat <- data.frame(value = c(m2),
                            Species = dimnames(m2)[[1]],
                            w = rep(sim@params@w, each = length(species)))
-    if (length(species) > 12) {
-        p <- ggplot(plot_dat) +
-            geom_line(aes(x = w, y = value, group = Species))
-    } else {
+    # if (length(species) > 12) {
+    #     p <- ggplot(plot_dat) +
+    #         geom_line(aes(x = w, y = value, group = Species))
+    # } else {
         p <- ggplot(plot_dat) +
             geom_line(aes(x = w, y = value, colour = Species, linetype = Species))
-    }
+    # }
     p <- p +
         scale_x_continuous(name = "Size [g]", trans = "log10") +
         scale_y_continuous(name = "Predation mortality [1/year]",
@@ -809,18 +967,28 @@ plotM2 <- function(sim, species = dimnames(sim@n)$sp,
 plotFMort <- function(sim, species = dimnames(sim@n)$sp,
                       time_range = max(as.numeric(dimnames(sim@n)$time)),
                       print_it = TRUE, ...){
+
+  # # trial
+  # sim = sim1
+  # species = dimnames(sim@n)$sp
+  # time_range = max(as.numeric(dimnames(sim@n)$time))
+  # print_it = TRUE
+  # f_time <- getFMort(sim, time_range = time_range, drop = FALSE)
+  # dim(f_time) # [1]   1  38 100 (time X sp X w)
+  
     f_time <- getFMort(sim, time_range = time_range, drop = FALSE, ...)
     f <- apply(f_time, c(2, 3), mean)
+    # dim(f) # 30 100
     f <- f[as.character(dimnames(f)[[1]]) %in% species, , drop = FALSE]
     plot_dat <- data.frame(value = c(f),
                            Species = dimnames(f)[[1]],
                            w = rep(sim@params@w, each = length(species)))
-    if (length(species) > 12) {
-        p <- ggplot(plot_dat) + geom_line(aes(x = w, y = value, group = Species))
-    } else {
+    # if (length(species) > 12) {
+    #     p <- ggplot(plot_dat) + geom_line(aes(x = w, y = value, group = Species))
+    # } else {
         p <- ggplot(plot_dat) +
             geom_line(aes(x = w, y = value, colour = Species, linetype = Species))
-    }
+    # }
     p <- p +
         scale_x_continuous(name = "Size [g]", trans = "log10") +
         scale_y_continuous(name = "Fishing mortality [1/Year]",
@@ -831,6 +999,78 @@ plotFMort <- function(sim, species = dimnames(sim@n)$sp,
         print(p)
     }
     return(p)
+}
+
+# CN fleetDynamic version. this is different because you changed getFMort and you added 
+
+plotFMort_CN <- function(sim, species = dimnames(sim@n)$sp,
+                      time_range = max(as.numeric(dimnames(sim@n)$time)),
+                      print_it = TRUE, ...){
+  
+  # NOTE that this version does not allow for a mean time_range calculation - all at last time step
+  if (missing(time_range)) {
+    time_range <- dimnames(sim@effortOut)$time
+  }
+
+  f_time <- sim@F[time_range,,,]
+  
+  if(length(time_range > 1)){ # if a time range is specified, do the mean 
+    f_time <- rowSums(f_time, dims = 3) # f mort should not go above 1 but it could as I am summing mortalities from fleets and these fleets could hypotetically cacth each all biomass available ... Should change in project? add matrix end of old code
+    f_time <- apply(f_time, c(2, 3), mean)
+  }else{
+    f_time <- rowSums(f_time, dims = 2)
+  }
+
+  plot_dat <- data.frame(value = c(f_time),
+                         Species = dimnames(f_time)[[1]],
+                         w = rep(sim@params@w, each = length(species)))
+  
+  p <- ggplot(plot_dat) +
+    geom_line(aes(x = w, y = value, colour = Species, linetype = Species))+
+    scale_x_continuous(name = "Size [g]", trans = "log10") +
+    scale_y_continuous(name = "Fishing mortality [1/Year]",
+                       limits = c(0, max(plot_dat$value))) +
+    scale_colour_manual(values = sim@params@linecolour) +
+    scale_linetype_manual(values = sim@params@linetype)
+  if (print_it) {
+    print(p)
+  }
+  
+  # my - by spp addition 
+  pSpp <- ggplot(plot_dat) +
+    geom_line(aes(x = w, y = value))+
+    scale_x_continuous(name = "Size [g]", trans = "log10") +
+    scale_y_continuous(name = "Fishing mortality [1/Year]",
+                       limits = c(0, max(plot_dat$value))) +
+    # scale_colour_manual(values = sim@params@linecolour) +
+    # scale_linetype_manual(values = sim@params@linetype) + 
+    facet_wrap(~Species)
+  
+  # # my version: same 
+  #   plot_dat<-as.data.frame(f_time) %>% 
+  #   mutate(Species = rownames(f_time)) %>% 
+  #   gather(w, value, -Species) %>% 
+  #   mutate(w = as.numeric(w))  
+  # 
+  #   str(plot_dat)
+  #   # Setting colors as ggplot supports only 12
+  #   library("RColorBrewer")
+  #   colourCountSp = length(species)+1
+  #   markerSp = list(color = colorRampPalette(brewer.pal(11,"Spectral"))(colourCountSp))
+  #   
+  #   plotCommunity <- ggplot(plot_dat) + 
+  #     geom_line(aes(x=w, y = value, group = Species, colour=Species)) + 
+  #     scale_x_continuous(name = "Size (log g)", trans="log10") +
+  #     scale_color_manual(values= markerSp$color)+
+  #     theme_bw() +
+  #     theme(text = element_text(size=10),
+  #           axis.title.y = element_text(vjust=0.4),
+  #           axis.title.x = element_text(vjust=0.3),
+  #           axis.text.y = element_text(angle=90, hjust=0.5),
+  #           panel.grid.major = element_blank())  
+  #   print (plotCommunity)
+  
+  return(p)
 }
 
 
@@ -869,6 +1109,16 @@ plotFMort <- function(sim, species = dimnames(sim@n)$sp,
 #' }
 plotGrowthCurves <- function(object, species,
             max_age = 20, percentage = FALSE, print_it = TRUE) {
+  
+  # # trial
+  # object = sim_calibrated 
+  # species = sim_calibrated@params@species_params$species[1]
+  # max_age = 20
+  # percentage = FALSE 
+  # print_it = TRUE
+  
+  
+  
     if (is(object, "MizerSim")) {
         sim <- object
         if (missing(species)) {
@@ -881,7 +1131,7 @@ plotGrowthCurves <- function(object, species,
         ws <- array(dim = c(length(species), length(age)),
                     dimnames = list("Species" = species, "Age" = age))
         g <- getEGrowth(sim@params, sim@n[dim(sim@n)[1], , ], 
-                        sim@n_pp[dim(sim@n)[1], ])
+                        sim@n_pp[dim(sim@n)[1], ], sim@n_bb[dim(sim@n)[1], ], sim@n_aa[dim(sim@n)[1], ], sim@intTempScalar[,,1], sim@metTempScalar[,,1]) #AA
         for (j in 1:length(species)) {
             i <- idx[j]
             g_fn <- stats::approxfun(sim@params@w, g[i, ])
@@ -936,6 +1186,7 @@ plotGrowthCurves <- function(object, species,
         return(p)
     } else {
         # Plot growth curves using a MizerParams object.
+        sim <- project(object, t_max = 1) # construct the temperature scalars
         params <- object
         if (missing(species)) {
             species <- dimnames(params@initial_n)$sp
@@ -946,7 +1197,8 @@ plotGrowthCurves <- function(object, species,
         age <- seq(0, max_age, length.out = 50)
         ws <- array(dim = c(length(species), length(age)),
                     dimnames = list(Species = species, Age = age))
-        g <- getEGrowth(params, params@initial_n, params@initial_n_pp)
+        g <- getEGrowth(params, params@initial_n, params@initial_n_pp, params@initial_n_bb, params@initial_n_aa, 
+                        intakeScalar = sim@intTempScalar[,,1], metScalar = sim@metTempScalar[,,1]) ##AA
         for (j in 1:length(species)) {
             i <- idx[j]
             g_fn <- stats::approxfun(params@w, g[i, ])
@@ -1003,6 +1255,159 @@ plotGrowthCurves <- function(object, species,
 }
 
 
+#' Plot diets composition of by predator / prey and their sizes 
+
+plotDietComp<-function(object, prey=dimnames(object@diet_comp)$prey, min_w=.001,
+                       predator=dimnames(object@diet_comp)$predator, timeaverage=FALSE){
+  
+  # # trial 
+  # object = sim1
+  # prey=dimnames(object@diet_comp)$prey
+  # min_w=.001
+  # predator=dimnames(object@diet_comp)$predator 
+  # timeaverage=FALSE
+  
+  prey_nam<-prey
+  pred_nam<-predator
+  
+  out<-object@diet_comp 
+  
+  prey<-apply(out, c(1,2,3), FUN=sum) #Sum across size classess with in prey 
+  tot<-apply(prey, c(1,2), FUN=sum) #Sum across prey species 
+  
+  prey_prop<-sweep(prey, c(1,2), tot, "/") # Get proportion of diet for each species
+  
+  no_pred<- length(dimnames(prey_prop)[[1]])
+  no_pred_w<- length(dimnames(prey_prop)[[2]])
+  no_prey<- length(dimnames(prey_prop)[[3]])
+  
+  #Stacked  bar chart 
+  plot_dat<-expand.grid(dimnames(prey_prop)[[1]], dimnames(prey_prop)[[2]], dimnames(prey_prop)[[3]])
+  colnames(plot_dat)<-c("predator","predsize","prey")
+  plot_dat$predsize<-as.numeric(as.character(log10(as.numeric(as.character(plot_dat$predsize)))))
+  
+  plot_dat$value<- as.vector(prey_prop)
+  
+  
+  species<-object@params@species_params$species
+  wmin<-object@params@w[object@params@species_params$w_min_idx]
+  wmax<-object@params@w[object@params@species_params$w_max_idx]
+  
+  for ( i in 1:length(species)){
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize < log10(wmin[i])]<- 0
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize > log10(wmax[i])]<- 0
+  }
+  
+  
+  plot_dat<-subset(plot_dat,predsize> log10(min_w))
+  
+  dsub<-plot_dat[ plot_dat$prey %in% prey_nam, ]
+  dsub<-dsub[ dsub$predator %in% pred_nam, ]
+  dsub[is.na(dsub)]<-0
+  
+  p<-  ggplot(data = dsub, aes(x = predsize, y = value, fill = prey)) + geom_area( position = 'stack')  + facet_wrap(~predator, ncol=5) + scale_color_brewer(palette="Set1") +
+    scale_x_continuous(name = "log10 predator mass (g)") + scale_y_continuous(name = "Proportion of diet by mass (g)")
+  
+  print(p)
+  
+  return(p)
+}
+
+#' Plot PPRM values for the selected time period based on diet compositions 
+
+plotPPMR<-function(object=object, grid=T, observed=FALSE, prey=dimnames(object@diet_comp)$prey, 
+                   predator=dimnames(object@diet_comp)$predator, timeaverage=FALSE ){
+  
+  # # trial 
+  # object=sim_calibrated 
+  # grid=T
+  # observed=FALSE
+  # prey=dimnames(object@diet_comp)$prey
+  # predator=dimnames(object@diet_comp)$predator
+  # timeaverage=FALSE 
+  
+  prey_nam<-prey
+  pred_nam<-predator
+  
+  out<-object@diet_comp 
+  
+  prey<-apply(out, c(1,2,4), FUN=sum) #Sum across size classess with in prey 
+  tot<-apply(prey, c(1,2), FUN=sum) #Sum across prey weight size classes 
+  
+  prop_prey<-sweep(prey, 1:2, tot, "/" ) #proportion of prey weight in each each prey size class
+  prop_prey[is.na(prop_prey)]<-0
+  
+  #make matrix of realized PPMR
+  ppmr_mat<-outer(object@params@w, object@params@w_full, FUN="/")
+  ppmr_frac<-sweep(prop_prey, 2:3, ppmr_mat, "*")
+  ppmr_tot<-apply(ppmr_frac, c(1,2), FUN=sum) #Sum across prey weight size classes 
+  
+  plot_dat<-expand.grid(dimnames(ppmr_tot)[[1]], dimnames(ppmr_tot)[[2]])
+  colnames(plot_dat)<-c("predator","predsize")
+  plot_dat$predsize<-as.numeric(as.character(log10(as.numeric(as.character(plot_dat$predsize)))))
+  
+  plot_dat$value<- as.vector(ppmr_tot)
+  
+  
+  species<-object@params@species_params$species
+  wmin<-object@params@w[object@params@species_params$w_min_idx]
+  wmax<-object@params@w[object@params@species_params$w_max_idx]
+  
+  for ( i in 1:length(species)){
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize < log10(wmin[i])]<- 0
+    plot_dat$value[plot_dat$predator==species[i] & plot_dat$predsize > log10(wmax[i])]<- 0
+  }
+  
+  plot_dat$value[plot_dat$value==0]<-NA
+  
+  plot_dat<-plot_dat[!plot_dat$predator=="Benthos",]
+  plot_dat<-plot_dat[!plot_dat$predator=="Detritus",]
+  
+  #Plot realized vs prefferred PPMR; for individuals over 10 g 
+  
+  plot_dat$preferred
+  
+  ma<-match(plot_dat$predator, object@params@species_params$species)
+  
+  plot_dat$preferred<-object@params@species_params$beta[ma]
+  plot_dat$obs_PPMR<- object@params@species_params$obs_beta[ma] #originally I assumed that preferred ppmr was 1.7 times higher than realized (following Harvig simulations)
+  
+  #PPMR vs body size
+  
+  if(observed==FALSE & grid==TRUE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=predsize, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 predator mass (g)", trans="log10") + 
+      scale_y_continuous(name = "log10 realized PPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) + facet_wrap(~predator, ncol=5)
+  } 
+  
+  if(observed==FALSE & grid==FALSE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=predsize, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 predator mass (g)", trans="log10") + 
+      scale_y_continuous(name = "log10 realized PPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) 
+  }
+  
+  if(observed==TRUE & grid==TRUE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=obs_PPMR, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 observed realPPMRbio", trans="log10") + 
+      scale_y_continuous(name = "log10 simulated realPPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) + facet_wrap(~predator, ncol=5)
+  }
+  
+  if(observed==TRUE & grid==FALSE){
+    p <- ggplot(plot_dat) + geom_line(aes(x=obs_PPMR, y = value,  colour = predator, size = 1)) + ggtitle("PPMRbio for predators > 10 g") +
+      scale_size(range = c(2))+ scale_x_continuous(name = "log10 observed realPPMRbio", trans="log10") + 
+      scale_y_continuous(name = "log10 simulated realPPMRbio", trans="log10") + geom_abline(intercept = 0, slope=1) 
+  }
+  
+  print(p)
+  return(p)
+}
+
+
+
+
+
+
+
 #### plot ####
 #' Summary plot for \code{MizerSim} objects
 #' 
@@ -1047,8 +1452,39 @@ setMethod("plot", signature(x = "MizerSim", y = "missing"),
               print(p3 + theme(legend.position = "none"), vp = vplayout(1, 2))
               print(p4 + theme(legend.position = "none"), vp = vplayout(2, 1))
               print(p5 + theme(legend.position = "none"), vp = vplayout(2, 2))
-              print(p2 + theme(legend.position = "right",
-                               legend.key.size = unit(0.1, "cm")),
-                    vp = vplayout(3, 1:2))
+              # print(p2 + theme(legend.position = "right",
+              #                  legend.key.size = unit(0.1, "cm")),
+              #       vp = vplayout(3, 1:2)) # if you need a legend for the full plot...
+              print(p2 + theme(legend.position = "none"),  vp = vplayout(3, 1:2))
           }
 )
+
+# summary plot when fleetDynamics == true
+# plot_CN(sim3)
+
+plot_CN<- function(sim){
+
+  p1 <- plotFeedingLevel(sim, print_it = FALSE)
+  p2 <- plotSpectra(sim, print_it = FALSE)
+  p3 <- plotBiomass(sim, y_ticks = 3, print_it = FALSE)
+  p4 <- plotM2(sim, print_it = FALSE)
+  p5 <- plotFMort_CN(sim, print_it = FALSE)
+  grid::grid.newpage()
+  glayout <- grid::grid.layout(3, 2) # widths and heights arguments
+  vp <- grid::viewport(layout = glayout)
+  grid::pushViewport(vp)
+  vplayout <- function(x, y)
+    grid::viewport(layout.pos.row = x, layout.pos.col = y)
+  print(p1 + theme(legend.position = "none"), vp = vplayout(1, 1))
+  print(p3 + theme(legend.position = "none"), vp = vplayout(1, 2))
+  print(p4 + theme(legend.position = "none"), vp = vplayout(2, 1))
+  print(p5 + theme(legend.position = "none"), vp = vplayout(2, 2))
+  print(p2 + theme(legend.position = "right",
+                   legend.key.size = unit(0.1, "cm")),
+        vp = vplayout(3, 1:2))
+
+
+}
+
+
+

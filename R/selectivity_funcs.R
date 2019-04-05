@@ -43,3 +43,26 @@ knife_edge <- function(w, knife_edge_size) {
     sel[w >= knife_edge_size] <- 1
     return(sel)
 } 
+
+# CN: adding weight based trawl function - same as sigmoid_length 
+
+trawl <- function(w,W25_S,W50_S)
+{
+  SR <- W50_S - W25_S
+  S1 <- W50_S*log(3)/SR
+  S2 <- S1 / W50_S
+  return(1 / (1 + exp(S1 - S2*w)))
+}
+
+# CN: adding bell-shaped selectivity function weight based. Should you change names of these functions? also check the weight based vs the length based outputs 
+
+gillnet<-function(w,W50_B,sigma_B){
+  sel<-exp(-(w-W50_B)^2/sigma_B^2)
+  return(sel)
+}
+
+
+
+
+
+

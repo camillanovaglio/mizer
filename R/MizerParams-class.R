@@ -167,6 +167,27 @@ validMizerParams <- function(object) {
         msg <- "cc_pp must be the same length as w_full"
         errors <- c(errors, msg)
     }
+    ##AAsp##
+    # Check the benthic spectrum vector slots
+    if (length(object@rr_bb) != length(object@w_full)) {
+      msg <- "rr_bb must be the same length as w_full"
+      errors <- c(errors, msg)
+    }
+    if (length(object@cc_bb) != length(object@w_full)) {
+      msg <- "cc_bb must be the same length as w_full"
+      errors <- c(errors, msg)
+    }
+    # Check the algae spectrum vector slots
+    if (length(object@rr_aa) != length(object@w_full)) {
+      msg <- "rr_aa must be the same length as w_full"
+      errors <- c(errors, msg)
+    }
+    if (length(object@cc_aa) != length(object@w_full)) {
+      msg <- "cc_aa must be the same length as w_full"
+      errors <- c(errors, msg)
+    }
+    ##AAspEND
+    
     
     # SRR
     # Must have two arguments: rdi amd species_params
@@ -237,6 +258,16 @@ validMizerParams <- function(object) {
 #'   growth rate of the plankton spectrum. Default \eqn{r_0 w^{p-1}}
 #' @slot cc_pp A vector the same length as the w_full slot. The size specific
 #'   carrying capacity of the plankton spectrum. Default \eqn{\kappa w^{-\lambda}}
+#'   ##AAsp
+#' @slot rr_bb A vector the same length as the w_full slot. The size specific
+#'   growth rate of the benthic spectrum. Current default is same as for plankton \eqn{r_0 w^{p-1}}
+#' @slot cc_bb A vector the same length as the w_full slot. The size specific
+#'   carrying capacity of the benthic spectrum. Current default \eqn{\kappa_bb w^{-\lambda_bb}}
+#' @slot rr_aa A vector the same length as the w_full slot. The size specific
+#'   growth rate of the algal spectrum. Current default is same as for plankton \eqn{r_0 w^{p-1}}
+#' @slot cc_aa A vector the same length as the w_full slot. The size specific
+#'   carrying capacity of the algal spectrum. Current default \eqn{\kappa_bb w^{-\lambda_bb}}
+#'   ##AAspEND
 #' @slot sc The community abundance of the scaling community
 #' @slot species_params A data.frame to hold the species specific parameters
 #'   (see the mizer vignette, Table 2, for details)
@@ -251,12 +282,24 @@ validMizerParams <- function(object) {
 #'  at each weight at our candidate steady state solution.
 #' @slot initial_n_pp A vector the same length as the w_full slot that describes
 #'  the plankton abundance at each weight.
+#'  ##AAsp
+#' @slot initial_n_bb A vector the same length as the w_full slot that describes
+#'  the benthos abundance at each weight.
+#' @slot initial_n_aa A vector the same length as the w_full slot that describes
+#'  the algal abundance at each weight.
+#'  ##AAend
 #' @slot n Exponent of maximum intake rate.
 #' @slot p Exponent of metabolic cost.
 #' @slot lambda Exponent of resource spectrum.
+#' ##AAsp
+#' @slot lambda_ben Exponent of benthic resource spectrum.
+#' @slot lambda_alg Exponent of algal resource spectrum.
 #' @slot q Exponent for volumetric search rate.
 #' @slot f0 Initial feeding level.
 #' @slot kappa Magnitude of resource spectrum.
+#' ##AAsp
+#' @slot kappa_ben Magnitude of benthic resource spectrum.
+#' @slot kappa_alg Magnitude of algal resource spectrum.
 #' @slot A Abundance multipliers.
 #' @slot linecolour A named vector of colour values, named by species. Used 
 #'   to give consistent colours to species in plots.
@@ -276,6 +319,8 @@ validMizerParams <- function(object) {
 #'   \linkS4class{MizerSim} objects.
 #' @seealso \code{\link{project}} \code{\link{MizerSim}}
 #' @export
+
+## CN this needs to be changed
 setClass(
     "MizerParams",
     representation(
@@ -292,6 +337,7 @@ setClass(
         pred_kernel = "array",
         ft_pred_kernel_e = "array",
         ft_pred_kernel_p = "array",
+        pred_kernel = "array",
         mu_b = "array",
         rr_pp = "numeric",
         cc_pp = "numeric", # was NinPP, carrying capacity of plankton
@@ -300,8 +346,14 @@ setClass(
         species_params = "data.frame",
         interaction = "array",
         srr  = "function",
+        
+        ## CN - these will remain empty if fleetDynamics=FALSE
+        selectivity_params = "data.frame",
+        target = "array", 
+        fleet = "character",
+        
         selectivity = "array",
-        catchability = "array",
+        catchability = "array", # CN turn on if the above is off
         n = "numeric",
         p = "numeric",
         lambda = "numeric",
@@ -310,7 +362,18 @@ setClass(
         kappa = "numeric",
         A = "numeric",
         linecolour = "character",
-        linetype = "character"
+        linetype = "character",
+        rr_bb = "numeric",
+        cc_bb = "numeric",
+        initial_n_bb = "numeric",
+        lambda_ben = "numeric",
+        kappa_ben = "numeric",
+        rr_aa = "numeric",
+        cc_aa = "numeric",
+        initial_n_aa = "numeric",
+        lambda_alg = "numeric",
+        kappa_alg = "numeric",
+        t_ref = "numeric"
     ),
     prototype = prototype(
         w = NA_real_,
@@ -324,6 +387,7 @@ setClass(
         q = NA_real_,
         f0 = NA_real_,
         kappa = NA_real_,
+        t_ref = NA_real_,
         psi = array(NA,dim = c(1,1), dimnames = list(sp = NULL,w = NULL)),
         initial_n = array(NA,dim = c(1,1), dimnames = list(sp = NULL,w = NULL)),
         intake_max = array(NA,dim = c(1,1), dimnames = list(sp = NULL,w = NULL)),
@@ -336,11 +400,22 @@ setClass(
         ),
         ft_pred_kernel_e = array(NA,dim = c(1,1), dimnames = list(sp = NULL,k = NULL)),
         ft_pred_kernel_p = array(NA,dim = c(1,1), dimnames = list(sp = NULL,k = NULL)),
+        pred_kernel = array(NA,dim=c(1,1,1), dimnames = list(sp=NULL,w_pred=NULL,w_prey=NULL)), ##AA
         mu_b = array(NA,dim = c(1,1), dimnames = list(sp = NULL,w = NULL)),
         rr_pp = NA_real_,
         cc_pp = NA_real_,
         sc = NA_real_,
         initial_n_pp = NA_real_,
+        rr_bb = NA_real_,
+        cc_bb = NA_real_,
+        initial_n_bb = NA_real_,
+        lambda_ben = NA_real_,
+        kappa_ben = NA_real_,
+        rr_aa = NA_real_,
+        cc_aa = NA_real_,
+        initial_n_aa = NA_real_,
+        lambda_alg = NA_real_,
+        kappa_alg = NA_real_,
         A = NA_real_,
         linecolour = NA_character_,
         linetype = NA_character_,
@@ -353,7 +428,12 @@ setClass(
         ),
         catchability = array(
             NA, dim = c(1,1), dimnames = list(gear = NULL, sp = NULL)
+        ),
+        ## CN add target, which will remain empty if fleetDynamics = FALSE
+        target = array(
+          NA, dim = c(1,1), dimnames = list(gear = NULL, sp = NULL)
         )
+
     ),
     validity = validMizerParams
 )
@@ -366,15 +446,30 @@ setClass(
 #' @param max_w  Largest weight
 #' @param no_w   Number of weight brackets
 #' @param min_w_pp Smallest plankton weight
+#' #AAsp
+#' @param min_w_bb Smallest benthos weight
+#' @param min_w_aa Smallest algal weight
 #' @param no_w_pp  No longer used
 #' @param species_names Names of species
 #' @param gear_names Names of gears
+#'
 #' 
 #' @return An empty but valid MizerParams object
 #' 
 emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,  
-                        min_w_pp = 1e-10, no_w_pp = NA, 
+                        min_w_pp = 1e-10, no_w_pp = NA,  min_w_bb = 1e-10, min_w_aa = 1e-10, ##AAsp
                         species_names=1:object, gear_names=species_names) {
+  
+  # trial 
+  # object = no_sp # this is not the param_df object here....
+  # min_w = min_w
+  # max_w = max_w 
+  # no_w = no_w  
+  # min_w_pp = min_w_pp 
+  # no_w_pp = NA
+  # species_names = 1:object
+  # gear_names = fleet
+  
     if (!is.na(no_w_pp))
         warning("New mizer code does not support the parameter no_w_pp")
     # Some checks
@@ -415,18 +510,32 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
     mat2 <- array(NA, dim = c(no_sp, no_w, no_w_full), 
                   dimnames = list(sp = species_names, w_pred = signif(w,3), 
                                   w_prey = signif(w_full,3)))
+#    mat3 <- array(NA, dim=c(object,no_w,no_w_full), dimnames = list(sp=species_names,w_pred=signif(w,3), w_prey=signif(w_full,3)))
+    
     
     ft_pred_kernel <- array(NA, dim = c(no_sp, no_w_full), 
                               dimnames = list(sp = species_names, k = 1:no_w_full))
     
+
+    ## from fleet 
+    # We do not know the second dimension of ft_pred_kernel_p until the species
+    # parameters determining the predation kernel are known. 
+    # So for now we set it to 2
+    # ft_pred_kernel_p <- array(NA, dim = c(no_sp, 2), 
+    #                          dimnames = list(sp = species_names, k = 1:2))
+    ## end from fleet
+    
     selectivity <- array(0, dim = c(length(gear_names), no_sp, no_w), 
                          dimnames = list(gear = gear_names, sp = species_names, 
                                        w = signif(w, 3)))
-    catchability <- array(0, dim = c(length(gear_names), no_sp), 
+    
+    catchability <- array(0, dim = c(length(gear_names), no_sp),
                           dimnames = list(gear = gear_names, sp = species_names))
+    
     interaction <- array(1, dim = c(no_sp, no_sp), 
                          dimnames = list(predator = species_names, 
                                          prey = species_names))
+    
     vec1 <- as.numeric(rep(NA, no_w_full))
     names(vec1) <- signif(w_full,3)
     w_min_idx <- rep(1, no_sp)
@@ -440,7 +549,7 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
     # passed in by users (not used in validity check)
     species_params <- data.frame(species = species_names,
                                  z0 = NA, alpha = NA, erepro = NA)
-    
+
     # Make an empty srr function, just to pass validity check
     srr <- function(rdi, species_params) return(0)
     
@@ -456,21 +565,31 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
     names(linecolour) <- as.character(species_names)
     linecolour <- c(linecolour, "Total" = "black", "Plankton" = "green",
                     "Background" = "grey")
-    linetype <- rep(c("solid", "dashed", "dotted", "dotdash", "longdash", 
+    linetype <-rep(c("solid", "dashed", "dotted", "dotdash", "longdash", 
                      "twodash"), length.out = no_sp)
     names(linetype) <- as.character(species_names)
     linetype <- c(linetype, "Total" = "solid", "Plankton" = "solid",
                   "Background" = "solid")
+    
+mat2 <- array(NA, dim=c(object,no_w,no_w_full), dimnames = list(sp=species_names,w_pred=signif(w,3), w_prey=signif(w_full,3)))
+    
     
     # Make the new object
     # Should Z0, rrPP and ccPP have names (species names etc)?
     res <- new("MizerParams",
                w = w, dw = dw, w_full = w_full, dw_full = dw_full, w_min_idx = w_min_idx,
                psi = mat1, initial_n = mat1, intake_max = mat1, search_vol = mat1,
+
                metab = mat1, mu_b = mat1, ft_pred_kernel_e = ft_pred_kernel, 
                ft_pred_kernel_p = ft_pred_kernel, pred_kernel = array(),
+
                selectivity = selectivity, catchability = catchability,
                rr_pp = vec1, cc_pp = vec1, sc = w, initial_n_pp = vec1, 
+               ##AAsp_DO #### 
+               ##? what is sc?
+               rr_bb = vec1, cc_bb = vec1, initial_n_bb = vec1, 
+               rr_aa = vec1, cc_aa = vec1, initial_n_aa = vec1,
+               ##AAsp##
                species_params = species_params,
                interaction = interaction, srr = srr, 
                A = as.numeric(rep(NA, dim(interaction)[1])),
@@ -502,19 +621,39 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
 #'   w_inf specified in the species_params data frame.
 #' @param no_w The number of size bins in the community spectrum.
 #' @param min_w_pp The smallest size of the plankton spectrum.
+#' ##AAsp##
+#' @param min_w_bb The smallest size of the benthos spectrum.
+#' @param min_w_aa The smallest size of the algal spectrum.
+#' ##AAsp##
 #' @param no_w_pp Obsolete argument that is no longer used because the number
 #'    of plankton size bins is determined because all size bins have to
 #'    be logarithmically equally spaced.
 #' @param n Scaling of the intake. Default value is 2/3.
 #' @param p Scaling of the standard metabolism. Default value is 0.7. 
 #' @param q Exponent of the search volume. Default value is 0.8. 
-#' @param r_pp Growth rate of the primary productivity. Default value is 10. 
+#' @param r_pp Growth rate of the primary productivity. Default value is 2. 
 #' @param kappa Carrying capacity of the resource spectrum. Default
 #'       value is 1e11.
 #' @param lambda Exponent of the resource spectrum. Default value is
 #'       (2+q-n).
 #' @param w_pp_cutoff The cut off size of the plankton spectrum.
 #'       Default value is 10.
+#'  ##AAsp## 
+#' @param r_bb Growth rate of the benthos productivity. Default value is 2, as for plankton 
+#' @param kappa_ben Carrying capacity of the benthic resource spectrum. Default
+#'       value is 1e11, as for plankton 
+#' @param lambda_ben Exponent of the benthic resource spectrum. Default value is
+#'       (2+q-n).
+#' @param w_bb_cutoff The cut off size of the benthic spectrum.
+#'       Default value is 10, as for plankton.
+#' @param r_aa Growth rate of the benthos productivity. Default value is 2, as for plankton 
+#' @param kappa_alg Carrying capacity of the algal resource spectrum. Default
+#'       value is 1e11, as for plankton 
+#' @param lambda_alg Exponent of the algal resource spectrum. Default value is
+#'       (2+q-n).
+#' @param w_aa_cutoff The cut off size of the algal spectrum.
+#'       Default value is 100, so include large macroalgae (although feeding on them is unlikely to be size specific)
+#'  ##AAsp##     
 #' @param f0 Average feeding level. Used to calculated \code{h} and
 #'       \code{gamma} if those are not columns in the species data frame. Also
 #'       requires \code{k_vb} (the von Bertalanffy K parameter) to be a column
@@ -561,11 +700,43 @@ emptyParams <- function(object, min_w = 0.001, max_w = 1000, no_w = 100,
 multispeciesParams <- function(object, interaction,
                     min_w = 0.001, max_w = NA, no_w = 100,
                     min_w_pp = NA, no_w_pp = NA,
-                    n = 2/3, p = 0.7, q = 0.8, r_pp = 10,
+                    n = 2/3, p = 0.7, q = 0.8, r_pp = 10, # was 2 
                     kappa = 1e11, lambda = (2 + q - n), w_pp_cutoff = 10,
                     f0 = 0.6, z0pre = 0.6, z0exp = n - 1,
-                    store_kernel = (no_w <= 100)) {
+                    store_kernel = (no_w <= 100),
+                   
+                    min_w_bb = 1e-10, kappa_ben = 1e11, lambda_ben = (2 + q - n), w_bb_cutoff = 10, r_bb = 2,
+                    min_w_aa = 1e-10, kappa_alg = 1e11, lambda_alg = (2 + q - n), w_aa_cutoff = 100, r_aa = 2,
+                    t_ref = 10,
+                               
+             
+                    fleetDynamics, selectivity_params, catchability, target # CN arguments
+                    ) {
     
+  # # # trial
+  # object = df_param3
+  # interaction = theta
+  # # class(theta)
+  # min_w = 0.001
+  # max_w = max(object$w_inf) * 1.1
+  # no_w = 100
+  # min_w_pp = 1e-10
+  # no_w_pp = NA
+  # n = 2/3
+  # p = 0.7
+  # q = 0.8
+  # r_pp = 10
+  # kappa = 1e11
+  # lambda = (2 + q - n)
+  # w_pp_cutoff = 10
+  # f0 = 0.6
+  # z0pre = 0.6
+  # z0exp = n - 1
+  # fleetDynamics = TRUE
+  # selectivity_params = df_selParam
+  # target = df_target
+  # catchability = df_Q
+
     row.names(object) <- object$species
     no_sp <- nrow(object)
     
@@ -584,10 +755,15 @@ multispeciesParams <- function(object, interaction,
     } else {
         min_w <- min(object$w_min)
     }
-    
+
+    # CN consider the case in which fleetDynamics==TRUE and there are multiple fleets and relative arguments
+
     # If no gear_name column in object, then named after species
-    if (!("gear" %in% colnames(object))) {
+    if (fleetDynamics==FALSE & !("gear" %in% colnames(object))) {
         object$gear <- object$species
+    }else{
+      # fleet = unique(selectivity_params$subfleet)
+      fleet = rownames(target)
     }
     
     # If no k (activity coefficient), then set to 0
@@ -617,8 +793,9 @@ multispeciesParams <- function(object, interaction,
         object$erepro[missing] <- 1
     }
     
+    ### CN same as above 
     # If no sel_func column in species_params, set to 'knife_edge'
-    if (!("sel_func" %in% colnames(object))) {
+    if (fleetDynamics==FALSE & !("sel_func" %in% colnames(object))) {
         message("\tNote: No sel_func column in species data frame. Setting selectivity to be 'knife_edge' for all species.")
         object$sel_func <- 'knife_edge'
         # Set default selectivity size
@@ -628,8 +805,9 @@ multispeciesParams <- function(object, interaction,
         }
     }
     
+    ### CN same as above
     # If no catchability column in species_params, set to 1
-    if (!("catchability" %in% colnames(object))) {
+    if (fleetDynamics==FALSE &!("catchability" %in% colnames(object))) {
         object$catchability <- rep(NA, no_sp)
     }
     missing <- is.na(object$catchability)
@@ -698,9 +876,264 @@ multispeciesParams <- function(object, interaction,
         object$ks[missing] <- object$h[missing] * 0.2
     }
     
+    # Sort out avail_PP column
+    if (!("avail_PP" %in% colnames(object))) {
+      message("Note: \tNo avail_PP column in species data frame so setting availability of plankton spectrum to 0.5")
+      object$avail_PP <- 0.5
+    }
+    missing <- is.na(object$avail_PP)
+    if (any(missing)) {
+    message("Note: \tNo avail_PP column in species data frame so setting availability of plankton spectrum to 0.5")
+      object$avail_PP[missing] <- 0.5
+    }
+    
+    # Sort out avail_BB column
+    if (!("avail_BB" %in% colnames(object))) {
+      message("Note: \tNo avail_BB column in species data frame so setting availability of benthic spectrum to 0.5")
+      object$avail_BB <- 0.5
+    }
+    missing <- is.na(object$avail_BB)
+    if (any(missing)) {
+    message("Note: \tNo avail_BB column in species data frame so setting availability of benthic spectrum to 0.5")
+      object$avail_BB[missing] <- 0.5
+    }
+    
+    # Sort out avail_AA column
+    if (!("avail_AA" %in% colnames(object))) {
+      message("Note: \tNo avail_AA column in species data frame so setting availability of algal spectrum to 0.0")
+      object$avail_AA <- 0.0
+    }
+    missing <- is.na(object$avail_AA)
+    if (any(missing)) {
+    message("Note: \tNo avail_AA column in species data frame so setting availability of macroalgal spectrum to 0")
+      object$avail_AA[missing] <- 0.0
+    }
+
+    ###Warnings for temperature scalar parameters 
+    
+    # Sort out activation energy (ea) column for four rates: metabolism
+    if (!("ea_met" %in% colnames(object))) {
+      message("Note: \tNo ea_met column in species data frame so setting activation energy (ea) for metabolism to 0.63")
+      object$ea_met <- 0.63
+    }
+    missing <- is.na(object$ea_met)
+    if (any(missing)) {
+      message("Note: \tNo value for ea_met provided so setting activation energy (ea) for metabolism to 0.63")
+      object$ea_met[missing] <- 0.63
+    }
+    
+    # Sort out activation energy (ea) column for four rates: intake 
+    if (!("ea_int" %in% colnames(object))) {
+      message("Note: \tNo ea_int column in species data frame so setting activation energy (ea) for intake to 0.63")
+      object$ea_int <- 0.63
+    }
+    missing <- is.na(object$ea_int)
+    if (any(missing)) {
+      message("Note: \tNo value for ea_int provided so setting activation energy (ea) for intake to 0.63")
+      object$ea_int[missing] <- 0.63
+    }
+    
+    # Sort out activation energy (ea) column for four rates: maturation 
+    if (!("ea_mat" %in% colnames(object))) {
+      message("Note: \tNo ea_mat column in species data frame so setting activation energy (ea) for maturation to 0.63")
+      object$ea_mat <- 0.63
+    }
+    missing <- is.na(object$ea_mat)
+    if (any(missing)) {
+      message("Note: \tNo value for ea_mat provided so setting activation energy (ea) for maturity to 0.63")
+      object$ea_mat[missing] <- 0.63
+    }   
+    
+    # Sort out activation energy (ea) column for four rates: mortality 
+    if (!("ea_mor" %in% colnames(object))) {
+      message("Note: \tNo ea_mor column in species data frame so setting activation energy (ea) for background mortality to 0.63")
+      object$ea_mor <- 0.63
+    }
+    missing <- is.na(object$ea_mor)
+    if (any(missing)) {
+      message("Note: \tNo value for ea_mor provided so setting activation energy (ea) for mortality to 0.63")
+      object$ea_mor[missing] <- 0.63
+    }  
+    
+    ####
+    ## now deactivation energies
+    # Sort out deactivation energy (ed) column for four rates: metabolism
+#    if (!("ed_met" %in% colnames(object))) {
+#      message("Note: \tNo ed_met column in species data frame so setting metabolism deactivation energy x10 the activation rate")
+#      object$ed_met <- object$ea_met *10
+#    }
+#    missing <- is.na(object$ed_met)
+#    if (any(missing)) {
+#      object$ed_met[missing] <- object$ea_met *10
+#    }
+  
+    # Sort out deactivation energy (ea) column for four rates: intake
+#    if (!("ed_int" %in% colnames(object))) {
+#      message("Note: \tNo ed_int column in species data frame so setting intake deactivation energy x10 the activation rate")
+#      object$ed_int <- object$ea_int *10
+#    }
+#    missing <- is.na(object$ed_int)
+#    if (any(missing)) {
+#      object$ed_int[missing] <- object$ea_int *10
+#    }
+    
+##Unimodal responses make sense for intake and metabolism, but not for maturity or mortatlity 
+# So perhaps we should not even give the option in the species parameter file and then in the code just use zeros for these values to enable the use of the universal equation
+#Also for maturity we need a different equation, because we are changing species parameter. Or we are chaning the psi function, and just raise the proportion to reproduction for each size class?
+
+# For maturity temperature deactivation does not make sense, so we set it to zero here without any warnings 
+#    if (!("ed_mat" %in% colnames(object))) {
+#    message("Note: \tNo ed_mat column provided, setting deactivation energy for maturation to 0, giving exponential increase only")
+#      object$ed_mat <- 0
+#    }
+#    missing <- is.na(object$ed_mat)
+#    if (any(missing)) {
+#      object$ed_mat[missing] <- 0
+#    }   
+    
+# For mortality temperature deactivation does not make sense, so we set it to zero 
+#    if (!("ed_mor" %in% colnames(object))) {
+#      message("Note: \tNo ed_mor column provided, setting deactivation energy for mortality to 0, giving exponential increase only")
+#      object$ed_mor <- 0
+#    }
+#    missing <- is.na(object$ed_mor)
+#    if (any(missing)) {
+#      object$ed_mor[missing] <- 0
+#    }   
+
+## Now we sort out size scalars setting size dependent activtion rates. THese make sense for metabolism, intake and mortality
+    # Sort out size scalars (ca) column for three rates: metabolism
+    if (!("ca_met" %in% colnames(object))) {
+    message("Note: \tNo ca_met column in species data frame so setting it to 0, giving size independent temp scaling of metabolism")
+      object$ca_met <- 0
+    }
+    missing <- is.na(object$ca_met)
+    if (any(missing)) {
+      message("Note: \tNo value for ca_met provided so setting size specific scalar to 0, giving size independent temp scaling of metabolism")
+      object$ca_met[missing] <- 0
+    }
+    
+    # Sort out activation size scalars (ca) column for three rates: intake
+    if (!("ca_int" %in% colnames(object))) {
+      message("Note: \tNo ca_int column in species data frame so setting it to 0, giving size independent temp scaling of intake")
+      object$ca_int <- 0
+    }
+    missing <- is.na(object$ca_int)
+    if (any(missing)) {
+      message("Note: \tNo value for ca_int provided so setting size specific scalar to 0, giving size independent temp scaling of intake")
+            object$ca_int[missing] <- 0
+    }
+    
+# For maturity size dependent activation does not make sense. Just set it to zero 
+#    if (!("ca_mat" %in% colnames(object))) {
+#    message("Note: \tNo ca_mat column in species data frame so setting it to 0, giving size independent temp scaling of maturation")
+      object$ca_mat <- 0
+#    }
+#    missing <- is.na(object$ca_mat)
+#    if (any(missing)) {
+#      object$ca_mat[missing] <- 0
+#    }
+    
+    # Sort out size scalars (ca) column for three rates: mortality
+    if (!("ca_mor" %in% colnames(object))) {
+      message("Note: \tNo ca_mor column in species data frame so setting it to 0, giving size independent temp scaling of mortality")
+      object$ca_mor <- 0
+    }
+    missing <- is.na(object$ca_mor)
+    if (any(missing)) {
+      message("Note: \tNo value for ca_mor provided so setting size specific scalar to 0, giving size independent temp scaling of mortality")
+      object$ca_mor[missing] <- 0
+    }
+
+ ##Now deactivation rate size scalar cd for metabolism and intake
+    # Sort out size scalars (ca) column for four rates: metabolism
+#    if (!("cd_met" %in% colnames(object))) {
+#      message("Note: \tNo cd_met column in species data frame so setting it to 0, giving size independent deactivation of metabolism")
+#      object$cd_met <- 0
+#    }
+#    missing <- is.na(object$cd_met)
+#    if (any(missing)) {
+#      object$cd_met[missing] <- 0
+#    }
+
+# We also need to make sure that for species that have ed set at zero must also have cd at zero. 
+
+# #   edzero <- which(object$ed_met == 0)
+#    object$cd_met[edzero] <- 0 
+#    message("Note: \tIf ed_met is set to 0, then cd_met also must be 0 for those species! Some of your cd_met values were replaced by 0 to satisfy this requirement")  
+    
+    
+    # Sort out size scalars (ca) column for four rates: intake
+#    if (!("cd_int" %in% colnames(object))) {
+#      message("Note: \tNo cd_int column in species data frame so setting it to 0, giving size independent deactivation of intake")
+#      object$cd_int <- 0
+#    }
+#    missing <- is.na(object$cd_int)
+#    if (any(missing)) {
+#      object$cd_int[missing] <- 0
+#    }
+    
+    # We also need to make sure that for species that have ed set at zero must also have cd at zero. 
+    
+#    edzero <- which(object$ed_int == 0)
+#    object$cd_int[edzero] <- 0 
+ #   message("Note: \tIf ed_int is set to 0, then cd_int also must be 0 for those species! Some of your cd_int values were replaced by 0 to satisfy this requirement") 
+ 
+#For maturity and mortality deactivation is not used and size dependent deactivation is even more irrelevant. So we set it to zero    
+#    object$cd_mat <- 0
+#    object$cd_mor <- 0
+
+## Next we sort out Tmax for intake and metabolism - this the temperature where the rate is highest. Since unimodal responses don't make sense for maturity and metabolism, we set this value to xx by default 
+### TODO#### - set ref temperature in the params file. Should default tmax be set at tref?
+#     
+#     # Sort out maximum temp (tmax) column for two rates: metabolism
+#     if (!("tmax_met" %in% colnames(object))) {
+#       message("Note: \tNo tmax_met column in species data frame so setting Tmax for metabolism tp reference temperature")
+#       object$tmax_met <- object@tref
+#     }
+#     missing <- is.na(object$tmax_met)
+#     if (any(missing)) {
+#       object$tmax_met[missing] <- object@tref
+#     }
+#     ## Give warning if maximum temperatures are set at or below 0C
+#     tmaxlow <- which(object$tmax_met <= 0)
+#     if (length(tmaxlow > 0)) {
+#       message("Note: \tSome of the maximum metabolism temperatures are set at or below freezing point. Are you sure?")
+#     }
+# 
+#     # Sort out maximum temp (tmax) column for two rates: intake
+#     if (!("tmax_int" %in% colnames(object))) {
+#       message("Note: \tNo tmax_int column in species data frame so setting Tmax for intake tp reference temperature")
+#       object$tmax_int <- object@tref
+#     }
+#     missing <- is.na(object$tmax_int)
+#     if (any(missing)) {
+#       object$tmax_int[missing] <- object@tref
+#     }    
+#     ## Give warning if maximum temperatures are set at or below 0C    
+#     tmaxlow <- which(object$tmax_int <= 0)
+#     if (length(tmaxlow > 0)) {
+#       message("Note: \tSome of the maximum intake temperatures are set at or below freezing point. Are you sure?")
+#     }
+# ## Finally quit the run if maximum temperature for rates are set at -273 as this is an absolute freezing point and it will make nonsensical temperature scaling results
+#     tmaxlow <- which(object$tmax_met <= -273)
+#     tmaxlow2 <- which(object$tmax_int <= -273)
+#     if (length(tmaxlow) > 0 | length(tmaxlow2) > 0) {
+#       stop("Note: \tSome of your maximum intake rates are set at or below absolute zero. This does not make sense")
+#     }
+#     
+# ### for maturation and mortality unimodal response does not make sense, so we set tmax at reference temperature 
+#   object$tmax_mat <- object@tref
+#   object$tamx_mor <- object@tref
+  
+###AAtemp_modif_end  
+
+    ####
+
     # Check essential columns: species (name), wInf, wMat, h, gamma,  ks, beta, sigma 
     check_species_params_dataframe(object)
     
+
     max_w <- max(object$w_inf)
     
     # If not provided, set min_w_pp so that all fish have their full feeding 
@@ -718,18 +1151,41 @@ multispeciesParams <- function(object, interaction,
         }
     }
     
+
+    ### CN this is only becasue gear_names changes adn cannot be a column of object  
+    if(fleetDynamics==TRUE){
+      res <- emptyParams(no_sp, min_w = min_w, max_w = max_w, no_w = no_w,  
+                         min_w_pp = min_w_pp, no_w_pp = NA,
+                         ##AAsp#####
+                         min_w_bb = min_w_bb, min_w_aa = min_w_aa,
+                         ##AAsp##
+                         species_names = object$species,
+                         gear_names = fleet)
+    }else{
+
     ## Make an empty object of the right dimensions -----------------------------
     res <- emptyParams(no_sp, min_w = min_w, max_w = max_w, no_w = no_w,  
                        min_w_pp = min_w_pp, no_w_pp = NA, 
+                      ##AAsp#####
+                       min_w_bb = min_w_bb, min_w_aa = min_w_aa,
+                      ##AAsp##
                        species_names = object$species, 
-                       gear_names = unique(object$gear))
+                       gear_names = unique(object$gear))}
+    
     res@n <- n
     res@p <- p
     res@lambda <- lambda
     res@q <- q
     res@f0 <- f0
     res@kappa <- kappa
+
     no_w_full <- length(res@w_full)
+
+    res@lambda_ben <- lambda_ben
+    res@kappa_ben <- kappa_ben
+    res@lambda_alg <- lambda_alg
+    res@kappa_alg <- kappa_alg
+    res@t_ref <- t_ref
     
     # If not w_min column in species_params, set to w_min of community
     if (!("w_min" %in% colnames(object)))
@@ -765,7 +1221,7 @@ multispeciesParams <- function(object, interaction,
         unlist(
             tapply(res@w, 1:length(res@w),
                    function(wx, w_inf, w_mat,n) {
-                       ((1 + (wx / (w_mat))^-10)^-1) * (wx / w_inf)^(1 - n)
+                       ((1 + (wx / (w_mat))^-5)^-1) * (wx / w_inf)^(1 - n) ##AAsp## - changed parameter 10 to 5 here 
                    },
                    w_inf = object$w_inf, w_mat = object$w_mat, n = n
             )
@@ -812,6 +1268,7 @@ multispeciesParams <- function(object, interaction,
         # We compute the feeding kernel terms and their fft.
         phi <- exp(-(x_full - Beta[i])^2 / (2 * sigma[i]^2))
         phi[x_full > rr[i]] <- 0
+
         phi[1] <- 0
         # Fourier transform of feeding kernel for evaluating available energy
         res@ft_pred_kernel_e[i, ] <- fft(phi)
@@ -833,38 +1290,98 @@ multispeciesParams <- function(object, interaction,
     res@rr_pp[] <- r_pp * res@w_full^(n - 1) # weight specific plankton growth rate
     res@cc_pp[] <- kappa*res@w_full^(-lambda) # the resource carrying capacity - one for each mp and m (130 of them)
     res@cc_pp[res@w_full > w_pp_cutoff] <- 0  # set density of sizes < plankton cutoff size
+    res@initial_n_pp <- res@cc_pp
+    
+    ## AAsp####
+    #benthic spectrum --- 
+    res@rr_bb[] <- r_bb * res@w_full^(n - 1) # weight specific benthos growth rate
+    res@cc_bb[] <- kappa_ben *res@w_full^(-lambda_ben) # benthos carrying capacity
+    res@cc_bb[res@w_full > w_bb_cutoff] <- 0  # set density of sizes < benthic cutoff size
+    res@cc_bb[res@w_full < min_w_bb] <- 0 #set density of sizes < min size of benthos ##AAdec
+    res@initial_n_bb <- res@cc_bb  # put this as initial density
+    #algal spectum -- 
+    res@rr_aa[] <- r_aa * res@w_full^(n - 1) # weight specific algal growth rate
+    res@cc_aa[] <- kappa_alg *res@w_full^(-lambda_alg) # algal carrying capacity
+    res@cc_aa[res@w_full > w_aa_cutoff] <- 0  # set density of sizes < algal cutoff size
+    res@cc_aa[res@w_full < min_w_aa] <- 0 #set density of sizes < min size of algal ##AAdec
+    res@initial_n_aa <- res@cc_aa  # put this as initial density
+    ## AAspEND
     
     # Beverton Holt esque stock-recruitment relationship ----------------------
     # Can add more functional forms or user specifies own
-    res@initial_n_pp <- res@cc_pp
+    
     res@srr <- function(rdi, species_params){
         return(rdi / (1 + rdi/species_params$r_max))
     }
     
-    # Set fishing parameters: selectivity and catchability -------------
-    # At the moment, each species is only caught by 1 gear so in species_params
-    # there are the columns: gear_name and sel_func.
-    # BEWARE! This routine assumes that each species has only one gear operating on it
-    # So we can just go row by row through the species parameters
-    # However, I really hope we can do something better soon
-    for (g in 1:nrow(object)) {
-        # Do selectivity first
-        # get args
-        # These as.characters are annoying - but factors everywhere
-        arg <- names(formals(as.character(object[g,'sel_func'])))
-        # lop off w as that is always the first argument of the selectivity functions
-        arg <- arg[!(arg %in% "w")]
-        if (!all(arg %in% colnames(object))) {
-            stop("All of the arguments needed for the selectivity function are not in the parameter dataframe")
+    ### CN - selectivity becomes fleet and species-specific here 
+    # what happens if a species is caught by both gillnet and trawl? it should be OK as this is done by fleet
+    # may need to do a bit of checking on whether selectivity parameters are available for each spp caught - as done in original loop (see below) 
+    if(fleetDynamics==TRUE){
+      
+      res@fleet = fleet # specified above
+
+      for (fleet_count in fleet) 
+        # e.g. fleet_count = "South East Trawl Fishery - Otter trawl shelf" # for each fleet
+        for (sp_count in as.character(unique(selectivity_params[selectivity_params$subfleet==fleet_count,"species"]))){
+          # e.g. sp_count = "centroberyx affinis"
+          # find the selectivity fucntion for that specific fleet/gear and species (e.g. trawl)
+          selfunc <- as.character(selectivity_params[selectivity_params$subfleet==fleet_count & selectivity_params$species==sp_count,"gear"][1]) 
+          # get parameters for selectivity function
+          params <- selectivity_params[selectivity_params$subfleet==fleet_count & selectivity_params$species==sp_count,c("param_name","param_value")]
+          # check parameters and transform params (df) into a list for the next do.call()
+          params <- params[params$param_name %in% names(formals(as.character(selfunc))),]
+          param_list <- as.list(params$param_value)
+          names(param_list) <- params$param_name
+          param_list[["w"]] <- res@w 
+          # apply the selectivity function (uploaded in selectivity_funcs.R)
+          res@selectivity[fleet_count,sp_count,] <- do.call(selfunc,param_list)
         }
-        # Check that there is only one column in object with the same name
-        # Check that column of arguments exists
-        par <- c(w = list(res@w), as.list(object[g,arg]))
-        sel <- do.call(as.character(object[g, 'sel_func']), args = par)
-        # Dump Sel in the right place
-        res@selectivity[as.character(object[g,'gear']), g, ] <- sel
-        # Now do catchability
-        res@catchability[as.character(object[g,'gear']), g] <- object[g,"catchability"]
+      
+      # check or re-arrange speceis and fleet order in selectivity - this should not be necessary...
+      res@selectivity<-res@selectivity[,order(match(colnames(res@selectivity), object$species)),]
+      res@selectivity<-res@selectivity[fleet,,] 
+      
+      # add catchability and target, which are given as matrix if fleetDynamics = TRUE 
+      # no need to fill these matrices up (as done below) but just re-arrange the order of speceis and fleet to match that in object and selectivity   
+      catchability<-catchability[,order(match(colnames(catchability), object$species))]
+      catchability<-catchability[fleet,] 
+      res@catchability<-catchability
+      target<-target[,order(match(colnames(target), object$species))]
+      target<-target[fleet,]
+      res@target<-target
+    
+    }else{
+      
+      # Set fishing parameters: selectivity and catchability -------------
+      # At the moment, each species is only caught by 1 gear so in species_params
+      # there are the columns: gear_name and sel_func.
+      # BEWARE! This routine assumes that each species has only one gear operating on it
+      # So we can just go row by row through the species parameters
+      # However, I really hope we can do something better soon
+      for (g in 1:nrow(object)) {
+        
+        # trial 
+        # g =2
+        
+          # Do selectivity first
+          # get args
+          # These as.characters are annoying - but factors everywhere
+          arg <- names(formals(as.character(object[g,'sel_func'])))
+          # lop off w as that is always the first argument of the selectivity functions
+          arg <- arg[!(arg %in% "w")]
+          if (!all(arg %in% colnames(object))) {
+              stop("All of the arguments needed for the selectivity function are not in the parameter dataframe")
+          }
+          # Check that there is only one column in object with the same name
+          # Check that column of arguments exists
+          par <- c(w = list(res@w), as.list(object[g,arg]))
+          sel <- do.call(as.character(object[g, 'sel_func']), args = par)
+          # Dump Sel in the right place
+          res@selectivity[as.character(object[g,'gear']), g, ] <- sel
+          # Now do catchability
+          res@catchability[as.character(object[g,'gear']), g] <- object[g,"catchability"]
+      }
     }
     
     # Store colours and linetypes in slots if contained in species parameters
@@ -879,11 +1396,17 @@ multispeciesParams <- function(object, interaction,
     
     # Remove catchabiliy from species data.frame, now stored in slot
     #params@species_params[,names(params@species_params) != "catchability"]
+
+    # CN this column is not created when fleetDynamics = FALSE                                                       
+    if(fleetDynamics==FALSE){                                                      
     res@species_params <- res@species_params[, -which(names(res@species_params) == "catchability")]
-    res@initial_n <- res@psi
+    }
+    res@initial_n <- res@psi  ###AAsp_DO ####    #what is the point of this line
+
     res@initial_n <- get_initial_n(res)
     res@A <- rep(1, no_sp)
     return(res)
+
 }
 
 #' Alias for multispeciesParams
