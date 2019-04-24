@@ -990,31 +990,31 @@ diet_steps = 0
 
 ```{r}
 
-# upload calibration function
-source("/Users/nov017/Dropbox/Mizer-fleet/R/calibration_function.R")
-
-# optim function
-optimizer_count=0 # Initialize count of function evaluations
-
-# debug(calibrate)
-# undebug(calibrate)
-
-optim_SEA   <- optim(par = logParams,
-                     lower=lower,
-                     upper=upper,
-                     method ="L-BFGS-B",
-                     fn = calibrate,
-                     SSBcali = FALSE, 
-                     rankCali = FALSE,
-                     Q = FALSE, 
-                     K = TRUE,
-                     R = TRUE)
-
-# save calibrated param
-setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output")
-# save(optim_SEA, file = "optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax.Rdata")
-# save(optim_SEA, file = "optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata")
-save(optim_SEA, file = "optim_SEA_randomTRIAL.Rdata")
+# # upload calibration function
+# source("/Users/nov017/Dropbox/Mizer-fleet/R/calibration_function.R")
+# 
+# # optim function
+# optimizer_count=0 # Initialize count of function evaluations
+# 
+# # debug(calibrate)
+# # undebug(calibrate)
+# 
+# optim_SEA   <- optim(par = logParams,
+#                      lower=lower,
+#                      upper=upper,
+#                      method ="L-BFGS-B",
+#                      fn = calibrate,
+#                      SSBcali = FALSE, 
+#                      rankCali = FALSE,
+#                      Q = FALSE, 
+#                      K = TRUE,
+#                      R = TRUE)
+# 
+# # save calibrated param
+# setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output")
+# # save(optim_SEA, file = "optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax.Rdata")
+# # save(optim_SEA, file = "optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata")
+# save(optim_SEA, file = "optim_SEA_randomTRIAL.Rdata")
 
 # or load calibrated param - see options below
 # load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100or1000_catch.Rdata")
@@ -1159,7 +1159,7 @@ Calibration trial in pearcey after all the above:
 # results from CALIBRATION
 # this will be loaded from pearcey results 
 # load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata")
-load("optim_SEA_randomTRIAL.Rdata")"
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_randomTRIAL.Rdata")
 
 # new parameters when calibration is on kappa and rmax
 kappa3<-10^optim_SEA$par[length(optim_SEA$par)]
@@ -1169,15 +1169,15 @@ r_max<-10^optim_SEA$par[1:length(optim_SEA$par)-1]
 df_param3<-df_param
 df_param3$r_max<-r_max
 
-# new papram if using calibration on rmax, kappa, and Q
-kappa3<-10^optim_SEA$par[length(optim_SEA$par)]
-r_max<-10^optim_SEA$par[1:nrow(df_param)]
-Q<-10^optim_SEA$par[(nrow(df_param)+1):(length(optim_SEA$par)-1)]
-
-df_param3<-df_param
-kappa_ben<-kappa3  
-df_param3$r_max<-r_max
-df_param3$catchability<-Q
+# # new papram if using calibration on rmax, kappa, and Q
+# kappa3<-10^optim_SEA$par[length(optim_SEA$par)]
+# r_max<-10^optim_SEA$par[1:nrow(df_param)]
+# Q<-10^optim_SEA$par[(nrow(df_param)+1):(length(optim_SEA$par)-1)]
+# 
+# df_param3<-df_param
+# kappa_ben<-kappa3  
+# df_param3$r_max<-r_max
+# df_param3$catchability<-Q
 
 # effortConstant (effort used in calibration adn coming from effort_matrix) runnig 400 times 
 effortConstant<-do.call(rbind, replicate(4, effort, simplify=FALSE))
@@ -1209,6 +1209,56 @@ figure out *plotPPMR* and what Jon used as preferred and realised PPMR
 *Predation mortalities are higher than 1* - ask Asta - Rowan 
 Abundances are very low - e.g. 2e-7 g m3 (??) much lower than before calibration
 diet composition improved 
+
+#-----------------------------------------
+# plot yield vs effort 
+#----------------------------------------------
+
+```{r}
+
+effort_y<-effortConstant[1:10,]
+out_y<-data.frame()
+out_e<-data.frame()
+
+for(i in 1:ncol(effort_y)){
+
+  # effort_y[,i]<-effort_y[,i]*seq(from = 0.1, to = 1, length.out = 10)
+  # or effort equal to all spp. 
+  effort_y[,i]<-seq(from = 0.1, to = 2, length.out = 10)
+  
+  sim_check <- project(params3, effort = effort_y, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+  check_y<-getYield(sim_check)
+  check_y[,i]<-check_y[,i]
+  out_y<-rbind(out_y, check_y[,i])
+  out_e<-rbind(out_e, effort_y[,i])
+
+}
+
+out_y<-as.data.frame(t(out_y))
+colnames(out_y)<-df_param$spCommon
+out_y <- out_y %>% 
+  gather("species", "yield") %>% 
+  mutate(time = seq(1:10))
+
+out_e<-as.data.frame(t(out_e))
+colnames(out_e)<-df_param$spCommon
+check_yield <- out_e %>% 
+  gather("species", "effort")%>% 
+  mutate(time = seq(1:10)) %>% 
+  left_join(out_y)
+
+ggplot(check_yield, aes(y = yield, x = effort, group = species))+
+  geom_point()+
+  geom_smooth()+
+  facet_wrap(~species, scale="free")
+
+
+```
+
+# PROBLEM 
+blue granadier, gummy shark, pink ling and OR seems uncrushable (gummy needs an effort == 50, pink ling == 100, OR = 200, blue granadier = 400)... big should crush before smalll 
+
+
 
 #-----------------------------------------
 # check - *skip*

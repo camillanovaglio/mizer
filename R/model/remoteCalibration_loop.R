@@ -13,22 +13,23 @@ load("dataForRemoteCalibration.RData")
 .libPaths("~/local/R_libs/")
 
 
-
 # only parse the command line arguments following the script name
 argv <- commandArgs(TRUE)
+print(argv)
   
 # check for required num.rows argument
 if (length(argv) < 6)
     stop("Missing argument: SSBcali, rankCali, Q, K, R, output_file_name")
   
 # Arguments have type character, so coerce to logical - should cast a 1 to TRUE, 1 to FALSE
-SSBcali_value <- as.logical(argv[1])
-rankCali_value <- as.logical(argv[2])
-Q_value <- as.logical(argv[3])
-K_value <- as.logical(argv[4])
-R_value <- as.logical(argv[5])
+SSBcali_value <- as.logical(as.numeric(argv[1]))
+rankCali_value <- as.logical(as.numeric(argv[2]))
+Q_value <- as.logical(as.numeric(argv[3]))
+K_value <- as.logical(as.numeric(argv[4]))
+R_value <- as.logical(as.numeric(argv[5]))
 output_file_name <- argv[6] # will be a string by default.
 
+print(K_value)
 ##### load all files and libraries to run model
 #library(tidyverse)
 library(devtools)
@@ -38,9 +39,8 @@ library(reshape2)
 library(inline)
 library(ggplot2)
 library(vegan)
-#library(mizer) # if inner_loop error, you need to upload mizer
-#install.packages("mizer", repos= "http://cran.r-project.org", lib="~/local/R_libs/")
-library(mizer)
+library(mizer) # if inner_loop error, you need to upload mizer
+# install.packages("mizer")
 
 source("MizerParams-class.R") 
 source("MizerSim-class.R")
@@ -98,18 +98,19 @@ upper = c(log10(Initialcomm@params@species_params$r_max/0.01),log10(rep(1, nrow(
 
 # run calibration
 optimizer_count=0 # Initialize count of function evaluations
-#optim_SEA   <- optim(par = logParams,
-#                     lower=lower,
-#                     upper=upper,
-#                     method ="L-BFGS-B",
-#                     fn = calibrate,
-#                     SSBcali = SSBcali_value, 
-#                     rankCali = rankCali_value, 
-#                     Q = Q_value, 
-#                     K = K_value,
-#                     R = R_value)
+optim_SEA   <- optim(par = logParams,
+                     lower=lower,
+                     upper=upper,
+                     method ="L-BFGS-B",
+                     fn = calibrate,
+                     SSBcali = SSBcali_value, 
+                     rankCali = rankCali_value, 
+                     Q = Q_value, 
+                     K = K_value,
+                     R = R_value)
 
 
 # save calibrated param
-#save(optim_SEA, file = output_file_name)
+save(optim_SEA, file = output_file_name)
+
 

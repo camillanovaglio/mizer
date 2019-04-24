@@ -13,6 +13,7 @@ for SSBcali_value in {0..1}; do
                     # build a unique output file name based on the options that will be used.
 
                     base_file_name="optim_SEA_kappa"
+
                     if [[ SSBcali_value -eq 1 ]]; then
                         base_file_name=${base_file_name}_SSB
                     fi  
@@ -30,7 +31,7 @@ for SSBcali_value in {0..1}; do
                     fi 
 
                     echo $base_file_name
-                
+                    base_file_name=${base_file_name}.RData
 
       				sbatch --export SSBcali_value=$SSBcali_value,rankCali_value=$rankCali_value,Q_value=$Q_value,K_value=$K_value,R_value=$R_value,output_file_name=$base_file_name calibration.q
 	
