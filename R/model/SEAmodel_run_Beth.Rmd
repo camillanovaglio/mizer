@@ -1,0 +1,3021 @@
+---
+title: "SEAmodel_run"
+author: "Camilla Novaglio"
+date: "15/11/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# key folders: 
+
+1. /Users/nov017/Dropbox/Mizer-fleet/R. My Mizer codes, linked to my GitHub account (use the fleet branch). Here you can modify codes and commit/push changes 
+2. /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/R. r codes to prepare input parameters and data (e.g. SEA_EcolParam.Rmd and SEA_FleetParam.Rmd calling the GET functions)
+3. /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia. input, output and docs folders -> these should be moved to the dropbox folder where Mizer-fllet.Rproj linked to the github account is! 
+
+Clean forlders! in red are files and folder to delete 
+
+# summary of communities: 
+
+Fmort: 
+1. sim1 - initial uncalibrated community with constant effort/mortalities 
+3. sim_calibrated - calibrated community with r_max with constant effort/mortalities
+4. sim_fitted - calibrated community with time variant fishing mortalities 
+
+Fleet Dynamics: 
+5. sim_FD 
+
+#-----------------------------------------
+# Load code
+#-----------------------------------------
+
+```{r codes}
+
+rm(list=ls())
+library(tidyverse)
+library(devtools)
+library(plyr) 
+library(Rcpp) # this will allow you to run the inner_project_loop 
+library(reshape2)
+library(inline)
+library(ggplot2)
+library(vegan)
+library(mizer) # if inner_loop error, you need to upload mizer
+
+source("/Users/nov017/Dropbox/Mizer-fleet/R/data.R") 
+source("/Users/nov017/Dropbox/Mizer-fleet/R/help.R") 
+source("/Users/nov017/Dropbox/Mizer-fleet/R/MizerParams-class.R") 
+source("/Users/nov017/Dropbox/Mizer-fleet/R/MizerSim-class.R")
+source("/Users/nov017/Dropbox/Mizer-fleet/R/plots.R")
+source("/Users/nov017/Dropbox/Mizer-fleet/R/project_methods.R")
+source("/Users/nov017/Dropbox/Mizer-fleet/R/project.R")
+source("/Users/nov017/Dropbox/Mizer-fleet/R/RcppExports.R") 
+source("/Users/nov017/Dropbox/Mizer-fleet/R/selectivity_funcs.R")
+source("/Users/nov017/Dropbox/Mizer-fleet/R/summary_methods.R")
+source("/Users/nov017/Dropbox/Mizer-fleet/R/wrapper_functions.R")
+
+```
+
+#-----------------------------------------
+# Load df_param and select species
+#----------------------------------------------
+
+```{r input data}
+
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SEA_EcolParam.RData")
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SEA_FleetParamTemp.RData") 
+
+df_param <- as.data.frame(df_param) # colnames are as the one reqiored by mizer
+
+# delete some spp
+all<-c("lanternfish","royal red prawn","blacktip cucumberfish","school whiting","sardine","arrow squid","bigeye ocean perch","mackerel","gurnards and latchet", "redfish","deepwater sharks","jackass morwong", "tiger flathead","dories and oreos","ocean jacket", "sea mullet","bight redfish","ribaldo", "blue warehou","elephantfish","orange roughy", "eastern rock lobster","blue grenadier","gulper sharks","silver warehou","black cardinalfish","southern chimaera","gemfish","silver trevally","sharpnose sevengill shark","eastern angelshark","snapper and breams","pink ling", "common sawshark","gummy shark","school shark","blueye trevalla","bight skate")
+
+toKeep<-c("lanternfish","arrow squid","bigeye ocean perch","mackerel","school whiting","redfish","deepwater sharks","jackass morwong","tiger flathead","dories and oreos", "blue warehou","orange roughy","blue grenadier","silver warehou","gemfish","pink ling","common sawshark", "gummy shark","school shark") #!!! bight redfish was included
+
+df_param<-df_param[which(df_param$spCommon %in% toKeep),]
+
+# add catcah data for squid - same as SEA_FleetParam.Rmd data for calibration but considering all data 
+# for perch - there is no catch 
+# for mackerel you don't have the fisheries - use AFMA info
+datCalibration_add<-df_log_spp %>%
+  filter(YEAR>1994 & YEAR <2006, SPC_NAME %in% c("nototodarus gouldi","helicolenus barathri","trachurus declivis")) %>%
+  group_by(SPC_NAME, YEAR) %>%
+  dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)) %>%
+  group_by(SPC_NAME) %>%
+  dplyr::summarise(catchComm_t = round(mean(catchComm, na.rm=TRUE)/1e3)) 
+
+df_param[which(df_param$spCommon == "arrow squid"),"catchComm_t"]<-1307
+df_param[which(df_param$spCommon == "mackerel"),"catchComm_t"]<-12000
+
+```
+
+#-----------------------------------------
+# Add selectivity to df_param and create effort matrix
+#----------------------------------------------
+
+```{r Fmort}
+
+# add selectivity function and params to df_param as columns - one spp can be caught by 1 gear only 
+
+df_param<-df_param %>%
+  left_join(sel_for_df_param) %>%
+  mutate(gear = ifelse(is.na(gear), "trawl", gear)) %>% 
+  mutate(W25_S = ifelse(is.na(W25_S), 0.25*w_inf, W25_S)) %>%
+  mutate(W50_S = ifelse(is.na(W50_S), 0.5*w_inf, W50_S)) %>%
+  mutate(W50_B = ifelse(is.na(W50_B), 0.5*w_inf, W50_B)) %>%
+  mutate(sigma_B = ifelse(is.na(sigma_B), 0.5*W50_B, sigma_B))
+names(df_param)[names(df_param) == "gear"] <- "sel_func"
+
+# create Fmort matrix (time X spp)
+
+names<-df_param[,which(colnames(df_param) %in% c("species","spCommon"))]
+Fmort <- all_mortality %>% 
+  `colnames<-`(c("species","year","Fmort")) %>% 
+  mutate(species = as.character(species)) %>% 
+  right_join(names) %>% 
+  ungroup() %>% 
+  select(-spCommon)
+Fmort<-acast(Fmort, year ~ species)
+Fmort<-Fmort[,df_param$species]
+Fmort<-Fmort[as.character(1995:2017),]
+
+# Some spp don't have Fmort for the last few years - assume Fmort as for last available years 
+# NO modelled vs yield time series have a worst fit - Fmort > 0 increases modelled yields but observed yields decrease  
+# write.csv(Fmort,"/Users/nov017/Desktop/feedingTrial/Fmort_trial.csv")
+# Fmort<- read.csv("/Users/nov017/Desktop/feedingTrial/Fmort_trial.csv")
+# rownames(Fmort)<-Fmort[,1]
+# Fmort<-Fmort[,-1]
+# colnames(Fmort)<-df_param$species
+# Fmort<-as.matrix(Fmort)
+
+# calculate mean Fmort constant across years 
+# chat with Miriana nd Jemery and Robin. No Fmort values for dories, sawshark (tiers 4) adn deepwater shark. The only info is in ERA report (soon to be published in AFMA), and it is a current fishing mortality considering the last 5 years (mean I guess). Miriana will send the rport when ready, now you hava mean values 
+Fmort[Fmort==0]<-NA
+Fmort[,"mustelus antarcticus"]<-rep(0.13,dim(Fmort)[1]) # assessment to come, here ERA
+Fmort[,"galeorhinus galeus"]<-rep(0.17,dim(Fmort)[1]) # assessment to come, here ERA
+### Fmort[,"squalus spp."]<-rep(0.3,dim(Fmort)[1])  
+FmortSqualus<-mean(c(0.47,0.4,0.6,0.43,0.21,0.26,0.3,0.5,0.35,0.14,0.13)) # these values are for the different spp 
+Fmort[,"squalus spp."]<-c(rep(0.15,5),rep(0.25,10),rep(FmortSqualus,8)) # 1995 - 2000; 2000 - 2010 - 2010 - 2017  # last years as per ERA, previous year decreased
+### Fmort[,"pristiophorus cirratus"]<-rep(0.1,dim(Fmort)[1])  
+FmortSaw<-0.2 # mean(c(0.2, 0.02)) # the other spp is minor
+Fmort[,"pristiophorus cirratus"]<-c(rep(0.25,12), rep(FmortSaw,11)) # 1995 - 2006; 2006 - 2017
+### Fmort[,"zeus faber"]<-rep(0.2,dim(Fmort)[1]) 
+Fmort_dories<- data.frame(spe = "zeus faber", year = c(2017), Fy = c(0.128)) # from Stock assessment Dories (in originalData/StockAssessment sent by Claudio - see email) # also chek Neil's paper on how to calculate Fmort from catch and length frequncy data (Neil 2012 - An evaluation of the performance of a harvest strategy that uses an average-length-based assessment method). this value is for 2017, but there are other assessments you could use cited in this one. # email Cla and ask where he got this info? 
+Fmort_dories<-mean(c(0.45,0.31,0.1,0.35,0.37))
+Fmort[,"zeus faber"]<-c(rep(0.4,11),rep(Fmort_dories,12)) # 1995-2005; 2005-2017
+
+# add background mortality to mesopelagic
+Fmort[,"nototodarus gouldi"]<- rep(0.05, dim(Fmort)[1])
+Fmort[,"trachurus declivis"]<- rep(0.15, dim(Fmort)[1])
+Fmort[,"helicolenus barathri"]<- rep(0.05, dim(Fmort)[1]) # state fishery? no catches 
+
+Fmort_mean<-Fmort[as.character(1995:2005),] 
+Fmort_mean<-colMeans(Fmort_mean, na.rm=TRUE)
+Fmort_mean[is.nan(Fmort_mean)]<-0
+Fmort_mean<-unname(Fmort_mean)
+
+# # mean Fmort becomes a catchability column, while effort is a matrix of 0 if fishing is off and 1 if fishing is on
+# df_param$catchability<-Fmort_mean
+# 
+# # create effort matrix
+# # 200 years effort is off and 200 years effort is on (for 19 spp)
+# matrix_effort<-t(matrix(c(rep(0,400*19/2), rep(1, 400*19/2)), nrow = length(df_param$species), ncol = 400))
+# rownames(matrix_effort)<-seq(1:400)
+# colnames(matrix_effort)<-df_param$species
+
+# changes to effort matrix according to Beth - see comments below 
+# matrix_effort[200:400,"squalus spp."]<-3
+# matrix_effort[,"platycephalus richardsoni"]<-0.75
+# # matrix_effort[200:400,]
+
+# other approach - easier if you need to play with catchability
+# Fmort_mean is in effort matrix and catchability is 1 
+# df_param$catchability<-1
+
+t_max = 400
+matrix_effort<-t(matrix(c(rep(0,t_max*19/2), rep(Fmort_mean, t_max*19/2)), nrow = length(df_param$species), ncol = t_max))
+rownames(matrix_effort)<-seq(1:t_max)
+colnames(matrix_effort)<-df_param$species
+# dim(matrix_effort)
+# matrix_effort[150:200,]
+
+```
+
+
+#-----------------------------------------
+# calculate theta - *can skip*
+#----------------------------------------------
+
+Species interaction terms are calculated as probability of co-occurrence between speceis pairs using ISMP data. These *values are incresed (by 10)* otherwise too low and there is no interaction between speceis. These values are then adjusted considering diet data and feeding strategies. Skip this step as you can upload the matrix later
+
+Method from old version:
+source("/Users/nov017/multispecies_sizebasedmodels/SouthEastAustralia/R/GETtheta.R")
+res = GETtheta(df_kapCatch, df_param)
+
+```{r}
+# 
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SESSF_ISMP_Cleaned_noCanatus.RData")
+# 
+# sp_name<-df_param %>%
+#   select("species","spCommon") %>%
+#   `colnames<-`(c("SPC_NAME","spCommon"))
+# 
+# occ<-df_ismp_spp %>%
+#   right_join(sp_name) %>%
+#   filter(!is.na(ACTIVITY_ID)) %>%
+#   select(ACTIVITY_ID,SPC_NAME,SPC_WT) %>%
+#   group_by(ACTIVITY_ID, SPC_NAME) %>%
+#   dplyr::summarise(SPC_WT = sum(SPC_WT))
+# 
+# n_tows<-length(unique(occ$ACTIVITY_ID))
+# 
+# occ<-as.data.frame(occ)
+# occ<-acast(occ, SPC_NAME~ACTIVITY_ID)
+# occ[is.na(occ)]<-0
+# occ[occ>0]<-1 # presence-absence data instead of abundance (as used before)
+# 
+# # Probability of cooccurrence
+# library("cooccur")
+# cooccur<-cooccur(mat=occ, type = "spp_site", spp_names = TRUE)
+# cooccur<-cooccur$results
+# 
+# # probability of cooccurrence = expected cooccurrence/n_tows
+# cooccur<-cooccur[, which(colnames(cooccur) %in% c("sp1_name","sp2_name", "prob_cooccur"))]
+# 
+# # need to increase values otherwise there is no interaction
+# cooccur$prob_cooccur = cooccur$prob_cooccur*10
+# cooccur$prob_cooccur = ifelse(cooccur$prob_cooccur >1, 1, cooccur$prob_cooccur)
+# 
+# cooccur$sp1_name<-as.character(cooccur$sp1_name)
+# cooccur$sp2_name<-as.character(cooccur$sp2_name)
+# 
+# # add sp not in ismp
+# add<-df_param[-which(df_param$species %in% unique(c(cooccur$sp1_name,cooccur$sp2_name))),"species"]
+# add<-expand.grid(sp1_name = add, sp2_name= unique(c(add, cooccur$sp1_name, cooccur$sp2_name)))
+# add$prob_cooccur<-1
+# cooccur<-rbind(cooccur, add)
+# 
+# # add the diagonal - cannibalism
+# add2<-data.frame(sp1_name=unique(rownames(occ)), sp2_name=unique(rownames(occ)), prob_cooccur=0.6)
+# cooccur<-rbind(cooccur, add2)
+# 
+# # rearrange occurr to include all combinations
+# cooccur1<-cooccur
+# colnames(cooccur)<-c("prob_cooccur","sp2_name", "sp1_name")
+# cooccur<-rbind(cooccur, cooccur1)
+# cooccur<-unique(cooccur)
+# 
+# # order cooccur as df_param sp list
+# df_param<-df_param[order(df_param$w_inf),]
+# cooccur$sp2_name<-factor(cooccur$sp2_name, c(paste(df_param$species)))
+# cooccur$sp1_name<-factor(cooccur$sp1_name, c(paste(df_param$species)))
+# 
+# # trnsform in matrix
+# library(reshape2)
+# theta<-acast(cooccur, sp1_name~sp2_name, value.var="prob_cooccur")
+# 
+# # taking into account food ecologies:
+# 
+# # theta[,c("myctophids","nototodarus gouldi","trachurus declivis")]<- 1 # Always preys
+# # theta[c("myctophids","nototodarus gouldi","trachurus declivis"),]<- 0 # never predators - no predation on small fish of all spp (larvae)
+# # Planktivory, bottom feeders and sp not feeding on other fishes. (this should relay on PP and BB)
+# # theta[c("nemadactylus macropterus","seriolella punctata","seriolella brama"),]<-0 # bigone starv after calibration - should adjust beta
+# 
+# # 2 using diet data to inform some spp
+# 
+# # from GETpesciData.R in GETbetaWrap.R in SEA_EcolParam
+# source("/Users/nov017/multispecies_sizebasedmodels/SouthEastAustralia/R/GETpesciData.R")
+# res = GETpesciData(df_param)
+# df_pesci <- res$df_pesci
+# df_pesci2<-df_pesci %>%
+#   mutate(pred = tolower(pred)) %>%
+#   mutate(prey = tolower(prey)) %>%
+#   filter(pred %in% df_param$species) %>%
+#   mutate(n = 1) %>%
+#   select("pred","prey","n") %>%
+#   group_by(pred,prey) %>%
+#   dplyr::summarise(n = sum(n)) # %>%
+#   # spread(prey,n) # better 1 by 1
+# 
+# toMatch<-c("myctophids","sillago","flindersi","nototodarus","gouldi","helicolenus","barathri","trachurus","declivis","centroberyx","affinis","squalus","nemadactylus","macropterus","platycephalus","richardsoni","zeus","faber","seriolella","brama","hoplostethus","atlanticus","macruronus","novaezelandiae","punctata","rexea","solandri","genypterus","blacodes","pristiophorus","cirratus","mustelus","antarcticus","galeorhinus","galeus")
+# 
+# matches <- unique (grep(paste(toMatch,collapse="|"),
+#                         df_pesci2$prey, value=TRUE))
+# 
+# df_pesci2<-df_pesci2 %>%
+#   filter(prey %in% matches)
+# 
+# # increase these interactions
+# theta["centroberyx affinis","helicolenus barathri"]<-1
+# theta["hoplostethus atlanticus","macruronus novaezelandiae"]<-1
+# theta["macruronus novaezelandiae","macruronus novaezelandiae"]<-1
+# theta["platycephalus richardsoni","genypterus blacodes"]<-1
+# theta["platycephalus richardsoni","sillago flindersi"]<-1
+# theta["platycephalus richardsoni","platycephalus richardsoni"]<-1
+# theta["squalus spp.","platycephalus richardsoni"]<-1
+# theta["zeus faber","centroberyx affinis"]<-1
+# theta["zeus faber","helicolenus barathri"]<-1
+# theta["zeus faber","sillago flindersi"]<-1
+# theta["zeus faber","macruronus novaezelandiae"]<-1
+
+```
+
+# PROBLEM
+interaction terms increased by 10 - see above
+#-----------------------------------------
+# upload modified theta
+#----------------------------------------------
+
+```{r}
+
+# write.csv(df_param,"/Users/nov017/Desktop/feedingTrial/df_param_trial.csv")
+# write.csv(theta,"/Users/nov017/Desktop/feedingTrial/theta_trial.csv")
+
+# explore PPMR
+# i=6  
+# bell<-function(wp) exp((-(log(df_param2[i,"w_inf"]/(wp*df_param2[i,"beta"])))^2)/2*(df_param2[i,"sigma"])^2)
+# 
+# ggplot(data.frame(wp=c(0:10)), aes(wp)) +
+#   stat_function(fun = bell, geom="line")+
+#   labs(x = "Prey weight", y="Predator preference", caption = 'Prey-weight selection function')
+
+# upload changed df_parama and theta
+# df_param2<- read.csv("/Users/nov017/Desktop/feedingTrial/df_param_trial.csv")
+
+theta2<- read.csv("/Users/nov017/Desktop/feedingTrial/theta_trial_PM_feeding.csv")
+rownames(theta2)<-theta2[,1]
+theta2<-theta2[,-1]
+colnames(theta2)<-rownames(theta2)
+theta2<-as.matrix(theta2)
+
+```
+
+
+
+# interaction trials: 
+
+1. theta_prova_PPinteractions_AFMA. includes modification of PP interactions according to spp' predators and preys reported in AFMA website. no changes in sim.
+
+2. theta_trial_PM_feeding -> the one used. 
+Interaction terms are adjust to fix Predation Mortality and feeding level. Specifi aims: 
+1) increase predation on small individuals of all spp 
+2) no starvation
+3) avoid OR and other species known to have declined to increase in abundance when fished  
+who feeds on <1 g? only mycto right now 
+
+potential ways to meet point 1): 
+higher predation of small to big - main - top rigth of matrix (zeus included)
+higher predation of small to small - top left of matrix
+higher predation of big to small - bottom left of matrix
+ 
+changes done - see theta_trial_PM_feeding.xls:
+-mycto preying on (larvae) of all others 
+-decrease predation by big fish on some other fish (the list below) to lower PM at medium/high sizes:
+  -genypterus 
+  -mycto
+  -macrurus
+  -platichephalus 
+  -zeus
+look at school for example on other sharks 
+possibly need more small fish
+
+methods for point 2: 
+- trachurus and mycto are starving, increased PP cutoff to 50 
+- nemadactilus and seriorell no changes if tured to 0, but they starv after calibration. beta for them turned to 1000 (bottom feeder not predating on fishes)
+
+#-----------------------------------------
+# fixed param
+#----------------------------------------------
+
+```{r fixed parameters}
+
+kappa = 0.001 # intercpet of PP
+kappa_ben = kappa # intercpet of BB benthic spectrum
+kappa_alg = 0 # intercpet for algae spectrum
+lambda = 2.33 # slope of spectrum
+lambda_ben = 2.33
+# min_w_pp = 1e-10 # min and max cutoff of spectrum # don't have this anymore - it's dynamically calulated and according to spp min size
+w_pp_cutoff = 50 # was 10 but mycto and trachurus were starving 
+min_w_bb = 1e-5 
+w_bb_cutoff = 100 # if I increase this from 10 to 100, the big ones don't seem to starv 
+n = 2/3 # Exponent for max. food intake
+q = 0.8 # Exponent for volumetric search rate
+t_max = 400
+dt = 0.5
+
+```
+#
+#
+#
+#
+#-----------------------------------------
+# change df_param
+#----------------------------------------------
+
+```{r}
+
+df_param <- df_param %>%  
+  
+  # H and KS
+  # set as def # after bug discovering... 
+  mutate(h = 50 * (w_inf/1000)^0.15) %>% # h = constant for maximum food intake
+  mutate(ks = 20*w_inf^(-0.25)) %>% # ks = constant for standard metabolism and activity
+  mutate(ks = ifelse(species == "myctophids", 5, ks)) %>% # however this relationship gives Trachinops (in my case myctophids) very high ks, so I decrease it a bit
+  
+  ##### 1 fix abundances....
+  # R MAX
+  mutate(r_max = kappa * w_inf^(-1.5)) %>% # if you are using r_max instead, here is Julia's formula for deep sea
+ 
+  # working with Beth on rescaling B0 - possibility to iterate according with Atlantis for the whole SESSF (values from Atlantis in input/originaldata - bss_cf_Atlantis_bo(1))
+  # if decide to cut GAB need to leave values as they are for spp living on the East and drop proportionally for ssp living in both areas - e.g. dories , mid pelagics and sharks 
+  # mutate(scalar_r_max = c(7, 0.6, 5, 1, 4, 2, 5, 1, 0.75, 1, 0.5, 4, 2, 2, 1, 1, 1, 2, 1)) %>% # Beth's (according to Atlantis) but see comments below 
+  # mutate(scalar_r_max = c(7, 0.6, 3, 1, 4, 2, 1, 1, 2, 1, 0.5, 2, 2, 2, 1, 1, 1, 2, 1)) %>% # my trial given Beth's comment: decrease squalus (7) and increase flathead (9), decrease squid (3) and OR (12)
+  # mutate(scalar_r_max = c(18, 1.5, 345, 1, 34, 27, 274, 5, 2, 83, 6, 8.5, 9, 4, 1.6, 1.6, 1, 1.3, 3.2)) %>% # version 3
+  # mutate(scalar_r_max = c(20, 1, 20, 1, 10, 10, 20, 1, 1, 10, 5, 5, 5, 1, 1, 1, 1, 1, 1)) %>% # version 4 - we increse by either 10, 5 or 2
+  # mutate(scalar_r_max = c(20, 1, 30, 1, 10, 10, 25, 1, 1, 10, 5, 1, 5, 1, 1, 1, 0.5, 0.5, 1)) %>% # version 5 - according to rank
+  # mutate(scalar_r_max = c(20, 0.5, 100, 1, 10, 10, 15, 1, 1, 10, 1, 1, 5, 1, 1, 1, 0.1, 0.2, 1)) %>% # version 6 - according to rank
+  mutate(scalar_r_max = c(30, 1, 150, 4, 15, 10, 15, 3, 1, 10, 1, 1, 5, 1, 1, 1, 0.1, 0.2, 1)) %>% # version 7 - further increse the abundance of small spp to force spp diet
+  # note version 7 is OK when unfished abundance are compared between your model and Atlantis (ranking not absolute abundance) and when declines in abundance due to fishing are compared with SA assessment   
+  
+  # to macth catches observed vs modelled catches
+  # adjust squid and mackerel (and try squalus): 
+  mutate(scalar_r_max = c(30, 1, 150, 4, 160, 10, 6, 3, 40, 10, 1, 1, 5, 1, 1, 1, 0.1, 0.2, 1)) %>%
+  mutate(catchability = c(1, 1, 0.1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)) %>%
+
+  mutate(r_max = r_max * scalar_r_max) %>%
+  
+  # given that all observed catches are higher than expected, increase all r_max by e.g. 10%... 150%. not working, you don't get that much higher abundances or catches and spp (squalus) start declining
+  # mutate(r_max = (1.5 * r_max) + r_max) %>% 
+  
+  # BETA and SIGMA
+  # mutate(sigma = 2) %>%
+  mutate(beta = ifelse(species %in% c("nemadactylus macropterus","seriolella brama","seriolella punctata"), 1000,100)) %>% #"myctophids","trachurus declivis","pristiophorus cirratus","mustelus antarcticus"
+  # new after bug...
+  mutate(sigma = ifelse(sigma> 2, 2, sigma)) %>% 
+  # mutate(beta = ifelse(beta >= 1000, 1000, beta)) %>%
+
+  # PP and BB
+  mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis"),1,0.3)) %>% # set availability to PP to 1 for small pelagic and to 30% for others
+  mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis"),0,0.7)) %>% # set availability to BB to 0 for small pelagic and to 70% for others
+  # CATCHES for calibration and validation
+  # mutate(catchComm_t = ifelse(species %in% c("nototodarus gouldi","trachurus declivis"),0,catchComm_t)) # %>% # these are not fished in our system so r_max calibration shuld not interest these spp  
+  
+  # mutate(w_mat = ifelse(species == "hoplostethus atlanticus", w_mat*2, w_mat)) # to consider late maturity?!
+
+
+  # try giving less PP abnd BB
+  # notes: PP is now changing dynamically, but BB and AA not 
+  # #' @param max_w Obsolete argument because the maximum size of the consumer
+  #'   spectrum is set to max_w_inf. in wrapper_function
+
+  # incresing w_min increase the feeding on other spp rather than squids - because abundances at this size, which are the ones required by other spp, increase. need to strat from 0.001 for mycto. 
+  # mutate(w_min = ifelse(species == "myctophids", 0.001, ifelse(w_min < 1, 0.001 * (df_param$w_inf)^0.3, w_min))) %>% 
+  mutate(w_min = ifelse(species == "myctophids", 0.001, ifelse(w_min < 1, 0.005, w_min))) %>%
+  mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis","nototodarus gouldi"),0.6,0.2)) %>% # set availability to PP to 1 for small pelagic and to 30% for others
+  mutate(avail_PP = ifelse(species %in% c("myctophids"),1,avail_PP)) %>% # need to keep mycto high
+  mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis","nototodarus gouldi"),0,0.4)) # set availability to BB to 0 for small pelagic and to 70% for others
+# df_param2<-df_param %>% 
+  # mutate(w_min = ifelse (species == "squalus spp.", 0.001, w_min))
+
+rownames(df_param)<-seq(1:19)
+
+```
+
+# comments
+some other parameters values have been tried 
+
+H and KS
+Asta's values 
+by default mizer will set h values, calcualted as h = [3 X k_vb/(alfa X f0)] X W_inf^(1/3)
+I use size dependent scaling, derived from earlier explorations
+
+EREPRO
+mutate(erepro = 0.05*w_inf^-0.5) %>%  # set and calibrate the community (reach coexistence) using erepro 
+mutate(erepro = ifelse(class=="chondrichthyes", erepro + 0.05, erepro)) %>%  # increase for shaks, which have big eggs - note my biggest species is a shark with large eggs, so they need higher erepro
+mutate(erepro = ifelse(species %in% c("sillago flindersi","trachurus declivis","centroberyx affinis"), erepro + 0.05, erepro)) %>% # as decided before
+mutate(r_max = Inf) %>% # if you are calibrating using erepro, you don't need r_max
+select(-erepro) %>% # use def values
+
+BETA and SIGMA
+mutate(beta = beta/(exp((2 - 2*n + q)/sigma^2))) %>% # adjust beta from realised to preferred - see Julia's NS  # not working (diet composition is bed here but feeding level is OK) , so change values
+mutate(beta = 100) %>% # the more I increase this the better in terms of predation mortality and feeding level, this is because I have lots of big spp feeding on mid-sizes
+
+PP and BB
+mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis"),1,ifelse(species %in% c("sillago flindersi","nototodarus gouldi","helicolenus barathri","nemadactylus macropterus","seriolella brama","seriolella punctata"),0.7,0.5))) %>%
+mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis"),0,ifelse(species %in% c("sillago flindersi","nototodarus gouldi","helicolenus barathri","nemadactylus macropterus","seriolella brama","seriolella punctata"),0.3,0.5)))
+
+
+# PROBLEM 
+*problesm with h* (maximum consumption rate) and gamma (search volume)? Asta: gamma should be lower than h otherwise gamma does not constrain feeding. Asta calcualted both h and gamma according to data. you used Asta's relationship to calcualte h, but Mizer def methods to calculate gamma. As a result, gamma is higher than h - I am not sure this is a problem - higher gamma still constrain feeding, feeding also depends on prey biomass - see eqn consumption in mizer guide. can play with values. if E is low then it limits feeding and needs high gamma for the food to be found. gamma is calcualted given kappa, higher kappa gives smaller gamma. E is also indirectly calcuated given kappa as kappa is used to get initial abundance and r_max - what will happen if you'll specify initial abundance?   
+
+#-----------------------------------------
+# change effort matrix
+#----------------------------------------------
+
+```{r}
+
+matrix_effort[400,]
+# cahnges to effort matrix according to Beth - see comments below - essential to crush squalus a bit
+matrix_effort[,"squalus spp."]<-matrix_effort[,"squalus spp."]*2
+matrix_effort[,"mustelus antarcticus"]<-matrix_effort[,"mustelus antarcticus"]*2 # historical depletion
+matrix_effort[,"galeorhinus galeus"]<-matrix_effort[,"galeorhinus galeus"]*1.5 # historical depletion
+
+# too hign abundance after fishing
+matrix_effort[,"hoplostethus atlanticus"]<-matrix_effort[,"hoplostethus atlanticus"]*6 # very small...
+# matrix_effort[,"macruronus novaezelandiae"]<-matrix_effort[,"macruronus novaezelandiae"]*4 # very small... still ok if it increase- no changes in SSB from stock assessmetn
+matrix_effort[,"centroberyx affinis"]<-matrix_effort[,"centroberyx affinis"]*2
+
+# too low abundance after fishing
+matrix_effort[,"platycephalus richardsoni"]<-matrix_effort[,"platycephalus richardsoni"]*0.2
+matrix_effort[,"seriolella brama"]<-matrix_effort[,"seriolella brama"]*0.3
+matrix_effort[,"rexea solandri"]<-matrix_effort[,"rexea solandri"]*0.5
+matrix_effort[,"genypterus blacodes"]<-matrix_effort[,"genypterus blacodes"]*0.4
+
+# to higher decreases 
+matrix_effort[,"zeus faber"]<-matrix_effort[,"zeus faber"]*0.8
+# to low catches 
+matrix_effort[,"macruronus novaezelandiae"]<-matrix_effort[,"macruronus novaezelandiae"]*2
+
+# # cami's addings 
+# # it does not decrease but it is known to be depleted adn fished for a long time. Flathead is already high 
+# matrix_effort[,"nemadactylus macropterus"]<-matrix_effort[,"nemadactylus macropterus"]*1.5 
+# # as above and with very low Fmort values... 
+# matrix_effort[,"macruronus novaezelandiae"]<-matrix_effort[,"macruronus novaezelandiae"]*5 
+# matrix_effort[,"hoplostethus atlanticus"]<-matrix_effort[,"hoplostethus atlanticus"]*2
+
+
+# # add other years at fishig becasue galueus does not stabilise 
+# dim(matrix_effort)
+# add_effort<-matrix_effort[201:300,]
+# rownames(add_effort)<-seq(301, 400)
+# matrix_effort<-rbind(matrix_effort, add_effort)
+# dim(matrix_effort)
+
+```
+
+# to do 
+*fix fishing mortatlities* for those spp who don't have them. 
+1. ask jemery for OR, school and gummy shark and dories too.
+2. send the email on fishing mortalities in draft - these are quite important for the time variant version too 
+3. can you calucalte Fmort from effort and catches? Julia infer them. See cla's email 
+
+#-----------------------------------------
+# change theta
+#----------------------------------------------
+
+```{r}
+
+# changes to predator-prey matrix according to Beth - working on flatheed - see commetns below
+
+# change diet 
+theta2["platycephalus richardsoni",]<-theta2["platycephalus richardsoni",]*0.3 
+# theta2["macruronus novaezelandiae",]<-theta2["macruronus novaezelandiae",]*0.3 # no
+# theta2["zeus faber", "platycephalus richardsoni"]<-0.3 # was 1
+# theta2["squalus spp.",]<-1
+# theta2["squalus spp.","myctophids"]<-0
+
+# # starving sharks - no change 
+# theta2[15:19,9:13]<-0.5
+# # starving OR
+# theta2["hoplostethus atlanticus",]<-0.5
+
+# # reduce background 
+# kappa = 0.0001 # squalus collapses....all the otehrs seems to be fine despite starving a little 
+# theta2["squalus spp.", ]<-1 # no changes - needs food from 0.5 to 2 g and this is usually background for it
+# # MAXIMUM SIZE OF FOOD REQUIRED 
+# data.frame(sp= df_param$species, g = df_param$w_inf/df_param$beta) # the bigger they are, the more they starv - there is noone taht is not starving anyway...
+
+# # other trial- squalus eating  only squids .... collapsing 
+# df_param[df_param$species == "squalus spp.","avail_PP"]<-0
+# df_param[df_param$species == "squalus spp.","avail_BB"]<-0
+# theta2["squalus spp.", ]<-0
+# theta2["squalus spp.", "nototodarus gouldi"]<-1
+
+# improving interaction - increase feeding on forage 
+# theta2[,"sillago flindersi"]<-theta2[,"nototodarus gouldi"] # it decreases a lot
+theta2[,"helicolenus barathri"]<-theta2[,"nototodarus gouldi"]
+theta2[,"trachurus declivis"]<-theta2[,"nototodarus gouldi"]
+
+
+```
+
+#-----------------------------------------
+# plot theta
+#----------------------------------------------
+
+```{r}
+
+# plot predatro-prey matrix - see what's changing with fishing / no fishing etc...
+theta_plot<-as.data.frame(theta2)
+theta_plot$predator<-rownames(theta_plot)
+theta_plot<-melt(theta_plot)
+theta_plot$predator<-factor(theta_plot$predator, levels = levels(theta_plot$variable))
+
+# need to change orders in plot 
+levels(theta_plot$variable)
+levels(theta_plot$predator)
+
+p2 <- ggplot(theta_plot, aes(variable, predator)) + # predator-prey matrix
+  geom_tile(aes(fill = value)) + 
+  scale_fill_gradient(low = "white",high = "blue")+
+  theme_bw()+
+  theme(text = element_text(size=18),
+        # axis.title.y = element_text(vjust=0.4),
+        # axis.title.x = element_text(vjust=0.3),
+        axis.text.x = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+print(p2)
+
+```
+
+# PROBLEM 
+- School increases when fished. decreasing food available does not change anythings. decreasing r_max only decreases abundance but does not change patterns. increasing fishing mortality to 0.3 makes it work. After calibration the stock is at very low abundances and closed to collapse
+- the problem for this and other species is worst after calibration - their abundance decreases when fishing stops
+- abundances are all very low 
+
+# to do 
+need to calcuate diet composition for specific time steps and compare it 
+
+# note 
+you have a 10 degree temperature by default as you are using the code merged with Asta's codes 
+
+
+#-----------------------------------------
+# change fixed param
+#----------------------------------------------
+
+```{r}
+
+df_param$PPMRMin<-df_param$w_min/df_param$beta
+df_param$PPMRMax<-df_param$w_inf/df_param$beta
+# min PP dynamic
+# max - feeding on PP is mycto and mackerel - up to 16g
+w_pp_cutoff = 20 # no much difference - OK
+# NOTE: all those spp that don't have full access to PP starv a little when small unless I decrease min_w_bb (before 1e-5)
+kappa = 0.001 # kappa = 0.0001 the system supports a lot less mesopelagic - don't know how to keep the mycto alive 
+# all the rest feed on BB mostly (access to 70% of it)
+# kappa_ben = 0
+min_w_bb = 1e-7 # this controls the beginning of the feeding level for those with no full access to PP
+w_bb_cutoff = 50 # this controls the end...   
+
+```
+#
+#
+#
+#
+#-----------------------------------------
+# first run with Fmort 
+#----------------------------------------------
+
+```{r Fmort run}
+
+params <- MizerParams(df_param, interaction = theta2, kappa = kappa, kappa_ben = kappa, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+# # no effort 
+# matrix_effort_bug<-matrix_effort
+# matrix_effort_bug[]<-0
+# 
+# sim1 <- project(params, effort= matrix_effort_bug, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
+# 
+# plot(sim1)
+# a<-plotBiomass(sim1)
+# a<-plotM2(sim2)
+# a<-plotFeedingLevel(sim1)
+# a<-plotFMort(sim1)
+# a<-plotSpectra(sim1)
+# a+facet_wrap(~Species)
+
+# a<-plotDietComp(sim1) 
+# a$p
+# b<-a$dietData
+# head(b)
+# check<-b %>% 
+#   filter(predator == "rexea solandri") %>% 
+#   group_by(prey) %>% 
+#   dplyr::summarize(g = sum(value)) %>% 
+#   mutate(prop = (g/sum(g))*100) %>% 
+#   arrange(desc(prop))
+# plotDietComp(sim1, predator = "rexea solandri")
+
+# fishing off for 200 years, then on for 200 y with constant fishing mortality
+sim2 <- project(params, effort= matrix_effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
+
+plot(sim2) 
+# a<-plotDietComp(sim2) 
+# a$p
+# b<-a$dietData
+# check2<-b %>% 
+#   filter(predator == "rexea solandri") %>% 
+#   group_by(prey) %>% 
+#   dplyr::summarize(g = sum(value)) %>% 
+#   mutate(prop = (g/sum(g))*100) %>% 
+#   arrange(desc(prop))
+```
+
+#-----------------------------------------
+# modelled vs observed 
+#----------------------------------------------
+
+```{r}
+
+# working with BETH 
+
+### comparison with atlantis values & between before vs after fishing in your community & between observed vs modelled catches (below, just before calibration)
+
+# calcualte area of the ecosystem using googe map: see screen shot 
+# from https://www.calcmaps.com/map-area/
+areaEco<-853512602888*400 # area m2 * depth m = m3 
+areaEco<-1e15 # approx
+
+### calculate biomasses and compare to Beth's (see xls file - compare B0)
+# obs = Atlantis
+compare_ab<-data.frame(species = df_param$species, obs = round(c(2149027.8, 45485.12221, 1594790.423,0, 598937.9633, 249000.592, 953398.2439, 14866.67109, 57652.67201, 745870.2626, 189868.1142, 485537.1347, 102083.8022, 32721.00727, 10667.09547, 19279.65539, 0, 21350.21696, 207126.9421)), mod = round((getBiomass(sim2)[199,]*areaEco)/1000000))
+compare_ab$theme<-"compare_ab"
+compare_ab[order(compare_ab$obs),]
+
+### changes in biomass due to fishing and compare with SA 
+compare_changeSSB<-data.frame(species = df_param$species, obs = c(NA, 50, NA, NA, NA, 15, 30, 40, 40, 40, 20, 15, 100, 25, 15, 25, 30, 30, 25), mod=round((getSSB(sim2)[t_max,]/getSSB(sim2)[(t_max/2)-1,])*100))
+compare_changeSSB$theme<-"compare_changeSSB"
+
+# TO DO IF decide to use changes in SSB in calibration
+df_param$changesSSB<-compare_changeSSB[,"obs"]
+sim2@params@species_params$changesSSB<-df_param$changesSSB
+
+# according to SSB from stock assessmetn in order of abundance: 
+# OR down to less than 20% between 1995 and 2005 
+# macrurus -  no evident decrease
+# flathead - ~ 40%
+# gemfish - ~ 15% 
+# silver wharehow ~ 25%
+# pink ling ~ 30%
+# blue wharehow ~ 20%
+# redfish ~ 10% - centroberix 
+
+### changes in catches due to fishing and compare with obs ? no I only have 2 stages here: unfished and fished with mean Fmort 1995-2005... there are no catches at unfished here
+# # use df_log_spp - datValidationYield starts from 1995... 
+# head(df_log_spp)
+# unique(df_log_spp$YEAR)
+# changesCatches<-df_log_spp %>% 
+#   filter(YEAR> 1983) %>% 
+#   group_by(SPC_NAME, YEAR) %>% 
+#   dplyr::summarise(catch = sum(CATCH_KG))
+
+### ISMP
+# rank abundance. not sure about this - it does really depend on whre they survey/fish and the sampling effort. same thing with cacthes .... if I divide by effort - being the same across spp because I want to account times when fishing happened and the spp was not recorded, I end up with the same ranking... does it make sense to divide by the effort - being the times when then fish was sampled?!
+
+# also this data considers all fisheries in the region - the whole SESSF  
+
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SESSF_ISMP_Cleaned.RData")
+
+# calcualte CPUE
+sampling<-df_ismp_spp_LF %>% 
+  filter(SPC_NAME %in% df_param$species,YEAR >1994 & YEAR <2006) %>% 
+  group_by(SPC_NAME) %>% 
+  dplyr::summarise(n = length(unique(ACTIVITY_ID)))
+
+rank<-df_ismp_spp_LF %>% 
+  filter(SPC_NAME %in% df_param$species,YEAR >1994 & YEAR <2006) %>% # consider the time of your Fmort data
+  mutate(ab = WT_CLASS*SPC_CNT) %>% # checked in cleanSESSF file - though don't know the unit of weight... 
+  group_by(SPC_NAME) %>% 
+  dplyr::summarise(ab = sum(ab)) %>% 
+  right_join(sampling) %>% 
+  mutate(ab = ab/n) %>% 
+  select(-n)
+
+# rank[order(-rank$ab),]
+colnames(rank)<-c("species","rankAb")
+rank<-rank %>% 
+  right_join(df_param) %>% 
+  select(c(species,rankAb)) %>% 
+  mutate(rankAb = ifelse(is.na(rankAb), max(rankAb, na.rm=TRUE)+100, rankAb)) %>% 
+  mutate(rankAb = rank(-rankAb))
+
+rankMod<-data.frame(species = df_param$species, mod = getBiomass(sim2)[t_max,]) %>% 
+  mutate(mod = rank(-mod))
+
+compare_rank<-merge(rank, rankMod)
+compare_rank$theme<-"rank"
+compare_rank[order(compare_rank$rankAb),]
+
+# TO DO IF decide to use rank abundance in calibration. also in sim2 as that will be the starting community
+df_param$rankAb<-rank$rankAb
+sim2@params@species_params$rankAb<-df_param$rankAb
+
+
+# steps after comparisons: 
+
+# 1. increase r_max using a multiplier when calucalting df_param above.
+
+# 2. squalus has high abundances -> historical reasons
+# squalus were abundant in the past but got depleted in the 1970. given you fish with Fmort values of 1995-2005, you miss this whole history. to crush a bit the stock you can: 1) spike the mortality 'before' 1995 (see changes in matrix_effort). Not much change though. 2) Decrease B0 (through r_max) for squalus
+
+# 3. low abundances and cathes of flathead possibly due to high squalus feeding on them. turn down the squalus population. turn down predation on flathead (cannibalism and dories - see changes to predator- prey matrix). lower Q for flathead (0.8 - not working)
+# what is platicephalus eating and what is it eaten by? 
+# plotDietComp(sim2, prey = "platycephalus richardsoni")
+# plotDietComp(sim2, prey = df_param$species, predator = "platycephalus richardsoni")
+# plotDietComp(sim1, prey = "squalus spp.")
+# plotDietComp(sim1, prey = df_param$species, predator = "squalus spp.")
+
+# 4. as a gemneral comment. you can play with r_max to increase/decrease abundances and with Q to play with catches. e.g. if cacthes are too high, it may be because biomass is high but also because you have high Q - you could set a level of Q that decreases catches. Also, if you decrease Q you descrease cacthes and may also increase biomass (more left in the sea) and vice versa. 
+
+# 5. diet composition does not seem to make spp interacting much... 
+# check Beth's eamil on contribution of your spp to the diet of your spp according to Atlantis
+# check diet data to explore the same (how much each predaor eats of each prey in your model)
+# may need to add a common predator to make spp interacting
+# reduce kappa to lower values (you could say that SE australi is much less productive than the NS) but without reducing r_max -> spp are eating too much of the background. also reduce availability of that background for spp to force interaction. 
+
+# 6. add a fishery for squid, makarel, perch. considering all catches from squid fishery and trawling. You are not interested in this fishery but you need a background mortality. better would be if you could directly substract the catches from abundances of these spp. quite difficult - you could exttract n individuals after line 698 according to cacthes, but this extraction should be also for each weight class and proportional to selectivity. if you go with the fishing mortality and infer it from cacthes it may be easier but you'd still need selectivity values.   
+
+# My notes: 
+# 7. the lenfest needs a version where fleets are specified with their own Fmort and selectivity and can catch overlapping spp - but where the fleet dynamics is off (?) - is this what Beth thinks my version is? That's what Coco did
+
+# 8. other note, if you add a Q term, then Fmort = Fmort *sel *Q, becasue you are not using effort here... 
+
+# what am I doing here if thei model does not include fleets and their interactions? and If I am not using it for Lenfest or for my paper? 
+
+# changes in catches 
+
+
+### options of data comparison and use for calibration 
+# 1 - use CPUE for calibration
+# need cpue in g m3
+
+# # option 1A: raw CPUE 
+# catch <- df_log_spp %>%
+#   filter(SPC_NAME %in% df_param$species,
+#          metier %in% rownames(df_target),
+#          YEAR < 2006) %>%
+#   group_by(SPC_NAME, YEAR) %>%
+#   dplyr::summarize(catch_g = sum(TOT_CATCH_KG, na.rm=TRUE)*1000) %>% 
+#   group_by(SPC_NAME) %>%
+#   dplyr::summarize(catch_g = mean(catch_g, na.rm=TRUE)) # mean catch in g between 1995-2005 by spp by fleet
+# 
+# effort_obs<- df_log_spp %>%
+#   filter(SPC_NAME %in% df_param$species,
+#          metier %in% rownames(df_target),
+#          YEAR < 2006) %>%
+#   group_by(SPC_NAME, YEAR) %>%
+#   dplyr::summarize(opn = n()) %>% 
+#   group_by(SPC_NAME) %>%
+#   dplyr::summarize(opn = mean(opn, na.rm=TRUE)*12000*10*20) # mean m3 trawled for each spp 
+# 
+# cpue<-catch %>% 
+#   left_join(effort_obs) %>% 
+#   mutate(cpue_gm3 = catch_g/opn) %>%  # these should be g m3
+#   select(SPC_NAME, cpue_gm3)
+# 
+# # compare modelled with observed before calibration
+# y<- getYield(sim2)
+# y<-y[400,]
+# a<-data.frame(y) 
+# a$SPC_NAME <- rownames(a) 
+# a<-a %>% left_join(cpue)
+# pr<-a[which(a$y==0),]$SPC_NAME
+# a$cpue_gm3<-ifelse(a$SPC_NAME %in% pr, 0, a$cpue_gm3)
+
+# TO DO IF decide for this option. change catch into cpue
+# df_param$catchComm_t<-a$cpue_gm3
+
+# results from calibration (OLD): optim_SEA_cpue.RData => if kappa=0.001 one spp collapses but better fit for sillago flindersi (considering modelled cpue vs observed catches ?). if adding extinction penalty, no convergence (L-BFGS-B needs finite values of 'fn'). if kappa=10 convergence. Modelled vs observed cpue are OK, though worst than when using catches for calibration (this is in section # validate time variant Fmort)
+
+# option 1B - cpue * scaling factor 
+
+# df_param$catchComm_t<-a$cpue_gm3*0.00001
+
+# results: optim_SEA_cpueScaling.RData => the community is better than when using catches for calibration (in particular feeding level). scaling factor is used to get observed and modelled cpue on the same scale before calibrating (similar to using kappa=10 above). Modelled vs observed same as above
+
+# 2 - use catches for calibration
+
+# 2A if you use kappa = 0.001*surVol*1000 you need to transform catchComm_t from t to g. 
+# ym<-sim1@params@species_params$catchComm_t*1000000
+# y<- getYield(sim1)
+# y<-y[400,]
+# data.frame(x = ym, y=y)
+
+# TO DO IF decide for this option. 
+# df_param$catchComm_t<-df_param$catchComm_t*1000000
+
+# result: optim_SEA_kappaSurv.RData => similar fit to below
+
+# 2B if you use kappa = 0.001: catchComm_t need to be transformed from tonnes per vol of ecosystem to g m3. 
+yobs<-sim2@params@species_params$catchComm_t # observed yields are in t for the whole system  
+# calcualte total scaling factor - merge g and m3 transformation:
+scaling_total = 1000000/areaEco
+yobs_scaled<-yobs*scaling_total
+ymod<- getYield(sim2) # modelled yields are in g m3 
+ymod<-ymod[dim(matrix_effort)[1],] # last time step 
+
+# TO DO IF decide to use catch data in calibration 
+df_param$catchComm_t<-yobs_scaled
+sim2@params@species_params$catchComm_t<-df_param$catchComm_t
+
+# results: optim_SEA_kappa001.RData => better fit observed vs modelled catches. choosing this one 
+
+#### compare catches modelled vs observed
+compare_y<-data.frame(species = df_param$species,obs = round(yobs_scaled*1000000,2), mod = round(ymod*1000000,2)) # g m3 *1000000 just for comparison
+compare_y$theme<-"compare_y"
+compare_y[order(compare_y$obs),]
+
+# compare and calibrate with SSB too 
+# SSB from Punt files (cocos folder)
+ssbObs<-read.csv("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/originalData/StockAssessment/corentin/SS_outputs/all_info.csv")
+
+ssbObs<-ssbObs %>%
+  select(Year,Spawning.biomass, species, spCommon) %>% 
+  mutate(Spawning.biomass = ifelse(Spawning.biomass == -1, NA, Spawning.biomass)) %>%
+  group_by(species, Year) %>%
+  dplyr::summarize(Spawning.biomass = sum(Spawning.biomass, na.rm=TRUE)) %>% 
+  `colnames<-`(c("species", "year", "SSB")) %>% 
+  mutate(SSB = ifelse(SSB == 0, NA, SSB)) %>% 
+  mutate(gender = ifelse(species %in% c("seriolella brama","centroberyx affinis","seriolella punctata"),1,2)) %>% # for some sp the SSB is that of female and male, wherease for others is that of female only. The one with modelGender == 2 are the one with only female and their values is doubled for consistency. see jemery table 
+  mutate(SSB = ifelse(gender == 2, SSB*2, SSB)) %>% 
+  select(-gender)
+
+# is the unit tonnes within the system or the stock (comparison with recovery chapter)? 
+# NOTE OR is cascade only 
+ssbObsCalibration<-ssbObs %>% 
+  filter(year > 1994 & year< 2006) %>%
+  group_by(species) %>%
+  dplyr::summarize(ssb = mean(SSB, na.rm=TRUE)) %>% 
+  mutate(ssbObs = ssb*scaling_total) %>% # convert biomass in g m3
+  select(-ssb) %>% 
+  mutate(species = as.character(species))
+
+# compare modelled vs observed  
+ssbm<-getSSB(sim2)
+ssbm<-data.frame(species = df_param$species, ssbm=ssbm[t_max,]) 
+ssbm$species<-as.character(ssbm$species)
+
+allSSB<- merge(ssbObsCalibration, ssbm, all=TRUE)
+allSSB$theme<-"SSB"
+colnames(allSSB)<-c("species","obs","mod","theme")
+
+# TO DO IF decide for this option 
+temp<-df_param %>% 
+  left_join(ssbObsCalibration)
+
+df_param$ssbObs<-temp$ssbObs
+sim2@params@species_params$ssbObs<-df_param$ssbObs
+
+
+#### merge and plot all data to compare (i.e. yield, changes in SSB and B0 from Atlantis)
+compare<-merge(compare_y,compare_changeSSB, all=TRUE)
+compare<-merge(compare,compare_ab, all=TRUE )
+compare<-merge(compare, allSSB, all=TRUE)
+colnames(compare_rank)<-c("species","obs","mod","theme")
+compare<-merge(compare, compare_rank, all=TRUE)
+
+# same plot as below when comparing with calibrated community
+ggplot(compare, aes(x = log(obs), y = log(mod), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)+
+  facet_wrap(~theme)
+
+```
+# options for comparison between observed adn modelled adn for data used for calibration
+
+we compared the modelled community to different data: 
+1 - row yields 
+2 - B0 from Atlantis
+3 - changes in SSB due to fishing -> SSB from unfished vs SSB from fished between 1995 and 2005
+4 - abundance ranking using SSB and Atlantis outputs
+
+we explored diffrent options fo calibration - results are described at the end of section
+
+1 - CPUE
+  a) row cpue
+  B) cpue * scaling factor
+2 - catches 
+  a) catches in t within the system 
+  b) catches in g m3 -> THIS IS THE OPTION USED
+  observed catches are transformed in g m3 before being compared with modelled catches during calibration (optim)
+3 - catches and SSB 
+#
+#
+#
+#
+#-----------------------------------------
+# save data for calibration in pearcey *skip if nothing changes above*
+#----------------------------------------------
+```{r}
+# object to save if calibration is run in pearcey 
+save(sim2, df_param, kappa, theta2, w_pp_cutoff, min_w_bb, w_bb_cutoff, matrix_effort,file = "/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/dataForRemoteCalibration_Beth.RData")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#-----------------------------------------
+# steady state with erepro and no fishing - *skip*
+#----------------------------------------------
+
+```{r}
+
+# # r_max to inf and erepro size-dependent 
+# df_param2<-df_param %>% 
+#   mutate(r_max = Inf) %>% 
+#   mutate(erepro = 0.05*w_inf^-0.5) %>%  
+#   mutate(erepro = ifelse(class=="chondrichthyes", erepro + 0.05, erepro))
+# 
+# params2 <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = df_selParam, catchability = df_Q, target = df_target)
+# 
+# # calibrate erepro
+# steadyState <- steady(params2, t_max = 200, fleetDynamics = FALSE, management = FALSE, price = price, cost = cost)
+# 
+# # check that rmax is Inf, and look at calibrated erepro values
+# # steadyState@species_params$r_max
+# # steadyState@species_params$erepro
+# # how does erepro scales with size?
+# # plot(steadyState@species_params$w_inf, steadyState@species_params$erepro)
+# 
+# # now we put these erepro values into our params file created by MizerParams
+# params2@species_params$erepro <- steadyState@species_params$erepro
+# 
+# # and run the model again
+# sim2 <- project(params2, t_max = 200, dt = 0.2, effort = 0, fleetDynamics = FALSE, management = FALSE, price =df_price, cost = df_cost_opn, diet_steps = 0)
+# 
+# plot(sim2)
+# # keep doing the step above - from steadyState() - untill you reach steady state. About 3 run required to reach coexistence for the community with no effort - when effort is added things don't really seam to work
+
+```
+
+
+#-----------------------------------------
+# calibration - *all in pearcey now but need to specify optimisation criteria anyway* 
+#----------------------------------------------
+
+# set optimisation criteria
+
+```{r}
+
+# see remote calibration from here on... 
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/dataForRemoteCalibration.RData")
+
+Initialcomm = sim2
+kappa = kappa # 0.001
+df_param = df_param
+
+# kappa and r_max
+logParams <- c(log10(Initialcomm@params@species_params$r_max),log10(kappa))
+lower = c(log10(Initialcomm@params@species_params$r_max*0.01), log10(kappa*0.01))
+upper = c(log10(Initialcomm@params@species_params$r_max/0.01), log10(kappa/0.01))
+
+# # kappa, r_max and Q
+# logR <- log10(Initialcomm@params@species_params$r_max)
+# logQ <- log10(df_param$catchability)
+# logK <- log10(kappa)
+# logParams <- c(logR, logQ, logK)
+# 
+# # # lower and upper are needed for calibration with Q as this value should not be above 1
+# lower = c(log10(Initialcomm@params@species_params$r_max*0.01),log10(rep(0.001, nrow(df_param))), log10(kappa*0.01))
+# upper = c(log10(Initialcomm@params@species_params$r_max/0.01),log10(rep(1, nrow(df_param))), log10(kappa/0.01))
+
+# for mizerParams()
+theta = theta2
+fleetDynamics = FALSE
+selectivity_params = NA
+catchability = NA
+target = NA
+dt =  0.5
+
+# for project() 
+kappa_ben = kappa  
+kappa_alg = 0 
+w_pp_cutoff = w_pp_cutoff 
+min_w_bb = min_w_bb 
+w_bb_cutoff = w_bb_cutoff
+management = FALSE
+effort = matrix_effort[301:400,] # constant effort (for 100 times) as per effort used in sim2
+rownames(effort)<-seq(1:100) # not sure this is necessary....
+# effort = matrix_effort # IF calibration consideres changes in SSB between unfished and fished ....  400 years: 1/2 no fishing and 1/2 constant effort as in sim2. This needs to be used if you want to compare changes in SSB due to
+price = NA
+cost = NA
+
+# plot(sim2)
+
+# for error functions
+meantsteps = 10 
+extinction_test = TRUE 
+extinct_threshold = 0.01
+diet_steps = 0
+
+```
+
+# run calibration function *can load data instead*
+
+```{r}
+
+# upload calibration function
+source("/Users/nov017/Dropbox/Mizer-fleet/R/calibration_function.R")
+
+# optim function
+optimizer_count=0 # Initialize count of function evaluations
+
+# debug(calibrate)
+# undebug(calibrate)
+
+optim_SEA   <- optim(par = logParams,
+                     lower=lower,
+                     upper=upper,
+                     method ="L-BFGS-B",
+                     fn = calibrate,
+                     SSBcali = FALSE, 
+                     rankCali = FALSE,
+                     Q = FALSE, 
+                     K = TRUE,
+                     R = TRUE)
+
+# save calibrated param
+setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output")
+# save(optim_SEA, file = "optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax.Rdata")
+# save(optim_SEA, file = "optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata")
+save(optim_SEA, file = "optim_SEA_randomTRIAL.Rdata")
+
+# or load calibrated param - see options below
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100or1000_catch.Rdata")
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax.Rdata")
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata")
+
+# with catch and SSB
+# 
+# optim_SEA_ssb   <- optim(par = logParams,
+#                      method ="L-BFGS-B",
+#                      fn = calibrate, 
+#                      SSBcali = TRUE)
+# 
+# # save calibrated param 
+# setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output")
+# save(optim_SEA_ssb, file = "optim_SEA_kappa001_thetaDataModified_beta100_catch_ssb.RData")
+# 
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100_catch_ssb.RData")
+
+```
+
+# calibration trials:
+
+1) focus on parameters: 
+
+parameters considered:
+  theta - from all 1 to species-specific
+  erepro - from 1 to def to original data
+  beta - from 100 to species-specific
+  sigma - from 2 to speceis specific
+
+optim_SEA.RData => theta = 1, beta = 100 and sigma = 2, erepro as per original data - choose this one
+optim_SEA_inter => theta as per kapala, beta and sigma as per diet data and erepro as per original data - feeding level and predation mortalities are very strange, modelled vs observed are good
+
+2) focus on data for calibration (see above): 
+
+optim_SEA_cpue.RData 
+optim_SEA_cpueScaling.RData   
+optim_SEA_kappaSurv.RData 
+optim_SEA_kappa001.RData - choose this one - perfect match observed vs modelled
+
+NOTE the result of the above parameterisation/calibration lead to increases in OR when fishing is on 
+
+I changed some parameters as described above:
+theta, PP cut off size and Fmort for school shark 
+
+3) NEW results 
+
+- optim_SEA_kappa001_thetaDataModified_beta100_catch.RData.
+no redfish, beta = 100, theta according to cooccurrnce + manually modified, cutoff size = 50.   
+OK calibration, fit a little less good than with theta = 1. if: 
+beta =100 for all spp, the bottom feeders starv, so cutoff was set to 50.
+NEED TO RE-RUN THIS 
+
+- optim_SEA_kappa001_thetaDataModified_beta100or1000_catch.RData.
+as above but beta 1000 for bottom feeders. the community seems OK but modelled vs observed yield is worst, and fitting time series yield by speceis is the same. PM are extrimely high (>1 ?).
+THIS IS THE OPTION USED
+
+- optim_SEA_kappa001_thetaDataModified_beta100_catch_ssb.RData
+calibration error !!! "ERROR: ABNORMAL_TERMINATION_IN_LNSRCH"
+use SSB as initial abundances instead?!!!!
+
+4) NEW RESULTS after talking with Beth - run in pearcey 
+whith Beth I changed r_max (see scalar for this param), and added catchability (now Fmort is in effort matrix and not in catchability anymore, while catchability is a new param). and after fixing the bug on feeding (gustav)
+
+- optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax.Rdata 
+
+- calibrating k and Q
+
+- calibrating rmax and Q
+
+- optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata - calibrating kappa, r_max and cacthability. using catch, SSB and rank abundance from ISMP raw catches (need to base this on CPUE). error starts at 23 - "ERROR: ABNORMAL_TERMINATION_IN_LNSRCH". Problems - see runs adn plots below: 1 - no convergence, 2) still some starvation, 3) pred mortality funny 4) squalus declining too much. pros: 1) much better modelled vs observed for catch, SSB; and better but still not good for ranking    
+ 
+ 
+ 
+Check out this error and change values into either 0 or a small quantity -> NAs are not allowed in subscripted assignments - due to getSMort() in project_methods 
+  project.R#646
+   project_methods.R#822
+
+
+
+
+
+
+
+Calibration trial in pearcey after all the above: 
+1 – data: yield, ssb, rank ab; param: r_max, Q, kappa – *prioirity* ERROR; recalibrate staring with output values 
+2 – data: yield, ssb, rank ab; param: r_max, kappa – *prioirity*
+3 – data: yield, ssb, rank ab; param: Q, kappa
+4 – data: yield, ssb, rank ab; param: r_max, Q 
+
+5 – data: yield, ssb; param: r_max, Q, kappa
+6 – data: yield, ssb; param: r_max, kappa – *prioirity*
+7 – data: yield, ssb; param, Q, kappa
+
+5 – data: yield, rank; param: r_max, Q, kappa – *prioirity*
+6 – data: yield, rank; param: r_max, kappa – *prioirity*
+7 – data: yield, rank; param, Q, kappa
+
+5 – data: yield; param: r_max, Q, kappa – *prioirity* 
+6 – data: yield; param: r_max, kappa – *prioirity*
+7 – data: yield; param, Q, kappa
+
+
+
+
+
+
+
+
+
+
+
+
+#-----------------------------------------
+# calibrated community Fmort
+#----------------------------------------------
+
+```{r}
+
+#  # Error in mu_S[mu_S < 0] <- x[x < 0] : 
+#   # NAs are not allowed in subscripted assignments 
+# 
+# trial_for_error<-c(-2.854172,  -7.373979,  -7.430076,  -7.550949,  -6.627723,  -8.333461,  -9.955249,  -8.407956,  -7.892862, -8.499368,  -9.024367,  -8.358562,  -8.317308,  -8.604438,  -9.674974,  -9.372999, -10.490324,  -9.458097, -10.486424,  -4.046574)
+# 
+# trial_for_error<-c(-2.506604,  -6.573162,  -5.771601,  -7.133598,  -5.946442,  -7.377192,  -9.042846,  -7.136518, -6.837890,  -7.327919,  -8.604905,  -8.039340,  -7.534152,  -7.733766,  -8.797130,  -8.577203, -10.612892,  -9.352730, -10.422581,  -2.850687)
+# 
+# 
+# kappa3<-10^trial_for_error[length(trial_for_error)]
+# r_max<-10^trial_for_error[1:length(trial_for_error)-1]
+# 
+# df_param3<-df_param
+# df_param3$r_max<-r_max
+# 
+# params3 <- MizerParams(df_param3, interaction = theta2, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+# 
+#  # now inside function... project ... params3, effort = matrix_effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 5
+# trial<-project(params3, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+# plot(trial)
+
+
+# results from CALIBRATION
+# this will be loaded from pearcey results 
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_kappa001_thetaDataModified_beta100or1000_catch_BethModification_k_rmax_Q.Rdata")
+load("optim_SEA_randomTRIAL.Rdata")"
+
+# new parameters when calibration is on kappa and rmax
+kappa3<-10^optim_SEA$par[length(optim_SEA$par)]
+kappa_ben<-kappa3
+r_max<-10^optim_SEA$par[1:length(optim_SEA$par)-1]
+
+df_param3<-df_param
+df_param3$r_max<-r_max
+
+# new papram if using calibration on rmax, kappa, and Q
+kappa3<-10^optim_SEA$par[length(optim_SEA$par)]
+r_max<-10^optim_SEA$par[1:nrow(df_param)]
+Q<-10^optim_SEA$par[(nrow(df_param)+1):(length(optim_SEA$par)-1)]
+
+df_param3<-df_param
+kappa_ben<-kappa3  
+df_param3$r_max<-r_max
+df_param3$catchability<-Q
+
+# effortConstant (effort used in calibration adn coming from effort_matrix) runnig 400 times 
+effortConstant<-do.call(rbind, replicate(4, effort, simplify=FALSE))
+rownames(effortConstant)<-seq(1, 400)
+
+params3 <- MizerParams(df_param3, interaction = theta2, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_calibrated <- project(params3, effort = effortConstant, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+
+plot(sim_calibrated)
+plotDietComp(sim_calibrated)
+# plotBiomass(sim_calibrated)
+# a<-facet_wrap(~Species)
+# plot(sim1)
+
+# trial same as above - community is stable
+# sim_calibrated_trial <- project(params3, effort = effortConstant, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0, initial_n = sim_calibrated@n[dim(sim_calibrated@n)[1],,], initial_n_pp = sim_calibrated@n_pp[dim(sim_calibrated@n_pp)[1],], initial_n_bb =sim_calibrated@n_pp[dim(sim_calibrated@n_bb)[1],])
+# plot(sim_calibrated_trial)
+
+```
+
+# to do 
+*rescale catches before using them for calibration* - rescale by area - using either effort or speceis disribution - or use CPUE - or use SSB too. *ask for bioreg data* to cathy? or Donna? or Mike? -> I tried using CPUE and SSB but calibration is not working as well as with catches
+are *diet dynamics* ok?  
+add *initial abundance* from ISMP? if so, rescale abundance given the same fishing mortatility - e.g. abundance of OR is high becasue fishing mortality for OR is high
+figure out *plotPPMR* and what Jon used as preferred and realised PPMR
+
+# PROBLEM
+*Predation mortalities are higher than 1* - ask Asta - Rowan 
+Abundances are very low - e.g. 2e-7 g m3 (??) much lower than before calibration
+diet composition improved 
+
+#-----------------------------------------
+# check - *skip*
+#----------------------------------------------
+
+```{r}
+
+# # checking density dependent and independent recruitment as per chat with Asta - see notebook  
+# n =  sim_calibrated@n[dim(sim_calibrated@n)[1],,]
+# n_pp = sim_calibrated@n_pp[dim(sim_calibrated@n_pp)[1],]
+# n_bb = sim_calibrated@n_bb[dim(sim_calibrated@n_bb)[1],]
+# n_aa = sim_calibrated@n_aa[dim(sim_calibrated@n_aa)[1],]
+# 
+# # explore available energy from food 
+# AE<-getAvailEnergy(params3, n, n_pp, n_bb, n_aa) # Calculates the amount of food \eqn{E_{a,i}(w)} exposed to each predator as a function of predator size. need to plot AE by species and size to understand food linkages and parameters 
+# 
+# # explore the effect of r_max on speceis recoverires and (lack of) collapses
+# ssb<-getSSB(sim_calibrated)
+# rdd<-as.data.frame(getRDD(params3, n, n_pp, n_bb, n_aa,intakeScalar = 1, metScalar = 1)) # eggs production - eggs that enter the system at the smallest size class
+# rdi<-as.data.frame(getRDI(params3, n, n_pp, n_bb, n_aa,intakeScalar = 1, metScalar = 1)) # egg production
+# eggs<-cbind(rdd,rdi)
+# colnames(eggs)<-c("rdd","rdi")
+# options(scipen=999)
+# eggs$loss<-round((eggs$rdd/eggs$rdi)*100,3) # n eggs enter the system out of n eggs produced. in percentage... or is it the opposite? # this should give the eggs lost in the system 
+# eggs
+
+```
+
+# to do 
+*calculate or get RDI and RDD* and check the proportion. if RDI (non density dependente recruitment) is much higher than RDD it means that most of eggs (e.g. 0.999 99%) are lots and that the spp is stil there becasue only a very low number of eggs are needed to maintan population - i.e. even few individuals can recover the stock and the stock is hard to crush through fishing. the plot should be recruits vs SSB according to RDI and RDD. 
+
+#-----------------------------------------
+# validate catches and SSB modelled vs observed - Fmort
+#----------------------------------------------
+
+```{r}
+
+# yield 
+
+yield_sim_calibrated <- getYield(sim_calibrated)
+yield_sim_calibrated <- yield_sim_calibrated[dim(yield_sim_calibrated)[1],]
+
+yield_sim1 <- getYield(sim2)
+yield_sim1 <- yield_sim1[dim(yield_sim1)[1],]
+
+yieldObs<-sim_calibrated@params@species_params$catchComm_t # these are already in g m3 as transformed for calibration. sim1@params@species_params$catchComm_t are in t ecoVol because not used yet 
+
+df_y<-data.frame(uncalibrated = yield_sim1, calibrated = yield_sim_calibrated, obs_y = yieldObs, species = names(yield_sim1)) # these are all in g m3
+
+df_y %>% # only for comparison
+  mutate(uncalibrated = uncalibrated*1000000,
+         calibrated = calibrated*1000000,
+         obs_y = obs_y*1000000) %>% 
+  mutate(ratio_y = obs_y/calibrated)
+
+ggplot(df_y, aes(x = log(obs_y), y = log(uncalibrated), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(df_y, aes(x = log(obs_y), y = log(calibrated), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)
+  
+# SSB 
+
+ssb_sim_calibrated <- getSSB(sim_calibrated)
+ssb_sim_calibrated <- ssb_sim_calibrated[dim(ssb_sim_calibrated)[1],]
+
+ssb_sim1 <- getSSB(sim2)
+ssb_sim1 <- ssb_sim1[dim(ssb_sim1)[1],]
+ssbObs<-temp$ssbObs # in g m3 from transformation abobe, not used in calibration
+
+df_ssb<-data.frame(uncalibrated = ssb_sim1, calibrated = ssb_sim_calibrated, obs_ssb = ssbObs, species = names(ssb_sim1)) # these are all in g m3
+
+df_ssb %>% # only for comparison
+  mutate(uncalibrated = round(uncalibrated*1000000,1),
+         calibrated = round(calibrated*1000000,1),
+         obs_ssb = round(obs_ssb*1000000,1)) %>% 
+  filter(!is.na(obs_ssb)) %>% 
+  mutate(ratio_ssb = obs_ssb/calibrated)
+
+ggplot(df_ssb, aes(x = log(obs_ssb), y = log(uncalibrated), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(df_ssb, aes(x = log(obs_ssb), y = log(calibrated), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)
+
+# rank abundance 
+
+rank_sim_calibrated<-getBiomass(sim_calibrated)
+rank_sim_calibrated<-rank_sim_calibrated[dim(rank_sim_calibrated)[1],]
+rank_sim_calibrated<-rank(-rank_sim_calibrated)
+
+rank_sim1<-getBiomass(sim2)
+rank_sim1<-rank_sim1[dim(rank_sim1)[1],]
+rank_sim1<-rank(-rank_sim1)
+
+rankObs<-sim_calibrated@params@species_params$rankAb 
+
+df_rank<-data.frame(uncalibrated = rank_sim1, calibrated = rank_sim_calibrated, obs_rank = rankObs, species = names(rank_sim1))
+
+ggplot(df_rank, aes(x = log(obs_rank), y = log(uncalibrated), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)
+
+ggplot(df_rank, aes(x = log(obs_rank), y = log(calibrated), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)
+
+# all plots together 
+df_y<-df_y %>% 
+  gather("option", "value", -species, -obs_y) %>% 
+  `colnames<-`(c("observed", "species", "option", "modelled")) %>% 
+  mutate(type = "YIELD")
+
+df_ssb<-df_ssb %>% 
+  gather("option", "value", -species, -obs_ssb) %>% 
+  `colnames<-`(c("observed", "species", "option", "modelled")) %>% 
+  mutate(type = "SSB")
+
+df_rank<-df_rank %>% 
+  gather("option", "value", -species, -obs_rank) %>% 
+  `colnames<-`(c("observed", "species", "option", "modelled")) %>% 
+  mutate(type = "RANK")
+
+df_plot_validation<-rbind(df_y, df_ssb, df_rank) %>% 
+  mutate(type = paste(type, option))
+
+ggplot(df_plot_validation, aes(x = log(observed), y = log(modelled), label = species))+
+  geom_point()+
+  geom_text()+
+  geom_smooth(method='lm',formula=y~x)+
+  geom_abline(intercept = 0, slope = 1)+
+  facet_wrap(~type, scale="free", ncol=2)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
+#
+#
+#
+#-----------------------------------------
+# run time variant Fmort 
+#----------------------------------------------
+
+```{r}
+
+# Fmort adjusted
+Fmort[is.na(Fmort)]<-0
+Fmort_adjusted<-Fmort 
+
+Fmort_adjusted["1995","hoplostethus atlanticus"]<-Fmort_adjusted["1996","hoplostethus atlanticus"]
+
+# option 1 - as per julia but not feasible if you are using catchability: use 1995 as reference fishing mortality and set it as catchability. Fmort for OR in 1995 = 0 and this is a problem. Assume values of 1996
+# df_param3$catchability<-as.numeric(Fmort_adjusted["1995",])
+
+# # rescale the other mortalities to the 1995 value and use them as effort matrix
+# relative_effort <- sweep(Fmort_adjusted,2,Fmort_adjusted["1995",],"/")
+# relative_effort[is.nan(relative_effort)]<-0 # for those not fished
+# 
+# # add 100 years at constant effort of 1995 value to stabilise the community first
+# initial_effort <- matrix(relative_effort[1,],byrow=TRUE, nrow=300, ncol= ncol(relative_effort), dimnames = list(1695:1994)) 
+# relative_effort <- rbind(initial_effort,relative_effort)
+
+# if using catchability: 
+# option A - run the model with effortConstant, which is the same as effort used in calibration and the same as the 2nd half of effort_matrix but with different t_max 
+# relative_effort<-rbind(effortConstant[1:200,], Fmort_adjusted)
+# rownames(relative_effort)<-seq((1995-200), 2017)
+
+# option B .... consider that you've changed a lot Fmort to make calibration running....  trends are almost back with these mortalities 
+Fmort_adjusted[,"squalus spp."]<-Fmort_adjusted[,"squalus spp."]*2
+Fmort_adjusted[,"mustelus antarcticus"]<-Fmort_adjusted[,"mustelus antarcticus"]*2 
+Fmort_adjusted[,"galeorhinus galeus"]<-Fmort_adjusted[,"galeorhinus galeus"]*1.5 
+# too hign abundance after fishing
+Fmort_adjusted[,"hoplostethus atlanticus"]<-Fmort_adjusted[,"hoplostethus atlanticus"]*6 
+Fmort_adjusted[,"centroberyx affinis"]<-Fmort_adjusted[,"centroberyx affinis"]*2
+# too low abundance after fishing
+Fmort_adjusted[,"platycephalus richardsoni"]<-Fmort_adjusted[,"platycephalus richardsoni"]*0.2
+Fmort_adjusted[,"seriolella brama"]<-Fmort_adjusted[,"seriolella brama"]*0.3
+Fmort_adjusted[,"rexea solandri"]<-Fmort_adjusted[,"rexea solandri"]*0.5
+Fmort_adjusted[,"genypterus blacodes"]<-Fmort_adjusted[,"genypterus blacodes"]*0.4
+# to higher decreases 
+Fmort_adjusted[,"zeus faber"]<-Fmort_adjusted[,"zeus faber"]*0.8
+# to low catches 
+Fmort_adjusted[,"macruronus novaezelandiae"]<-Fmort_adjusted[,"macruronus novaezelandiae"]*2
+
+relative_effort<-rbind(effortConstant[1:200,], Fmort_adjusted)
+rownames(relative_effort)<-seq((1995-200), 2017)
+
+# project the community
+params4 <- MizerParams(df_param3, interaction = theta, kappa = kappa3, kappa_ben = kappa3, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_fitted <- project(params4, effort = relative_effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 5) 
+
+plot(sim_fitted)
+# plotDietComp(sim_fitted)
+# plot(sim_calibrated)
+a<-plotBiomass(sim_fitted, start_time = 1994, end_time = 2017)
+# a<-plotM2(sim1)
+# a<-plotFeedingLevel(sim1)
+# a<-plotFMort(sim1)
+a+facet_wrap(~Species)
+
+```
+
+# PROBLEMS 
+Abudnances increase if effort decreases in time from 1995, reference value - i.e. they recover. See brama and solandri as clear example. not sure this is a problem...  
+
+#-----------------------------------------
+# validate time variant catch 
+#----------------------------------------------
+
+```{r}
+
+# get MODELLED YIELD and only the years you are interested in 
+yield_sim_fitted<-getYield(sim_fitted)
+yield_sim_fitted<-yield_sim_fitted[as.character(1995:2017),]
+
+# for ref
+# yield_sim_calibrated 
+# yield_sim1 
+# yieldObs
+
+# get OBSERVED YIELD 
+# head(datValidationYieldSpp)
+# unique(datValidationYieldSpp$species)
+# datValidationYieldSpp[which(datValidationYieldSpp$species=="mustelus antarcticus"),]
+# species with 0 values at the beginning of the time series should be left NAs
+yieldObs_timeVariant<-datValidationYieldSpp %>% 
+  filter(species %in% df_param$species) %>% 
+  mutate(catchComm_t = (catchComm_t*1000000)/areaEco) # these are in t for all vol. transfor in g m3. or use scaling_total, which includes the 2
+
+# datValidationYieldSpp[which(datValidationYieldSpp$species=="helicolenus barathri"),]
+yieldObs_timeVariant<-acast(yieldObs_timeVariant, year ~ species)
+yieldObs_timeVariant<-yieldObs_timeVariant[-nrow(yieldObs_timeVariant),]
+yieldObs_timeVariant<-yieldObs_timeVariant[,df_param$species]
+
+# working with Beth
+# yieldObs_timeVariant/yield_sim_fitted # observed are more than modelled in most cases - sharks excluded
+# write.csv(yieldObs_timeVariant,"/Users/nov017/Desktop/feedingTrial/obs.csv")
+# write.csv(yield_sim_fitted,"/Users/nov017/Desktop/feedingTrial/y.csv")
+
+# !!!!!!!!! why fit is not changing if I change all these param? 
+
+# prepare data for plots 
+# OPTIONS: 
+# 1. rescale modelled yield from 0 to 1 and observed yield from 0 to 1 - good fit for commercial spp  
+# 2. use real values - most spp have flat trends as are very low compoared to others 
+# 3. use real valuesand a free scale so that each spp plot have a different scale. 
+
+# # rescale MODELLED YIELD valuse from 0 to 1 for each spp - can skip
+library(matrixStats)
+max = colMaxs(yield_sim_fitted, na.rm =TRUE) # if rescaled by spp
+min = colMins(yield_sim_fitted, na.rm =TRUE)
+max = max(yield_sim_fitted, na.rm =TRUE) # if rescaled across speceis
+min = min(yield_sim_fitted, na.rm =TRUE)
+ratio = max-min
+yield_sim_fitted <- sweep(yield_sim_fitted,2,min,"-")
+yield_sim_fitted <- sweep(yield_sim_fitted,2,ratio,"/")
+# # end skip 
+
+yield_sim_fitted<-as.data.frame(yield_sim_fitted)
+yield_sim_fitted$year<-rownames(yield_sim_fitted)
+plot_yield_sim_fitted<-yield_sim_fitted %>% 
+  gather(species, yield, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "modelled")
+
+# # rescale OBSERVED YIELD valuse from 0 to 1 for each spp - can skip
+max = colMaxs(yieldObs_timeVariant, na.rm =TRUE)
+min = colMins(yieldObs_timeVariant, na.rm =TRUE)
+max = max(yieldObs_timeVariant, na.rm =TRUE)
+min = min(yieldObs_timeVariant, na.rm =TRUE)
+ratio = max-min
+yieldObs_timeVariant <- sweep(yieldObs_timeVariant,2,min,"-")
+yieldObs_timeVariant <- sweep(yieldObs_timeVariant,2,ratio,"/")
+# # end skip
+
+# yieldObs_timeVariant[is.infinite(yieldObs_timeVariant)]<-0
+# yieldObs_timeVariant[is.na(yieldObs_timeVariant)]<-0
+# better this way otherwise some spp (sawshark) shows a missleading trend 
+yieldObs_timeVariant[yieldObs_timeVariant==0]<-NA
+yieldObs_timeVariant<-as.data.frame(yieldObs_timeVariant)
+yieldObs_timeVariant$year<-rownames(yieldObs_timeVariant)
+
+plot_yieldObs_timeVariant<-yieldObs_timeVariant %>% 
+  gather(species, yieldObs, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "observed") %>% 
+  `colnames<-`(c("year", "species", "yield", "color")) 
+
+plot_y_ssb<-rbind(plot_yield_sim_fitted, plot_yieldObs_timeVariant)
+
+# fit lm and calcualte R^2. this should be fitted when using raw data? no it's the same
+fit<-plot_yield_sim_fitted %>% 
+  select(-color) %>% 
+  `colnames<-`(c("year","species", "modelled"))
+fit2<-plot_yieldObs_timeVariant %>% 
+  select(-color) %>% 
+  `colnames<-`(c("year","species", "observed"))
+r<-merge(fit, fit2, all =TRUE)
+
+library(broom)
+r <- r %>% 
+  filter(!is.na(observed)) %>% 
+  group_by(species) %>%
+  do(model = lm(modelled ~ observed, data = .)) 
+Coef = glance(r, model)
+
+# consider only commercial spp for which we have effort? 
+# plot_y_ssb<- plot_y_ssb %>%  
+#   filter(!species %in% c("helicolenus barathri","myctophids","nototodarus gouldi","trachurus declivis")) %>% 
+#   filter(!species %in% c("galeorhinus galeus","mustelus antarcticus","pristiophorus cirratus","zeus faber","squalus spp."))
+
+# plot trends in modelled and observed catches 
+plotYield <- ggplot(plot_y_ssb) + 
+  geom_line(aes(x=year, y = yield, colour=color)) +
+  geom_point(aes(x=year, y = yield, colour=color), size = 1)+
+  # geom_text(data = compare, aes(x = 2010, y = 0.8, label = round(compare[,5],3), family = "serif"), parse = TRUE)+
+  # geom_text(x = 2000, y = 0.8, label = paste("R = ", round(Coef[,3],3)))+
+  # geom_text(x = 2010, y = 0.8, label = paste("R = ", round(Coef[,3],3)))+ # parse = TRUE, check_overlap = TRUE
+  scale_y_continuous(name = "Yield") +
+  scale_x_continuous(name = "Year") +
+  theme_bw() +
+  scale_color_manual(values = c("black","blue"))+
+  theme(text = element_text(size=10),
+        axis.title.y = element_text(vjust=0.4),
+        axis.title.x = element_text(vjust=0.3),
+        axis.text.y = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank())+
+  # facet_wrap(~species, scales = "free")
+  facet_wrap(~species)
+print(plotYield)
+
+# check spp with constant Fmort 
+relative_effort[as.character(1995:2017),"galeorhinus galeus"]
+df_param[df_param$species == "galeorhinus galeus", "catchability"]
+plotBiomass(sim_fitted, start_time = 1995, end_time= 2017, species = "galeorhinus galeus")
+plotSpectra(sim_fitted, time_range=c(1995:2017), species = "galeorhinus galeus") # note that this is biomass not N individuals 
+
+```
+
+# to do 
+check that: 
+1. mean_fmort is based on 1995-2005 data - OK
+2. observed catcahes for calibration (in df_param) are based on 1995-2005 data (in FleetParam line 1400) - OK 
+3. Fmort (and Fmort_adjuset) based on 1995-2017 data - OK - even befoer if it's possible in the model
+4. observed catches for validation (datValidationYieldSpp) based on 1995-2017 - OK - even before as for Fmort
+
+# PROBLEM 
+- for some species, Fmort does not change in time (no available values). Can we caclualte these values given catch and effort? 
+- for these speceis, modelled yields are changing in time even if Fmort is constant e.g. 0.3 for squalus - trends in yields should match trends in biomass (but they don't)?...  yield = biomass X catchability X effort X selectivity.
+-  for the reasons above all sharks have a bed fit 
+
+#-----------------------------------------
+# validate time variant SSB
+#----------------------------------------------
+
+```{r}
+
+# get yield and only the years you are interested in 
+ssb<-getSSB(sim_fitted)
+ssb<-ssb[as.character(1970:2017),]
+
+# rescale from 0 to 1 
+# max = colMaxs(ssb)
+# min = colMins(ssb)
+# # max = max(ssb, na.rm =TRUE) # if rescaled across speceis
+# # min = min(ssb, na.rm =TRUE)
+# ratio = max-min
+# ssb <- sweep(ssb,2,min,"-")
+# ssb <- sweep(ssb,2,ratio,"/")
+# ssb[is.nan(ssb)]<-0
+
+ssb<-as.data.frame(ssb)
+ssb$year<-rownames(ssb)
+ssb<-ssb %>%
+  gather(species, SSB, -year) %>%
+  mutate(year = as.numeric(year)) %>%
+  mutate(color = "modelled")
+  
+# SSB 
+ssbObs_validation<-ssbObs %>% 
+  filter(species %in% df_param$species) %>% 
+  mutate(SSB = (SSB*1000000)/areaEco)
+ssbObs_validation<-acast(ssbObs_validation, year ~ species) # these are the values imported for calibration
+
+# rescale SSB
+# max = colMaxs(ssbObs_validation, na.rm =TRUE)
+# min = colMins(ssbObs_validation, na.rm =TRUE)
+# # max = max(ssbObs_validation, na.rm =TRUE) # if rescaled across speceis
+# # min = min(ssbObs_validation, na.rm =TRUE)
+# ratio = max-min
+# ssbObs_validation <- sweep(ssbObs_validation,2,min,"-")
+# ssbObs_validation <- sweep(ssbObs_validation,2,ratio,"/")
+
+ssbObs_validation<-as.data.frame(ssbObs_validation)
+ssbObs_validation$year<-rownames(ssbObs_validation)
+ssbObs_validation<-ssbObs_validation %>%
+  gather(species, SSB_SA, -year) %>%
+  mutate(year = as.numeric(year)) %>%
+  mutate(color = "Stock assessment") %>%
+  `colnames<-`(c("year", "species", "SSB", "color")) %>%
+  left_join(ssb[,which(colnames(ssb)%in% c("year","species"))])
+
+# mearge
+compareSSB<- rbind(ssb, ssbObs_validation) %>% 
+  # filter(year>1994) %>% 
+  spread(color, SSB) %>% 
+  `colnames<-`(c("year","species","modelled","assessment")) %>% 
+  # mutate(modelled = ifelse(is.na(assessment),NA, modelled)) %>% 
+  gather(color, SSB, -species, -year) 
+
+# delete some spp  
+compareSSB<-compareSSB %>%
+  filter(species != "centroberyx gerrardi") %>% # not included in the model 
+  filter(species %in% c("sillago flindersi","centroberyx affinis","nemadactylus macropterus","platycephalus richardsoni", "centroberyx gerrardi","seriolella brama", "hoplostethus atlanticus","macruronus novaezelandiae", "seriolella punctata","rexea solandri", "genypterus blacodes")) # don't have SSB changing in time
+
+plotSSB <- 
+  # ggplot(compareSSB) + # color == "assessment" 
+  ggplot(filter(compareSSB, year>1994)) +
+  geom_line(aes(x=year, y = SSB, colour=color)) + # colour=color
+  geom_point(aes(x=year, y = SSB, colour=color), size=1)+
+  scale_y_continuous(name = "SSB") +
+  scale_x_continuous(name = "Year") +
+  theme_bw() +
+  scale_color_manual(values = c("black","blue"))+
+  theme(text = element_text(size=10),
+        axis.title.y = element_text(vjust=0.4),
+        axis.title.x = element_text(vjust=0.3),
+        axis.text.y = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank())+
+  facet_wrap(~species)
+print(plotSSB)
+
+# full trends in SSB Stock assessment ara as given in recovery chapter 
+
+# check spp with constant Fmort and no data on SSB 
+plotBiomass(sim_fitted, start_time = 1995, end_time= 2017, species = "mustelus antarcticus")
+plotBiomass(sim_fitted, start_time = 1995, end_time= 2017, species = "myctophids")
+plotBiomass(sim_fitted, start_time = 1995, end_time= 2017, species = "zeus faber")
+plotBiomass(sim_fitted, start_time = 1995, end_time= 2017, species = "seriolella punctata")
+
+```
+
+# to do 
+*validate modelled vs obs length frequency (or growth curve) using ISMP data*
+
+# PROBLEM 
+- trends in SSB match trends in biomass (the scale in the 2 plots is different)... it makes sense
+- bad fit
+- no values for recent years. I also assumed Fmort as per last year but trends in catches changed for the worst as often Fmort actually decreased. - spp recover too fast when Fmort = 0 ?! though keep in ming that the 2 dataset (modelled and assessed) are rescaled from 0 to 1 independently so recoveries look higher in plots 
+- no values for not assessed spp 
+- if scaled across spp there is more agreement, but OR is way too high and blue granadier is way too low... also flathead adn morwong are too low. Calibration using SSB values does not give better results (error) 
+
+#-----------------------------------------
+# temperature runs *skip*
+#----------------------------------------------
+
+```{r}
+
+# use sim_calibrated
+# baserun ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(10, t_max)
+
+# update and project with new param: 
+params_baserun <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_baserun <- project(params_baserun, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_baserun)
+df_param
+plotGrowthCurves(sim_baserun, species = sim_baserun@params@species_params$species[5])
+# a<-plotGrowthCurves(sim_baserun)
+# a +facet_wrap(~species)
+
+# warming_all ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_all <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff,no_w = no_w,  fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all <- project(params_warming_all, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_all)
+plotGrowthCurves(sim_warming_all, species = sim_baserun@params@species_params$species[5])
+
+# warming_all_eaint ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.4
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_all_eaint <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all_eaint <- project(params_warming_all_eaint, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_all_eaint)
+plotGrowthCurves(sim_warming_all_eaint, species = sim_baserun@params@species_params$species[5])
+
+# warming_all_ca ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<--0.006
+df_param_temp$ca_int<--0.006
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_all_ca <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all_ca <- project(params_warming_all_ca, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_all_ca)
+plotGrowthCurves(sim_warming_all_ca, species = sim_baserun@params@species_params$species[5])
+
+# warming_all_eaint_ca ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<--0.006
+df_param_temp$ca_int<--0.006
+df_param_temp$ea_int<-0.4
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_all_eaint_ca <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all_eaint_ca <- project(params_warming_all_eaint_ca, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_all_eaint_ca)
+plotGrowthCurves(sim_warming_all_eaint_ca, species = sim_baserun@params@species_params$species[5])
+
+# warming_int ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0
+df_param_temp$ea_mor<-0
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_int <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_int <- project(params_warming_int, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_int)
+plotGrowthCurves(sim_warming_int, species = sim_baserun@params@species_params$species[5])
+
+# warming_met ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0
+no_w = 200
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_met <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_met <- project(params_warming_met, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_met)
+plotGrowthCurves(sim_warming_met, species = sim_baserun@params@species_params$species[5])
+
+# warming_mort ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0
+df_param_temp$ea_met<-0
+df_param_temp$ea_mor<-0.63
+no_w = 200 # is this correct? dw? if so needs to add
+dt = 0.2
+diet_steps = 5
+t_max = nrow(effort) # as start but need to reach eql. 
+temperature = rep(12, t_max)
+
+# update and project with new param: 
+params_warming_mort <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_mort <- project(params_warming_mort, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_warming_mort)
+plotGrowthCurves(sim_warming_mort, species = sim_baserun@params@species_params$species[5])
+
+# trial ####
+temperature = rep(30, t_max)
+
+# update and project with new param: 
+params_temp9 <- MizerParams(df_param_temp, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, no_w = no_w, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_temp9 <- project(params_temp9, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) # should I add initial_n?
+
+plot(sim_temp9)
+
+# save results ####
+
+setwd("/Users/nov017/Dropbox/Warming model comparison/modelOutputs/SEAustralia")
+saveRDS(sim_baserun, file = "SEAustralia_baserun.RDS") 
+saveRDS(sim_warming_all, file = "SEAustralia_warming_all.RDS") 
+saveRDS(sim_warming_all_eaint, file = "SEAustralia_warming_all_eaint.RDS") 
+saveRDS(sim_warming_all_ca, file = "SEAustralia_warming_all_ca.RDS") 
+saveRDS(sim_warming_all_eaint_ca, file = "SEAustralia_warming_all_eaint_ca.RDS") 
+saveRDS(sim_warming_int, file = "SEAustralia_warming_int.RDS") 
+saveRDS(sim_warming_met, file = "SEAustralia_warming_met.RDS") 
+saveRDS(sim_warming_mort, file = "SEAustralia_warming_mort.RDS") 
+
+```
+
+# to do 
+not much is changing - which plot should you use to check temp effects? 
+plot growth curves to see if they work - if the species argument is specified you get a colored curve which is the one modelled and a black curve which is the vonbertalanffy growth given k_vb, a and b and age (not sure how age is calcualted, but seems easy). the modelled growth is caclaulted given the available energy to grow (instead of reproduce), which depends on food consumption and maturation level. K_vb in the model is only used to calcualte h (maximum consumption rate) if h is not a column of the df_param and to compare modelled growth with von bertalanffy growth in this plot - von bertalanffy growth may have a strance shape because k_vb is often small and growth is slow. OR, genipterus and all sharks have this problem - but no problem as k_vb is actually not used in the model (to recheck but quite sure).   
+
+#
+#
+#
+#
+#-----------------------------------------
+# calculate Bref at unfished community 
+#----------------------------------------------
+
+```{r}
+
+# option 1 - use sim_fitted
+
+# option 2 - use sim_calibrated (effort at 1995 level)
+# create effort matrix
+# 400 (or 800) years, 200 fishing at mean mean Fmort then 200 no fishing
+# you could have used effortConstant too but here is more flexible
+matrix_effort<-t(matrix(c(rep(1,800*19/2), rep(0,800*19/2)), nrow = length(df_param$species), ncol = 800))
+rownames(matrix_effort)<-seq(1:800)
+colnames(matrix_effort)<-df_param$species
+effort = matrix_effort
+t_max = dim(effort)[1]
+
+# update and project with new param: 
+params_unfished <- MizerParams(df_param3, interaction = theta, kappa = kappa3, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+initial_n = sim_calibrated@n[dim(sim_calibrated@n)[1],,]
+initial_n_pp = sim_calibrated@n_pp[dim(sim_calibrated@n_pp)[1],]
+initial_n_bb = sim_calibrated@n_bb[dim(sim_calibrated@n_bb)[1],]
+
+sim_unfished <- project(params_unfished, t_max = t_max, effort = effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb) # ... I probably should include initial abundances in this calculation - small changes as abundances set to similar level given parameters  
+
+plot(sim_unfished)
+a<-plotBiomass(sim_unfished)
+a+facet_wrap(~Species)
+
+# calcaulte abundance at last time step - these are Bref 
+bioUnfished<-getBiomass(sim_unfished)[t_max,]
+bioUnfished<-as.data.frame(bioUnfished)
+bioUnfished$species<-rownames(bioUnfished)
+
+# calcaulte abundance at time step 200 - fully fished 
+BrefFished <- getBiomass(sim_unfished)[200,]
+BrefFished <- as.data.frame(BrefFished)
+BrefFished$species<-rownames(BrefFished)
+
+# BrefFished_noInitialAbundance<-BrefFished
+
+trial<-merge(bioUnfished,BrefFished)
+trial<-merge(trial, df_param3[,c(1,2)])
+trial$diff<-ifelse(trial$bioUnfished > trial$BrefFished,"more when unfished", "less when unfished")
+options(scipen=999)
+trial
+
+```
+
+# to do 
+bioUnfished is now be a column in df_param and called withing fleetDynamics function
+
+# PROBLEM 
+- species *decrease in biomass when I stop fishing*. (similar problem before calibration - OR was decreasing when unfished so I changed the interaction matrix - see community before calibration - sim1). Now it's squalus and blue granadier.... the problem is different though. before I reached equilibrium for an unfished community and started fishing, now I reach equilibrium for a fished commuity and remove fishing - e.g. predator. the new equilibrium may be completely diffrent from the original (unfished) one. So how do I calcualte biomass reference points? these don't really make sense as we aim at managing the community to go back to the original one.   
+- all dependent on the interaction matrix. the situation was better when interaction matrix was 1 for all spp - only OR was problematic then.
+- should I use SA values of B0 rescaled for my system? I would have them for few spp. 
+
+
+#
+#
+#
+#
+#-----------------------------------------
+# Fleet Dynamics starts 
+#----------------------------------------------
+#-----------------------------------------
+# calculate df_target
+#----------------------------------------------
+
+Recalculate df_target from data so that you can change it from here. For ref see SEA_FleetParam.Rmd option 3 (calcualte Q from catches) line 634 
+
+```{r}
+
+# filter speceies and metiers before calculating target matrix 
+df_main_metier<-c("GHAT - Southern Shark Gillnet","South East Trawl Fishery - Danish Seine","South East Trawl Fishery - Otter trawl shelf","South East Trawl Fishery - Otter trawl upperSlope", "South East Trawl Fishery - Otter trawl deepSlope") # "Great Australian Bight - Trawl fishery"
+
+catch <- df_log_spp %>%
+  # consider fleets and spp of interest no or after interaction matrix have been already caclaulted (the second option considered that other fleets are catching these spp)
+  filter(metier %in% df_main_metier) %>% 
+  filter(SPC_NAME %in% df_param$species) %>% # spp names are already fixed in the SESSFcleaning file 
+  group_by(SPC_NAME, metier) %>%
+  dplyr::summarize(
+    catch_kg = sum(TOT_CATCH_KG, na.rm=TRUE)
+  )
+
+# total cacth of each spp by metier
+colnames(catch)<-c("species","metier", "catch_kg") 
+
+# add spp missing from catch data
+other_spp<-expand.grid(unique(df_param$species), unique(catch$metier))
+colnames(other_spp)<-c("species","metier")
+catch<-merge(catch, other_spp, all = TRUE)
+catch[is.na(catch$catch_kg),"catch_kg"]<-0
+
+# # option 1 - consider fleets 
+# df_qcatch<-split(catch, catch$metier)
+
+# option 1 A - rescale catches by fleet from 0 to 1  - as used before
+# for(i in 1:length(df_qcatch)){
+#   mi = min(df_qcatch[[i]]$catch_kg)
+#   ma = max(df_qcatch[[i]]$catch_kg)
+#   df_qcatch[[i]]$catch_prop<-(df_qcatch[[i]]$catch_kg-mi)/(ma-mi)
+# }
+
+# # option 1 B - calcualte proportions by fleet (similar but the sum of catch_prop = 1)
+# for(i in 1:length(df_qcatch)){
+#   mi = sum(df_qcatch[[i]]$catch_kg)
+#   df_qcatch[[i]]$catch_prop<-(df_qcatch[[i]]$catch_kg/mi)
+# }
+
+# option 2 - consider speceis
+df_qcatch<-split(catch, catch$species)
+df_qcatch$`hoplostethus atlanticus`
+
+# calcualte proportions by speceis
+for(i in 1:length(df_qcatch)){
+  mi = sum(df_qcatch[[i]]$catch_kg)
+  df_qcatch[[i]]$catch_prop<-(df_qcatch[[i]]$catch_kg/mi)
+}
+df_qcatch[is.na(df_qcatch)]<-0
+
+df_qcatch<-data.frame(do.call("rbind",df_qcatch))
+rownames(df_qcatch)<-NULL
+df_qcatch<-df_qcatch[,-which(colnames(df_qcatch) =="catch_kg")]
+colnames(df_qcatch)<-c("species","subfleet","target") 
+check<-df_qcatch %>% 
+  filter(species == "hoplostethus atlanticus")
+
+# change fleet names
+df_qcatch<-df_qcatch %>% 
+  mutate(subfleet = case_when(subfleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              subfleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              subfleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              subfleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              subfleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US"))
+
+# target and Q don't have the spp order right, but are fixed in Mizerparams-class
+df_target = acast(df_qcatch, formula = subfleet ~ species, value.var = "target")
+df_target[,which(colnames(df_target) %in% c("nototodarus gouldi","helicolenus barathri","trachurus declivis","myctophids"))]<-0 
+
+# this is what will be used in all function to sort fleets 
+fleet = rownames(df_target)
+
+target_plot<-df_qcatch %>%
+  right_join(df_param[c(1,2)]) %>% 
+  mutate(target = ifelse(species %in% df_param[which(df_param$catchability == 0),"species"], 0, target)) 
+  
+# plot matrix
+p_target <- ggplot(target_plot, aes(spCommon,subfleet)) + 
+  geom_tile(aes(fill = target)) + 
+  scale_fill_gradient(low = "white",high = "blue")+
+  theme_bw()+
+  theme(text = element_text(size=18),
+        # axis.title.y = element_text(vjust=0.4),
+        # axis.title.x = element_text(vjust=0.3),
+        axis.text.x = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+print(p_target)
+
+```
+
+# PROBLEM 
+need to change the description of the target matrix in the paper. You were using and describing option 1A - now you have other options.   
+- when considering the proportion of catch by fleet: the total catch of each fleet sums to 1, but the total catch of each spp could be higher than 1; i.e. yield > biomass (yield = biomass X target X effort). With this matrix value it never is!
+- when considering the proportion of catch by speceis: the total catch of each speceis sums to 1, but the total catch for each fleet can be higher than 1 (e.g. trawlin cacthes 0.9 of many spp).    
+
+#-----------------------------------------
+# adjust economy
+#----------------------------------------------
+
+```{r}
+
+# keep only spp and fleets specified above
+
+df_selParam<-df_selParam %>% 
+  filter(species %in% df_param$species, 
+         subfleet %in% df_main_metier) %>% 
+  mutate(subfleet = case_when(subfleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              subfleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              subfleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              subfleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              subfleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US"))
+
+# note - no need to order df_selParam2 by speceis and fleet as this is done in MizerParams and according to fleet = rownames(df_target) as specified above
+
+df_price<-df_price %>% 
+  filter(species %in% df_param$species)
+# matrix
+df_price = spread(df_price, species, price)
+rownames(df_price)<-df_price$year
+df_price<-df_price[,-1]
+df_price<-as.matrix(df_price)
+df_price<-df_price[, df_param$species] # order spp
+df_price[,c("nototodarus gouldi","helicolenus barathri","trachurus declivis")]<-0
+
+# cost - can have differnt units 
+# df_cost = df_cost_g $ opn-1 g-1
+# df_cost2 = df_cost_opn $ opn-1
+
+df_cost<-df_cost_g %>%   
+  group_by(subfleet, year)  %>% 
+  dplyr::summarise(cost = sum(param_value, na.rm=TRUE))
+df_cost<-acast(df_cost, formula = year ~ subfleet, value.var = "cost") 
+df_cost<-df_cost[,rownames(df_target)] # order cost
+addCost<-df_cost[8:9,]
+rownames(addCost)<-c(2015, 2016)
+df_cost<-rbind(df_cost, addCost)   
+
+# new approach - divide fixed and variable costs - variable costs vary with the amount of fishing effort or catch, and fixed costs do not vary with effort (Pascoe 2014)
+# only done on df_cost2 as these are the values used in the model and you can keep track of previous version - df_cost
+df_cost2<-df_cost_opn %>% 
+  filter(subfleet %in% df_main_metier) %>% 
+  mutate(cost_type = ifelse(param_type %in% c("Crew","Fuel","Packaging","Freight"), "fixed", "variable")) %>% 
+  group_by(subfleet, year, cost_type) %>%  
+  dplyr::summarise(cost = sum(param_value, na.rm=TRUE)) %>% 
+  mutate(subfleet = case_when(subfleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              subfleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              subfleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              subfleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              subfleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US"))
+
+# cost need to have the same years as price - temporary values here 
+addCost2015<-df_cost2 %>% 
+  filter(year == "2014") %>% 
+  mutate(year = "2015")
+addCost2016<-addCost2015 %>% 
+  mutate(year = "2016")
+df_cost2<-rbind(df_cost2,addCost2015,addCost2016)
+
+# transfor in matrix ... so how should this be treated in the model? it was a matrix of time X fleet, now it's time X fleet X cost_type
+df_cost2<-acast(df_cost2, formula = year ~ subfleet ~ cost_type, value.var = "cost") # matrix of time X fleet
+df_cost2<-df_cost2[,rownames(df_target),] # order cost by fleet
+
+```
+
+# to do 
+costs are equal for most fleets - all trawling - increase cost of fuel for deep and upper slope?
+costs for gillnets are calcualted usising all GHAT methods
+if you keep fixed and variable costs separated you need to adjust the fleet dynamics eqn: costs = Cf + E*Cv - though there is no E in the equation at the moment... 
+there are data on profits that can be used for calibration!!! - see xlsx file and ASK INGRID on how to use these data
+
+#-----------------------------------------
+# first run with FD 
+#----------------------------------------------
+
+```{r}
+
+###  initial parameters 
+# df_param3 and kappa3, sim_calibrated and sim_unfished are the starting point for calibrating FD. sim_calibrated gives initial biomass from calibrated community using df_param3 and kappa3 at fished status and sim_unfished gives biomass reference level for management 
+initial_n = sim_calibrated@n[dim(sim_calibrated@n)[1],,]
+initial_n_pp = sim_calibrated@n_pp[dim(sim_calibrated@n_pp)[1],]
+initial_n_bb = sim_calibrated@n_bb[dim(sim_calibrated@n_bb)[1],]
+
+# add bioUnfished to df_param for managemtn component 
+df_param3$Bref<-bioUnfished$bioUnfished
+df_param3$Bref<-ifelse(df_param3$species %in% c("nototodarus gouldi","helicolenus barathri","trachurus declivis","myctophids"), 0, df_param3$Bref) # these are not fished
+
+# issues with Bref - see comments above 
+# df_param3<-df_param3[,-which(colnames(df_param3)=="Bref")] # this changes things a lot
+# or set Blim (biomass at unfished level) as the final abundance of sim_calibrated (or initial abundance of sim_FD (this community) - this is how Bref would be calcualted inside Project if not given as a dataframe column.  
+df_param3$Bref<-rowSums(sweep(sim_calibrated@n[dim(sim_calibrated@n)[1],,],2,sim_calibrated@params@w * sim_calibrated@params@dw,"*"))
+
+### economic parameters
+
+t_max = 200 # t_max needed to build the price matrix, whihc now determines time and model runs (instead of the effort matrix)
+
+# speceis-specific mean price 
+df_price_sp<-colMeans(df_price)
+names(df_price_sp)<-NULL
+df_price_mean_sp<-t(matrix(rep(df_price_sp, t_max), ncol = t_max, nrow = length(df_param$species),dimnames = list(df_param$species,1:t_max)))
+df_price_mean_sp<-df_price_mean_sp[,df_param$species]
+
+# fleet-specific mean costs - aweful but working.... 
+df_cost2_fleet1<-colMeans(df_cost2[,,1])
+names(df_cost2_fleet1)<-NULL
+df_cost2_fleet2<-colMeans(df_cost2[,,2])
+names(df_cost2_fleet2)<-NULL
+a<-c(rep(df_cost2_fleet1[1],t_max),rep(df_cost2_fleet1[2],t_max),rep(df_cost2_fleet1[3],t_max) ,rep(df_cost2_fleet1[4],t_max),rep(df_cost2_fleet1[5],t_max))
+b<-c(rep(df_cost2_fleet2[1],t_max),rep(df_cost2_fleet2[2],t_max),rep(df_cost2_fleet2[3],t_max) ,rep(df_cost2_fleet2[4],t_max),rep(df_cost2_fleet2[5],t_max))
+df_cost_mean_fleet<-array(c(a,b), dim=c(t_max,length(rownames(df_target)),2), dimnames = list(1:t_max, rownames(df_target), c("fixed","variable")))
+df_cost_mean_fleet<-df_cost_mean_fleet[,rownames(df_target),]
+
+# rename before playing with scalings - not much chzange here but worth using fllet ans spp-specific values 
+# df_cost_mean2<-df_cost_mean
+# df_price_mean2<-df_price_mean
+df_cost_mean2<-df_cost_mean_fleet
+df_price_mean2<-df_price_mean_sp
+
+# unit of cost
+# df_cost_opn is the cost of an operation (e.g 5000$) $ opn-1
+# df_cost_g is the cost of an operation per g fished. $ opn-1 g-1
+scaling_cost_area = 14000*10*20 # cost = $ opn-1 to be transformed in $ m3. mean trawl length from SESSFdataCleaning considering trawling and gill net = 14 km = 14000 m. net opening (guessed and to check): 20m *10m. total m3 swept = 14000*200 = 2800000 m3
+
+# 1 -increase scaling cost
+# scaling_cost_area = scaling_cost_area*10000000 # super bed
+df_cost_mean2[]<-df_cost_mean2/scaling_cost_area # now cost in $ m-3 if you use df_cost_opn or in $ m-3 g-1 if you use df_cost_g 
+# Beth -> if you need a further rescaling -> soak time for a net 
+
+# how much biomass is in the system to be fished? 
+# b<-getBiomass(sim_fitted)[113,] # biomass in sim_fitted in 2006 (when FD should start)
+# b<-getBiomass(sim_calibrated)[100,] 
+# well less than 1g in m3, so price in $ g-1 are missleading? need to scale them?
+
+# unit of price 
+# scaling_price is an argument of project as it could be estimated thorugh calibration
+# scaling_price = 1 # here profits are negative and fishing continues (no matter the value of ke)
+# 2 - increase scaling_price
+scaling_price = 10000000 # moving this to cost does not produce the same results
+
+# the cost structure and ke determine whether the fleets are active or not 
+# ke= 0.00000001 # fleet adjusment constant (this is the value used since the beginning)
+# 3 - decrease ke 
+ke = 0.1 # might be more reasonable   
+# ke changing between fleets - options also to be calibrated
+ke_fleet = data.frame(fleet= rownames(df_target), ke = ke)
+ke = ke_fleet
+
+# # effort/cacth relation is not as for observed
+# # 4 - try changing catchability
+# df_target2<-df_target
+# df_target2[]<-1 # now the differnce is only between gill net and other fleets and is due to selectivity 
+# # 5 - try changes in selectivity
+# df_selParam2<-df_selParam
+# df_selParam2$param_value<-df_selParam2$param_value/100
+
+# initial effort informed by observed effort = 0.00001. profits are too small to make any change in effort
+
+params_FD <- MizerParams(df_param3, interaction = theta, kappa = kappa3, kappa_ben = kappa3, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam, catchability = df_target, target = df_target)
+
+sim_FD <- project(params_FD, t_max = t_max, effort = 0, dt = 0.5, fleetDynamics = TRUE, management = TRUE, price = df_price_mean2, cost = df_cost_mean2, diet_steps = 0, ke = ke, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = rep(0.1,5), scaling_price = scaling_price)
+
+plot_CN(sim_FD) 
+plotFleet(sim_FD)
+# a<-plotBiomass(sim_FD)
+# a+facet_wrap(~Species)
+# sim_FD@effortOut[1:50,]
+# sim_FD@yield
+# sim_FD@profit # if these stay negative when effort = 0 is because of fixed costs
+# sim_FD@revenue
+
+# trial as above -  working if you set a specific Blim instead of calculating it inside the function (Biomass may slightly vary) 
+# initial_n_trial = sim_FD@n[dim(sim_FD@n)[1],,]
+# initial_n_pp_trial = sim_FD@n_pp[dim(sim_FD@n_pp)[1],]
+# initial_n_bb_trial = sim_FD@n_bb[dim(sim_FD@n_bb)[1],]
+# initial_effort_trial = sim_FD@effortOut[dim(sim_FD@effortOut)[1],]
+# sim_FD_trial <- project(params_FD, t_max = t_max, effort = 0, dt = 0.5, fleetDynamics = TRUE, management = TRUE, price = df_price_mean2, cost = df_cost_mean2, diet_steps = 0, ke = ke, initial_n = initial_n_trial, initial_n_pp = initial_n_pp_trial, initial_n_bb = initial_n_bb_trial, initial_effort = initial_effort_trial, scaling_price = scaling_price)
+# plot_CN(sim_FD_trial)
+# plotFleet(sim_FD_trial)
+
+# spp reaching biological ref levels and responsible for reduction in effort, thus driving management 
+BioOut<-do.call("rbind",sim_FD@BioOut) # need to turn on the saving function in project()
+BioOut[which(BioOut$bioLim == "bio40check"),]
+unique(BioOut$species)
+
+# compare observed vs modelled effort and yield 
+yield<-sim_FD@yield[t_max,,,]
+yield<-rowSums(aperm(yield, c(3,1,2)), dims = 2)
+yield<-rowSums(yield)
+c<-datValidationYield %>% 
+  filter(metier %in% df_main_metier) %>% 
+  mutate(metier = case_when(metier == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              metier == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              metier == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              metier == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              metier == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) %>% 
+  group_by(metier) %>% 
+  dplyr::summarise(catch = mean(catchComm_t, na.rm=TRUE)) %>% 
+  mutate(catch = catch*scaling_total) # from t vol eco to g m3 # see scaling_total above. this is what you've used for calibration with Fmort
+
+em<-sim_FD@effortOut[t_max,]
+e<-datValidationEffort %>% 
+  filter(metier %in% df_main_metier) %>% 
+  mutate(metier = case_when(metier == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              metier == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              metier == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              metier == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              metier == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) %>% 
+  group_by(metier) %>% 
+  dplyr::summarise(opn = mean(opn, na.rm=TRUE)) %>% 
+  mutate(opn = opn*scaling_cost_area) %>% # from opn to area trawled in the ecosystem
+  mutate(opn = opn/areaEco) # divided by the m3 of the system -> becomes area trawled in 1m3  
+
+# profits - how to calcualte them in the ABARES table? ask Ingrid 
+
+
+compare<-data.frame(em=em, eobs=e$opn, ym = yield, yobs = c$catch)
+
+```
+
+# recap 
+from old version (OR increasing when fished,fleet dynamic eqn with no effort, fixed and variable costs merged)
+lots of problems when using the fleet dynamics eqn with effort at the denominator (ending up in no effort) and when using aggregated fixed and variable cost. some solved now -> changes have been: 1) use the fleet dynamics eqn with effort at the nominator but not at the denominator (mike version), 2) specify initial value of effort, 3) specify fixed and variable costs and use them differently in the FD eqn. Also bug in manage,tn component - now fixed
+
+# aim
+get to coexistence and equilibium across soo and fleets - this is a must for calibration.    
+
+# PROBLEM 
+
+1. Bref
+Bref calcualted at unfished status is too low - Spp are belwo 20% of Bref (unfished biomass) at start of run -> no fishing. 
+Bref caclaulted at time step 1 -> reference limits calcualted when the community is fished at 1995 fishing level (i.e. not unfished)
+
+2. scaling_price (it increases the value of fish, therefore revenue)
+  - it would be better not to have it, but revenue is much smaller than cost, so small than profits = - costs (decreasing costs further does not improve the situation - unless decreased very very much). scaling_price needs to be ~ < 1000000  
+  - calibration on cacthability may allow us to get rid of scaling_price (more fish is available so I increase revenue) - but when cacthability = 1 for all spp, and selectivity is shifted to catch even very small individuals, revenues are still very small compared to cost (as above)
+  
+3. ke (it decreases (if <1) or increases (if >1) profits, thus changes in effort between time steps) 
+  - the smaller it is, the smaller are changes in effort between time steps. ok value = 0.1 (given other param).  
+
+4. discrepancy between modelled effort and catches and observed effort and catches - higher effort gives lower catches in model than in observation 
+  - add scaling factor linking cathes and effort when calibrating - OK - any problems in doing so?
+  - catchability and selectivity are responsable. Calibration on catchability (df_target) may solve the problem. 
+  However, 
+  A. when cacthability = 1 for all spp and selectivity is shifted to catch even very small individuals, the problem remains. 
+  B. calibrating for catchability means calibrating 380 (19X20) param using optim and very few data (mean catches and effort)
+  C. catchability is the parameter I am planning to play with during my scenarios - it's an indication of how fleet interact and would be nice to keep it as per logbook data 
+  
+5. *use profits to inform or validate the model too* - see Ingrid's suggestion on this data
+
+current best parameterisation: 
+scaling_price = 10000000
+ke = 0.1 
+scaling_cost_area = 1400X20X10 - no changes
+inital effort = 0.1 (not worth to use initial values as per observed effort)
+scaling for effort when calibrating - > /10000
+
+solutions tried: 
+1 - increase scaling price - OK
+2 - increase scaling_cost_area - no worth
+3 - increase ke. if ke = 1, fleets adjust quicly and effort becomes 0. tun it at last - OK  
+4 - initial effort informed by ebserved effort - no worth
+
+#-----------------------------------------
+# calibrate with FD 
+#----------------------------------------------
+
+```{r}
+# set optimisation criteria
+
+# use calibrated community that gives reasonable catches when using effort variant to run the model with FD on, then use this model as starting community for calibration
+Initialcomm = sim_FD # sim_calibrated 
+kappa = kappa3
+kappa_ben = kappa3
+# logParams <- c(log10(df_param3$r_max),log10(kappa3))
+logParams <- c(log10(ke_fleet$ke), log10(scaling_price))  # calibrate ke to get trends in effort
+# logParams <- log10(scaling_price)  
+
+# turn fishing on 
+df_param = df_param3
+theta = theta
+selectivity_params = df_selParam
+catchability = df_target
+target = df_target
+fleetDynamics = TRUE
+# t_max = 100
+dt =  0.5
+
+# for project function 
+kappa_alg = kappa_alg 
+w_pp_cutoff = w_pp_cutoff 
+min_w_bb = min_w_bb 
+w_bb_cutoff = w_bb_cutoff
+management = TRUE
+effort = 0
+price = df_price_mean2
+cost = df_cost_mean2
+
+# for error functions
+meantsteps = 10 
+extinction_test = TRUE
+extinct_threshold = 0.01
+diet_steps = 0
+
+# compare yield and effort at fleet level 
+# scaling for effort and yield; and data frame for comparison 
+compare<-data.frame(em=em, eobs=e$opn, ym = yield, yobs = c$catch)
+scaling_effort = 10000
+
+# upload calibration function
+source("/Users/nov017/Dropbox/Mizer-fleet/R/calibration_function_FD.R")
+
+# optim function
+optimizer_count=0 # Initialize count of function evaluations 
+# optim_SEA_FD   <- optim(par = logParams,
+#                      method ="L-BFGS-B",
+#                      fn = calibrate)
+
+
+system.time(optim_SEA_FD   <- optim(par = logParams,
+                     method ="L-BFGS-B",
+                     fn = calibrate))
+
+# options for calibration: 
+
+# 1 - calibrating ke and scaling_price using catch and effort data by fleet: 
+# still need to understand the meaning of this - it is to mirror what has been done with the ecological part - not sure the comparison holds: 
+# scaling_price (~ kappa?), it increases/descreases the values of fish (by same amount), thus influces profits, and in turn (changes in) effort.
+# ke (~r_max?), it is fleet-dependent and determines how fast a fleet responds to changes - it's just a scalar that multiplies and thus influence profits and in turn (changes in) effort
+
+# 2 - calibrating kappa and r_max using catch and effort data by fleet:
+# calibration error: line ~920 in project_methods. 
+# Error in mu_S[mu_S < 0] <- x[x < 0] : 
+# NAs are not allowed in subscripted assignments. I run the loop to check the problem, but could not get to the origin. it happens when mu_S == NA and this could be due to many reasons.  
+# add line of codes that replace NA to 0 ? nasty but should be OK
+
+# 3 - calibrating using catch data at spp level and effort data at fleet level:
+
+# save calibrated param
+setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output")
+save(optim_SEA_FD, file = "optim_SEA_FD_ke.RData")
+
+# or load calibrated param
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_FD_ke.RData")
+
+```
+
+# calibration trials:
+
+calibration trials using initial parameters of theta, and beta (i.e. all 1 for theta and beta as per diet data) were deleted as too old - there were some errors in codes anyway 
+
+1 - focus on the parameters to calibrate 
+
+optim_SEA_FD_ke => ecology param as per calibration trial above (with Fmort) -> theta calculated using ISMP and adjusted, beta 100 and 1000 for some spp. economy param -> price as species-specific mean price and costs as per fleet-specific mean costs (all the same besides gillnets). Initial abundance and initial effort as per sim_FD. Bref calculated using sim_unfished. scaling_price = 10000000 and scaling_effort = 10000 and ke = 0.1 (as per first run with FD section). Calibrating scaling_price and ke for each fleet using yield and effort at fleet level. error starts at 3.5. elapsed 15666. 
+problem with Bref - though should not matter. Anyway RUN AGAIN
+
+2 - *to do* calibrate all things together? r_max and kappa using yeild by spp data and scaling price adn ke using yield and effort by fleet data and profit
+
+
+#-----------------------------------------
+# calibrated community with FD
+#----------------------------------------------
+
+```{r}
+
+# new parameters if calibration is on kappa and r_max
+# kappa_FD<-10^optim_SEA_FD$par[length(optim_SEA_FD$par)]
+# r_max_FD<-10^optim_SEA_FD$par[1:length(optim_SEA_FD$par)-1]
+# 
+# df_param_FD<-df_param 
+# df_param_FD$r_max<-r_max_FD
+
+# new parameters if calibration is on ke and scaling_price
+scaling_price_calibrated<-10^optim_SEA_FD$par[length(optim_SEA_FD$par)]
+ke_calibrated_values<-10^optim_SEA_FD$par[1:length(optim_SEA_FD$par)-1]
+ke_calibrated<-ke
+ke_calibrated$ke<-ke_calibrated_values
+
+kappa_FD<-kappa
+df_param_FD<-df_param
+
+# initial abundance and effort as per sim_FD
+initial_n_trial = sim_FD@n[dim(sim_FD@n)[1],,]
+initial_n_pp_trial = sim_FD@n_pp[dim(sim_FD@n_pp)[1],]
+initial_n_bb_trial = sim_FD@n_bb[dim(sim_FD@n_bb)[1],]
+initial_effort_trial = sim_FD@effortOut[dim(sim_FD@effortOut)[1],]
+# otherwise
+# initial_effort = rep(0.1,5)
+
+# update and project with new param: 
+params_FD_calibrated <- MizerParams(df_param_FD, interaction = theta, kappa = kappa_FD, kappa_ben = kappa_FD, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=TRUE, selectivity_params = df_selParam, catchability = df_target, target = df_target)
+
+# initial abundance here are as the ones used in sim_FD and coming from sim_calibrated 
+
+sim_FD_calibrated <- project(params_FD, t_max = t_max, effort = 0, dt = 0.5, fleetDynamics = TRUE, management = TRUE, price = df_price_mean2, cost = df_cost_mean2, diet_steps = 0, ke = ke_calibrated, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = rep(0.1,5), scaling_price = scaling_price_calibrated)
+
+# initial abundance here are as the ones used in sim_FD and coming from sim_FD and used during calibration
+
+sim_FD_calibrated <- project(params_FD, t_max = t_max, effort = 0, dt = 0.5, fleetDynamics = TRUE, management = TRUE, price = df_price_mean2, cost = df_cost_mean2, diet_steps = 0, ke = ke, initial_n = initial_n_trial, initial_n_pp = initial_n_pp_trial, initial_n_bb = initial_n_bb_trial, initial_effort = initial_effort_trial, scaling_price = scaling_price)
+
+
+plot_CN(sim_FD_calibrated)
+plotFleet(sim_FD_calibrated)
+a<-plotBiomass(sim_FD_calibrated)
+# a<-a+facet_wrap(~Species)
+# b<-plotFeedingLevel(sim_FD_calibrated)
+# b<-b+facet_wrap(~Species)
+# plotDietComp(sim_FD_calibrated)
+# plotFMort_CN(sim_FD_calibrated)
+plot_CN(sim_FD)
+plotFleet(sim_FD)
+
+# just a trial.... is the community changing if I use values at eql? YES - why?!
+# initial abundance and effort? 
+initial_n_trial2 = sim_FD_calibrated@n[dim(sim_FD_calibrated@n)[1],,]
+initial_n_pp_trial2 = sim_FD_calibrated@n_pp[dim(sim_FD_calibrated@n_pp)[1],]
+initial_n_bb_trial2 = sim_FD_calibrated@n_bb[dim(sim_FD_calibrated@n_bb)[1],]
+initial_effort_trial2 = sim_FD_calibrated@effortOut[dim(sim_FD_calibrated@effortOut)[1],]
+
+sim_FD_calibrated2 <- project(params_FD_calibrated, effort = 0, dt = dt, fleetDynamics = fleetDynamics, management = TRUE, price = df_price_mean2, cost = df_cost_mean2, diet_steps = 0, ke = ke_calibrated, scaling_price = scaling_price_calibrated, initial_effort = initial_effort_trial2, initial_n = initial_n_trial2, initial_n_pp = initial_n_pp_trial2, initial_n_bb = initial_n_bb_trial2)
+
+plot_CN(sim_FD_calibrated2)
+plotFleet(sim_FD_calibrated2)
+
+
+```
+
+# PROBLEMS 
+- Need to use intial abundance and effort from sim_FD to keep the community at equilibrium. These values are also used during calibration 
+- when keeping all values constant (sim_FD_calibrated2) things still change, why?
+
+#-----------------------------------------
+# validate modelled vs observed FD
+#----------------------------------------------
+
+```{r}
+
+# modelled vs observed yield by spp - not bad still
+yield<-sim_FD_calibrated@yield
+yield<-rowSums(yield,dims=3) # sum over fleet
+yield<-rowSums(yield,dims=2) # sum over size
+yield <- yield[dim(yield)[1],] # take last step
+
+# any difference from pre-calibration? 
+yield_pre<-sim_FD@yield
+yield_pre<-rowSums(yield_pre,dims=3) # sum over fleet
+yield_pre<-rowSums(yield_pre,dims=2) # sum over size
+yield_pre <- yield_pre[dim(yield_pre)[1],] # take last step
+
+yieldObs<-params@species_params$catchComm_t
+
+df<-data.frame(mod=yield, mod_pre=yield_pre ,obs = yieldObs, species = sim_FD_calibrated@params@species_params$species)
+# melt(data = df, id.vars = "species")
+plot_cali<-ggplot(df, aes(x = log(obs), y = log(mod), color = species))+
+  geom_point()
+print(plot_cali)
+plot_pre_cali<- ggplot(df, aes(x = mod, y = mod_pre, color = species))+
+  geom_point()+
+  geom_smooth()
+print(plot_pre_cali)
+
+# modelled vs observed yield and effort by fleet - Gillnet is off as it's not active
+yield<-sim_FD_calibrated@yield[t_max,,,]
+yield<-rowSums(aperm(yield, c(3,1,2)), dims = 2)
+yield<-rowSums(yield)
+
+# any difference from pre-calibration? 
+yield_pre<-sim_FD@yield[t_max,,,]
+yield_pre<-rowSums(aperm(yield_pre, c(3,1,2)), dims = 2)
+yield_pre<-rowSums(yield_pre)
+
+em<-sim_FD_calibrated@effortOut[t_max,]
+e_pre<-sim_FD@effortOut[t_max,]
+
+# e and c are effort and cactch at fleet level calculated above 
+df2<-data.frame(em=em, e_pre = e_pre, eobs=e$opn, ym = yield, yield_pre = yield_pre, yobs = c$catch)
+
+ggplot(df2, aes(x = log(eobs), y = log(em), color = rownames(df2)))+
+  geom_point()
+
+ggplot(df2, aes(x = log(yobs), y = log(ym), color = rownames(df2)))+
+  geom_point()
+
+ggplot(df2, aes(x = log(eobs), y = log(e_pre), color = rownames(df2)))+
+  geom_point()
+
+ggplot(df2, aes(x = log(yobs), y = log(yield_pre), color = rownames(df2)))+
+  geom_point()
+
+ggplot(df2, aes(x = e_pre, y = em, color = rownames(df2)))+
+  geom_point()
+
+ggplot(df2, aes(x = yield_pre, y = ym, color = rownames(df2)))+
+  geom_point()
+
+
+```
+
+# PROBLEMS 
+- calibration did not change things much besides yield and effort for SET_US. thought there have been some improvments. 
+
+#-----------------------------------------
+# validate time variant FD 
+#----------------------------------------------
+
+```{r}
+
+### NOTE you need to set the price of OR to 0 if you want to mimic fishery closure. the other problem is that stock recover fast due to r_max so that stocks can be fished to 20% and recover after only few years of no fishing. the model is not capable of mimic long term depletion. are there other param you can change? 
+
+# time variant price and costs - run 300 time with mean values then switch to yearly values between 2006 and 2016 
+initial_price <- matrix(df_price_mean2[1,],byrow=TRUE, nrow=300, ncol= ncol(df_price_mean2), dimnames = list(1706:2005)) 
+# 2005-(300-1) # where 1706 comes from...
+relative_price<-rbind(initial_price, df_price)
+
+initial_cost1 <- matrix(df_cost_mean2[1,,1],byrow=TRUE, nrow=300, ncol= ncol(df_cost_mean2), dimnames = list(1706:2005)) 
+initial_cost2 <- matrix(df_cost_mean2[1,,2],byrow=TRUE, nrow=300, ncol= ncol(df_cost_mean2), dimnames = list(1706:2005)) 
+relative_cost1 <- rbind(initial_cost1, df_cost2[,,1]/scaling_cost_area)
+relative_cost2 <- rbind(initial_cost2, df_cost2[,,2]/scaling_cost_area)
+# relative_cost2[299:311,]
+# dim(relative_cost2)
+relative_cost <- array(c(relative_cost1, relative_cost2), dim = c(dim(relative_cost2)[1], dim(relative_cost2)[2], 2), dimnames = list(dimnames(relative_cost2)[[1]],dimnames(relative_cost2)[[2]], c("fixed","variable")))
+
+
+initial_cost1[as.character(1880),]
+
+
+# other options... old
+# use time variante price and costs and see if you can get observed catches
+# relative price from 2006 - as for relative_effort but there was catchability there so here not sure how to do it 
+# relative_price<-sweep(df_price,2,df_price["2006",],"/") # no scaling factor to be used here 
+# relative_price[as.character(2006),]<-df_price[as.character(2006),] 
+# relative_price[is.nan(relative_price)]<-0 
+
+# relative_price<-df_price
+
+# add 100 years at constant effort of 2006 value to stabilise the community first - again as in effort but not sure 
+# initial_price <- matrix(relative_price[1,],byrow=TRUE, nrow=100, ncol= ncol(relative_price), dimnames = list(1906:2005)) 
+# relative_price <- rbind(initial_price,relative_price)
+
+# do the same with cost 
+# temp<-df_cost2/scaling_cost_area # this is the dataset and transformation used for calibration
+# relative_cost<-sweep(temp,2,temp["2006",],"/")
+# relative_cost[as.character(2006),]<-temp[as.character(2006),] 
+# relative_cost[is.nan(relative_cost)]<-0 
+
+# relative_cost<-temp
+
+# add 100 years at constant effort of 2006 value to stabilise the community first - again as in effort but not sure 
+# initial_cost <- matrix(relative_cost[1,],byrow=TRUE, nrow=100, ncol= ncol(relative_cost), dimnames = list(1906:2005))
+# relative_cost <- rbind(initial_cost,relative_cost)
+
+# resacle as before
+# relative_price[]<-relative_price*scaling_price
+# relative_cost[]<-relative_cost/scaling_cost
+
+# # ### OR - this is best but I don't know why (start with 2006 price adn then do the difference)
+# # mean<-colMeans(df_price)
+# ref<-df_price[as.character(2006),]
+# relative_price<-sweep(df_price,2,ref,"-")
+# relative_price[as.character(2006),]<-ref
+# # initial_price <- matrix(relative_price[1,],byrow=TRUE, nrow=100, ncol= ncol(relative_price), dimnames = list(1906:2005))
+# # relative_price <- rbind(initial_price,relative_price)
+# # 
+# temp<-df_cost2/scaling_cost_area 
+# mean<-colMeans(temp)
+# ref<-temp[as.character(2006),]
+# relative_cost<-sweep(temp,2,ref,"-")
+# relative_cost[as.character(2006),]<-ref
+# # initial_cost <- matrix(relative_cost[1,],byrow=TRUE, nrow=100, ncol= ncol(relative_cost), dimnames = list(1906:2005))
+# # relative_cost <- rbind(initial_cost,relative_cost)
+
+# relative_price[]<-relative_price*scaling_price
+# relative_cost[]<-relative_cost/scaling_cost
+# 
+### OR
+# relative_price<-rbind(initial_price,df_price)
+# relative_cost <- rbind(initial_cost,df_cost)
+# 
+# relative_price[]<-relative_price*scaling_price
+# relative_cost[]<-relative_cost/scaling_cost
+
+
+# project the community
+params_fitted_FD <- MizerParams(df_param_FD, interaction = theta, kappa = kappa_FD, kappa_ben = kappa_FD, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=TRUE, selectivity_params = df_selParam, catchability = df_target, target = df_target)
+
+sim_fitted_FD <- project(params_fitted_FD, effort = 0, dt = dt, fleetDynamics = fleetDynamics, management = management, price = relative_price, cost = relative_cost, diet_steps = 0, ke = ke_calibrated, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort_trial, scaling_price = scaling_price_calibrated) 
+
+plot_CN(sim_fitted_FD)
+plotFleet(sim_fitted_FD)
+
+```
+
+# to do 
+
+*check that cost and price data is OK* - e.g. more updated versions 
+calibration is done with meand over the whole time series and validation is done over the whole time series, so different than when using Fmort and may be circular but you don't have other data 
+
+see line 745 on effort_dt - whay was it working anyway? effort_dt should have been all NAs
+
+here profits are actually negative - so working - OK
+also yield and profits have different trends - OK
+
+#-----------------------------------------
+# validate time variant FD catch 
+#----------------------------------------------
+
+```{r}
+
+# get yield and only the years you are interested in 
+y<-sim_fitted_FD@yield
+y<-rowSums(aperm(y,c(1,2,4,3)),dims=3) # sum over size 
+y<-rowSums(y,dims=2) # sum over gear 
+# remove 100 years at constant effort
+y<-y[as.character(2006:2016),] # these are the years for which you have prices
+
+# rescale from 0 to 1 
+library(matrixStats)
+max = colMaxs(y)
+min = colMins(y)
+max = max(y, na.rm =TRUE) # if rescaled overall
+min = min(y, na.rm =TRUE)
+ratio = max-min
+y <- sweep(y,2,min,"-")
+y <- sweep(y,2,ratio,"/")
+y[is.nan(y)]<-0
+y<-as.data.frame(y)
+y$year<-rownames(y)
+y<-y %>% 
+  gather(species, yield, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "modelled")
+  
+# rescale observed catches - need to be rescaled if year range changes 
+obsY<-acast(datValidationYieldSpp, year ~ species)
+obsY<-obsY[-nrow(obsY),] # delete last row of NAs
+obsY<-obsY[as.character(2006:2016),]
+max = colMaxs(obsY, na.rm =TRUE)
+min = colMins(obsY, na.rm =TRUE)
+max = max(obsY, na.rm =TRUE) # if rescaled overall
+min = min(obsY, na.rm =TRUE)
+ratio = max-min
+obsY <- sweep(obsY,2,min,"-")
+obsY <- sweep(obsY,2,ratio,"/")
+obsY[is.nan(obsY)]<-0
+obsY[is.na(obsY)]<-0
+obsY<-as.data.frame(obsY)
+obsY$year<-rownames(obsY)
+obsY<-obsY %>% 
+  gather(species, yieldObs, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "observed") %>% 
+  `colnames<-`(c("year", "species", "yield", "color")) %>% 
+  right_join(y[,which(colnames(y)%in% c("year","species"))])
+
+# mearge modelled with observed data
+compare<- rbind(y, obsY)
+
+# delete spp not caught
+compare<-compare %>%
+  filter(!species %in% c("helicolenus barathri","myctophids","nototodarus gouldi","trachurus declivis"))
+
+plotYield <- ggplot(compare) + 
+  geom_line(aes(x=year, y = yield, colour=color)) + # colour=color
+  geom_point(aes(x=year, y = yield, colour=color), size = 1)+
+  scale_y_continuous(name = "Yield") +
+  scale_x_continuous(name = "Year") +
+  theme_bw() +
+  scale_color_manual(values = c("black","blue"))+
+  theme(text = element_text(size=10),
+        axis.title.y = element_text(vjust=0.4),
+        axis.title.x = element_text(vjust=0.3),
+        axis.text.y = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank())+
+  facet_wrap(~species)
+print(plotYield)
+
+# plot price and cost - all speceis have their own prices
+trial<-as.data.frame(df_price) %>% 
+  # mutate(Year = rownames(trial)) %>% 
+  gather(species, price) %>% 
+  mutate(year = rep(seq(2006:2016), ncol(df_price)))
+ggplot(filter(trial, price !=0))+
+  geom_line(aes(x=year, y = price)) + # colour=color
+  geom_point(aes(x=year, y = price), size = 1)+
+  facet_wrap(~species)
+
+trial<-as.data.frame(temp) %>% 
+  # mutate(Year = rownames(trial)) %>% 
+  gather(fleet, cost) %>% 
+  mutate(year = rep(seq(2006:2016), ncol(df_cost)))
+ggplot(filter(trial, cost !=0))+
+  geom_line(aes(x=year, y = cost)) + # colour=color
+  geom_point(aes(x=year, y = cost), size = 1)+
+  facet_wrap(~fleet)
+
+# plot effort by fleet
+plotFleet(sim_fitted_FD)
+e<-sim_fitted_FD@effortOut
+e<-e[as.character(2006:2016),]
+max = colMaxs(e)
+min = colMins(e)
+max = max(e, na.rm =TRUE) # if rescaled overall
+min = min(e, na.rm =TRUE)
+ratio = max-min
+e <- sweep(e,2,min,"-")
+e <- sweep(e,2,ratio,"/")
+e[is.nan(e)]<-0
+e<-as.data.frame(e)
+e$year<-rownames(e)
+e<-e %>%  
+  gather(fleet, effort, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "modelled")
+
+obsE<-acast(datValidationEffort, YEAR ~ metier) # why is data validation effort from 2006?!
+max = colMaxs(obsE, na.rm =TRUE)
+min = colMins(obsE, na.rm =TRUE)
+max = max(obsE, na.rm =TRUE) # if rescaled overall
+min = min(obsE, na.rm =TRUE)
+ratio = max-min
+obsE <- sweep(obsE,2,min,"-")
+obsE <- sweep(obsE,2,ratio,"/")
+obsE[is.nan(obsE)]<-0
+obsE[is.na(obsE)]<-0
+obsE<-as.data.frame(obsE)
+obsE$year<-rownames(obsE)
+obsE<-obsE %>% 
+  gather(fleet, effort, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "observed") 
+
+trial<-rbind(e, obsE)
+plotEffort <- ggplot(trial) + 
+  geom_line(aes(x=year, y = effort, colour=color)) + # colour=color
+  geom_point(aes(x=year, y = effort, colour=color), size = 1)+
+  scale_y_continuous(name = "Effort") +
+  scale_x_continuous(name = "Year") +
+  theme_bw() +
+  scale_color_manual(values = c("black","blue"))+
+  theme(text = element_text(size=10),
+        axis.title.y = element_text(vjust=0.4),
+        axis.title.x = element_text(vjust=0.3),
+        axis.text.y = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank())+
+  facet_wrap(~fleet)
+print(plotEffort)
+
+# plot yield by fleet datValidationYield
+y<-sim_fitted_FD@yield
+y<-rowSums(aperm(y,c(1,2,4,3)),dims=3) # sum over size 
+y<-rowSums(aperm(y,c(1,3,2)),dims=2) # sum over speceis
+# remove 100 years at constant effort
+y<-y[as.character(2006:2016),] # these are the years for which you have prices
+
+# rescale from 0 to 1 
+max = colMaxs(y)
+min = colMins(y)
+max = max(y, na.rm =TRUE) # if rescaled overall
+min = min(y, na.rm =TRUE)
+ratio = max-min
+y <- sweep(y,2,min,"-")
+y <- sweep(y,2,ratio,"/")
+y[is.nan(y)]<-0
+y<-as.data.frame(y)
+y$year<-rownames(y)
+y<-y %>% 
+  gather(fleet, yield, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "modelled")
+  
+# rescale observed catches - need to be rescaled if year range changes 
+# why is datValidationYield from 2006 only?!
+obsY<-acast(datValidationYield, YEAR ~ metier)
+max = colMaxs(obsY, na.rm =TRUE)
+min = colMins(obsY, na.rm =TRUE)
+max = max(obsY, na.rm =TRUE) # if rescaled overall
+min = min(obsY, na.rm =TRUE)
+ratio = max-min
+obsY <- sweep(obsY,2,min,"-")
+obsY <- sweep(obsY,2,ratio,"/")
+obsY[is.nan(obsY)]<-0
+obsY[is.na(obsY)]<-0
+obsY<-as.data.frame(obsY)
+obsY$year<-rownames(obsY)
+obsY<-obsY %>% 
+  gather(fleet, yieldObs, -year) %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(color = "observed") %>% 
+  `colnames<-`(c("year", "fleet", "yield", "color"))
+
+# mearge modelled with observed data
+compare<- rbind(y, obsY)
+
+plotYieldFleet <- ggplot(compare) + 
+  geom_line(aes(x=year, y = yield, colour=color)) + # colour=color
+  geom_point(aes(x=year, y = yield, colour=color), size = 1)+
+  scale_y_continuous(name = "Yield") +
+  scale_x_continuous(name = "Year") +
+  theme_bw() +
+  scale_color_manual(values = c("black","blue"))+
+  theme(text = element_text(size=10),
+        axis.title.y = element_text(vjust=0.4),
+        axis.title.x = element_text(vjust=0.3),
+        axis.text.y = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank())+
+  facet_wrap(~fleet)
+print(plotYieldFleet)
+
+plotFleet(sim_fitted_FD)
+print(plotYield)
+print(plotEffort)
+print(plotYieldFleet)
+
+```
+
+# to do 
+
+rethink how to build the cost and price matrix in terms of relative values - ok but can be done more
+need to *cut effort by 50% in 2005*
+
+plot of yield by spp 10 OK and 6 completely off
+plot of effort is completely off observed effort in pretty much all cases 
+plot yield by fleet is OK for 1/2 and off for 1/2
+
+should I calibrate using effort too?!
+
+
+
+
