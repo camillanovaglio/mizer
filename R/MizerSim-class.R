@@ -9,7 +9,7 @@
 # Maintainer: Gustav Delius, University of York, <gustav.delius@york.ac.uk>
 
 # Validity check
-valid_MizerSim <- function(object) {
+valid_MizerSim <- function(object){
     errors <- character()
     validObject(object@params)
     # array dimensions
@@ -25,22 +25,15 @@ valid_MizerSim <- function(object) {
 	msg <- "n_pp slot must have two dimensions"
 	errors <- c(errors, msg)
     }
-    if (length(dim(object@B)) != 2) {
-        msg <- "B slot must have two dimensions"
-        errors <- c(errors, msg)
-    }
     # Check time dimension is good - size, dim name, and names
-    if (!all(c(dim(object@n)[1], 
-               dim(object@n_pp)[1],
-               dim(object@B)[1]) == dim(object@effort)[1])) {
-	msg <- "First dimension of effort, n, n_pp and B slots must be the same length"
+    if (!all(c(dim(object@n)[1],dim(object@n_pp)[1]) == dim(object@effort)[1])) {
+	msg <- "First dimension of effort, n and n_pp slots must be the same length"
 	errors <- c(errors, msg)
     }
-    if (!all(c(names(dimnames(object@n))[1],
-               names(dimnames(object@n_pp))[1],
-               names(dimnames(object@B))[1],
+    if (!all(c(names(dimnames(object@n))[1], 
+               names(dimnames(object@n_pp))[1], 
                names(dimnames(object@effort))[1]) == "time")) {
-	msg <- "First dimension of effort, n, n_pp and B slots must be called 'time'"
+	msg <- "First dimension of effort, n and n_pp slots must be called 'time'"
 	errors <- c(errors, msg)
     }
     # species dimension of n
@@ -82,19 +75,6 @@ valid_MizerSim <- function(object) {
 	msg <- "Second dimension of n_pp slot must have same size names as rr_pp in the params slot"
 	errors <- c(errors, msg)
     }
-    # resource dimension of B
-    if (dim(object@B)[2] != length(object@params@resource_dynamics)) {
-        msg <- "Second dimension of B slot must have same length as resource_dynamics in the params slot"
-        errors <- c(errors, msg)
-    }
-    if (names(dimnames(object@B))[2] != "res") {
-        msg <- "Second dimension of B slot must be called 'res'"
-        errors <- c(errors, msg)
-    }
-    if (!all(dimnames(object@B)$w == names(object@params@resource_dynamics))) {
-        msg <- "Second dimension of B slot must have same size names as resource_dynamics in the params slot"
-        errors <- c(errors, msg)
-    }
     # gear dimension of effort
     if (dim(object@effort)[2] != dim(object@params@catchability)[1]) {
 	msg <- "Second dimension of effort slot must have same number of gears as in the params slot"
@@ -113,46 +93,126 @@ valid_MizerSim <- function(object) {
 
 # Soundtrack: Yob - Quantum Mystic
 #### Class definition ####
-#' A class to hold the results of a simulation
+#' MizerSim
 #' 
 #' A class that holds the results of projecting a \linkS4class{MizerParams}
-#' object through time using the \code{\link{project}} function.
+#' object through time.
 #' 
-#' A new \code{MizerSim} object can be created with the \code{\link{MizerSim}}
-#' constructor, but you will never have to do that because the object is
-#' created automatically by the \code{\link{project}} function when needed.
+#' \linkS4class{MizerSim} objects are created by using the \code{\link{project}} method
+#' on an object of type \code{MizerParams}.
 #' 
-#' The arrays all have named dimensions. The names of the "time" dimension are
-#' numeric and denote the time in years. The names of the "sp" dimension are
-#' the same as the species name in the order specified in the species_params
-#' data frame. The names of the "gear" and "res" dimension are the names of the 
-#' gears and resources respectively, in the same order as specified when setting
-#' up the \code{MizerParams} object.
-#' 
-#' There are several \code{link{summary_functions}} and
-#' \code{\link{plotting_functions}} available to explore the contents of a
-#' \code{MizerSim} object.
+#' There are several plotting methods available to explore the contents of a
+#' \code{MizerSim} object. See the package vignette for more details.
 #' 
 #' @slot params An object of type \linkS4class{MizerParams}.
 #' @slot n Array that stores the projected community population abundances by
 #'   time, species and size
+#' @slot effort Array that stores the fishing effort through time by time and
+#'   gear
 #' @slot n_pp Array that stores the projected plankton abundance by time and
 #'   size
-#' @slot B Array that stores biomasses of unstructured resources by time and
-#'   resource. Second dimension has length 0 if there are no unstructured
-#'   resources.
-#' @slot effort Array that stores the fishing effort by time and gear
-#' 
+#'   ##AAsp
+#' @slot n_bb Array that stores the projected benthos abundance by time and
+#'   size
+#' @slot n_aa Array that stores the projected algal abundance by time and
+#'   size
+#' @slot diet_comp Array that stores diet composition by predator/size/prey/size 
+#'   for a chosen number of steps (usually last ten years)
+#'   
+#' @seealso \code{\link{project}} \code{\link{MizerParams}}
 #' @export
+
+## CN this needs to be changed
 setClass(
     "MizerSim",
-    slots = c(
+    representation(
         params = "MizerParams",
         n = "array",
         effort = "array",
+        # AA
         n_pp = "array",
-        B = "array"
-    )
+        n_bb = "array",
+        n_aa = "array",
+        diet_comp="array",
+        temperature = "matrix",
+        metTempScalar = "array",
+        matTempScalar = "array",
+        morTempScalar = "array",
+        intTempScalar = "array",
+        
+        # cn adding the fleetDynamics arguments 
+        effortOut = "array",
+        yield = "array",
+        profit = "array",
+        revenue = "array",
+        F = "array",
+        BioOut = "list", 
+        BioLimits = "list"
+        
+        # n_pp = "array"
+
+    ),
+    prototype = prototype(
+        params = new("MizerParams"),
+        n = array(
+            NA,dim = c(1,1,1), dimnames = list(time = NULL, sp = NULL, w = NULL)
+        ),
+        effort = array(
+            NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+
+        temperature = matrix(
+          NA, dimnames = list(time = NULL, temperature = NULL)
+        ),
+
+        # CN again add the fleetdynamics bit
+        effortOut = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+        yield = array(
+          NA,dim = c(1,1,1,1), dimnames = list(time = NULL, species = NULL, w = NULL, gear = NULL)
+        ),
+        profit = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+        revenue = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, gear = NULL)
+        ),
+        F = array(
+          NA,dim = c(1,1,1,1), dimnames = list(time = NULL, species = NULL, w = NULL, gear = NULL)
+        ), 
+        
+        BioOut = list(),
+        BioLimits = list(),
+        
+        n_pp = array(
+            NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
+        ),
+        
+        # AA
+        n_bb = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
+        ),
+        n_aa = array(
+          NA,dim = c(1,1), dimnames = list(time = NULL, w = NULL)
+        ),
+        diet_comp = array(
+          NA, dim = c(1,1,1,1), dimnames = list( predator= NULL, pred_size = NULL, prey =NULL, prey_size=NULL)
+        ),
+        metTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        ),
+        matTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        ),
+        morTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        ),
+        intTempScalar = array(
+          NA, dim = c(1,1,1), dimnames = list(sp = NULL, w = NULL, temperature = NULL)
+        )
+    ),
+    validity = valid_MizerSim
 )
 
 setValidity("MizerSim", valid_MizerSim)
@@ -162,7 +222,7 @@ remove(valid_MizerSim)
 #' Constructor for the \code{MizerSim} class
 #' 
 #' A constructor for the \code{MizerSim} class. This is used by the
-#' \code{project} function to create \code{MizerSim} objects of the right
+#' \code{project} method to create \code{MizerSim} objects of the right
 #' dimensions. It is not necessary for users to use this constructor.
 #' 
 #' @param params a \linkS4class{MizerParams} object
@@ -174,14 +234,18 @@ remove(valid_MizerSim)
 #'   used if t_dimnames = NA. Default value = 1.
 #'   
 #' @return An object of type \linkS4class{MizerSim}
-#' @export
 MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
+  
+  # # trial 
+  # params = params 
+  # t_dimnames = t_dimnames
+  
     # If the dimnames for the time dimension not passed in, calculate them
     # from t_max and t_save
-    if (any(is.na(t_dimnames))) {
+    if (any(is.na(t_dimnames))){
         t_dimnames <- seq(from = 0, to = t_max, by = t_save)
     }
-    if (!is.numeric(t_dimnames)) {
+    if (!is.numeric(t_dimnames)){
         stop("The t_dimnames argument must be numeric.")
     }
     if (is.unsorted(t_dimnames)) {
@@ -191,34 +255,88 @@ MizerSim <- function(params, t_dimnames = NA, t_max = 100, t_save = 1) {
     species_names <- dimnames(params@psi)$sp
     no_w <- length(params@w)
     w_names <- dimnames(params@psi)$w
-    resource_names <- dimnames(params@rho)$res
-    no_res <- length(resource_names)
-    no_t <- length(t_dimnames)
-    array_n <- array(NA, dim = c(no_t, no_sp, no_w), 
+    t_dim <- length(t_dimnames)
+    array_n <- array(NA, dim = c(t_dim, no_sp, no_w), 
                      dimnames = list(time = t_dimnames, 
                                      sp = species_names, w = w_names))
-    
+    ## CN this needs to be changed - no 
     no_gears <- dim(params@selectivity)[1]
     gear_names <- dimnames(params@selectivity)$gear
-    array_effort <- array(NA, dim = c(no_t, no_gears), 
+    array_effort <- array(NA, dim = c(t_dim, no_gears), 
                           dimnames = list(time = t_dimnames, 
                                           gear = gear_names))
+    # temperature scalars
+    matrix_temperature <- matrix(NA, nrow = t_dim, 
+                          dimnames = list(time = t_dimnames, 
+                                          "temperature"))
+    
+    # AA
+    array_metTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+    array_matTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+    array_morTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+    array_intTempScalar = array(NA, dim = c(dim(params@species_params)[1],length(params@w),t_dim), dimnames = list(sp = params@species_params$species, w = params@w, temperature = t_dimnames))
+
+
+    # CN add yiled profit... why so many times? 
+    array_effortOut <- array(NA, dim = c(t_dim, no_gears), 
+                          dimnames = list(time = t_dimnames, 
+                                          gear = gear_names))
+    array_yield <- array(NA, dim = c(t_dim, no_sp, no_w, no_gears), 
+                         dimnames = list(time = t_dimnames,
+                                         species = species_names,
+                                         w = w_names,
+                                         gear = gear_names))
+    array_profit <- array(NA, dim = c(t_dim, no_gears), 
+                          dimnames = list(time = t_dimnames, 
+                                          gear = gear_names))
+    array_revenue <- array(NA, dim = c(t_dim, no_gears), 
+                          dimnames = list(time = t_dimnames, 
+                                          gear = gear_names))
+    array_F <- array(NA, dim = c(t_dim, no_sp, no_w, no_gears), 
+                         dimnames = list(time = t_dimnames,
+                                         species = species_names,
+                                         w = w_names,
+                                         gear = gear_names))
+    list_BioOut <- list()
+    list_BioLimits <- list()
+      
     
     no_w_full <- length(params@w_full)
     w_full_names <- names(params@rr_pp)
-    array_n_pp <- array(NA, dim = c(no_t, no_w_full), 
-                        dimnames = list(time = t_dimnames, 
+    array_n_pp <- array(NA, dim = c(t_dim, no_w_full), 
+                        dimnames = list(time=t_dimnames, 
                                         w = w_full_names))
-    array_B <- array(NA, dim = c(no_t, no_res), 
-                        dimnames = list(time = t_dimnames, 
-                                        res = resource_names))
-    
+    array_n_bb <- array(NA, dim = c(t_dim, no_w_full), 
+                        dimnames = list(time=t_dimnames, 
+                                        w = w_full_names))
+    array_n_aa <- array(NA, dim = c(t_dim, no_w_full), 
+                        dimnames = list(time=t_dimnames, 
+                                        w = w_full_names))
     sim <- new('MizerSim',
-               params = params,
-               n = array_n,
+               n = array_n, 
+               effort = array_effort,
+               
+               # AA
+               temperature = matrix_temperature,
+
+               # Cn add fleet patram... again, Why so many times? 
+               effortOut = array_effortOut,
+               yield = array_yield, 
+               profit = array_profit,
+               revenue = array_revenue,
+               F = array_F, 
+               BioOut = list_BioOut,
+               BioLimits = list_BioLimits,
+               
                n_pp = array_n_pp,
-               B = array_B,
-               effort = array_effort)
+               n_bb = array_n_bb,
+               n_aa = array_n_aa,
+               params = params,
+               diet_comp=as.array(1,dim = c(1,1,1,1)), #place holder for diet comp array; constructed depending on whether diet comp is requested
+               metTempScalar = array_metTempScalar,
+               matTempScalar = array_matTempScalar,
+               morTempScalar = array_morTempScalar,
+               intTempScalar = array_intTempScalar)
     return(sim)
 }
 

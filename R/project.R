@@ -17,86 +17,72 @@ NULL
 #' 
 #' Runs the size spectrum model simulation.
 #' The function returns an object of type
-#' \linkS4class{MizerSim} that can then be explored with a range of
-#' \code{\link{summary_functions}} and \code{\link{plotting_functions}}.
+#' \linkS4class{MizerSim} that can then be explored with a range of summary and
+#' plotting methods.
 #' 
-#' @param object Either a \linkS4class{MizerParams} object or a 
-#'   \linkS4class{MizerSim} object (which contains a \code{MizerParams} object).
+#' @param params A \linkS4class{MizerParams} object
 #' @param effort The effort of each fishing gear through time. See notes below.
-#' @param t_max The number of years the projection runs for. The default value is
-#'   100. However, this argument is ignored if an array is used for the
-#'   \code{effort} argument. See notes below.
+#' @param t_max The maximum time the projection runs for. The default value is
+#'   100. However, this argument is not needed if an array is used for the
+#'   \code{effort} argument, in which case this argument is ignored. See notes
+#'   below.
 #' @param dt Time step of the solver. The default value is 0.1.
 #' @param t_save The frequency with which the output is stored. The default
 #'   value is 1. Must be an integer multiple of dt.
-#' @param t_start The the year of the start of the simulation. The simulation
-#'   will cover the period from \code{t_start} to \code{t_start + t_max}.
-#'   Defaults to 0. Ignored if an array is used for the \code{effort}
-#'   argument or a \code{MizerSim} for the \code{object} argument.
-#' @param initial_n The initial abundances of species. A matrix with dimensions 
-#'   species x size. The order of species must be the same as in the 
-#'   \code{MizerParams} argument. Ignored if the \code{object} argument is a 
-#'   MizerSim object, but overrules the \code{initial_n} slot if \code{object} 
-#'   is a \code{MizerParams} object.
-#' @param initial_n_pp The initial abundances of plankton. A numeric vector.
-#'   Ignored if the \code{object} argument is a MizerSim object, but overrules
-#'   the \code{initial_n_pp} slot if \code{object} is a \code{MizerParams}
-#'   object.
-#' @param initial_B The initial biomasses of the unstructured resources. It
-#'   should be a named vector with one entry for each resource. Ignored if the
-#'   \code{object} argument is a MizerSim object, but overrules the
-#'   \code{initial_B} slot if \code{object} is a \code{MizerParams} object.
-#' @param append A boolean that determines whether the new simulation results
-#'   are appended to the previous ones. Only relevant if \code{object} is a
-#'   \code{MizerSim} object. Default = TRUE.
-#' @param progress_bar Either a boolean value to determine whether a progress
-#'   bar should be shown in the console of a shiny progress object to implement 
-#'   a progress bar in a shiny app
+#' @param initial_n The initial populations of the species. By default the 
+#'   \code{initial_n} slot of the \linkS4class{MizerParams} argument is used.
+#'   See the notes below.
+#' @param initial_n_pp The initial population of the plankton spectrum. It
+#'   should be a numeric vector of the same length as the \code{w_full} slot of
+#'   the \code{MizerParams} argument. By default the \code{initial_n_pp} slot of the
+#'   \linkS4class{MizerParams} argument is used.
+#'   ##AAsp##
+#' @param initial_n_bb The initial population of the benthic spectrum. At the moment it is
+#'  just follows the same code as for the plankton spectrum 
+#' @param initial_n_aa The initial population of the algal spectrum. At the moment it is
+#'  just follows the same code as for the plankton spectrum 
+#'  @param shiny_progress A shiny progress object used to update shiny progress bar.
+#'   Default NULL.
 #' @param ... Currently unused.
 #' 
 #' @note The \code{effort} argument specifies the level of fishing effort during
-#' the simulation. If it is not supplied, the initial effort stored in the params
-#' object is used. The effort can be specified in three different ways: 
-#' \itemize{ 
-#' \item A single numeric value. This specifies the effort of all fishing gears
-#' which is constant through time (i.e. all the gears have the same constant
-#' effort).
+#' the simulation. It can be specified in three different ways: \itemize{ \item
+#' A single numeric value. This specifies the effort of all fishing gears which
+#' is constant through time (i.e. all the gears have the same constant effort). 
 #' \item A numerical vector which has the same length as the number of fishing
 #' gears. The vector must be named and the names must correspond to the gear
 #' names in the \code{MizerParams} object. The values in the vector specify the
 #' constant fishing effort of each of the fishing gears, i.e. the effort is
 #' constant through time but each gear may have a different fishing effort. 
-#' \item A numerical array with dimensions time x gear. This specifies the
+#' \item A numerical array with dimensions time step x gear. This specifies the
 #' fishing effort of each gear at each time step.  The first dimension, time,
 #' must be named numerically and contiguously. The second dimension of the array
 #' must be named and the names must correspond to the gear names in the
 #' \code{MizerParams} argument. The value for the effort for a particular time
-#' is used during the interval from that time to the next time in the array.
-#' }
+#' is used during the interval from that time to the next time in the array.}
 #' 
 #' If effort is specified as an array then the smallest time in the array is 
 #' used as the initial time for the simulation. Otherwise the initial time is
-#' set to the final time of the previous simulation if \code{object} is a 
-#' \code{MizerSim} object or to \code{t_start} otherwise. Also, if the effort is
-#' an array then the \code{t_max} argument is ignored and the maximum simulation
-#' time is the largest time of the effort array.
+#' set to 0. Also, if the effort is an array then the \code{t_max} argument is 
+#' ignored and the maximum simulation time is the largest time of the effort
+#' array.
 #' 
-#' If the \code{object} argument is of class \code{MizerSim} then the initial
-#' values for the simulation are taken from the final values in the 
-#' \code{MizerSim} object and the corresponding arguments to this function will
-#' be ignored.
+#' The \code{initial_n} argument is a matrix with dimensions species x size. 
+#' It specifies the abundances of the species at the initial time. The
+#' order of species must be the same as in the \code{MizerParams} argument. If
+#' the initial population is not specified, the argument is set by default by
+#' the \code{get_initial_n} function which is set up for a North Sea model.
 #' 
-#' @return An object of class \linkS4class{MizerSim}.
+#' @return An object of type \linkS4class{MizerSim}.
 #' 
 #' @export
-#' @seealso \code{\link{MizerParams}}, \code{\link{summary_functions}} and 
-#'   \code{\link{plotting_functions}}
+#' @seealso \code{\link{MizerParams}}
 #' @examples
 #' \dontrun{
 #' # Data set with different fishing gears
 #' data(NS_species_params_gears)
 #' data(inter)
-#' params <- newMultispeciesParams(NS_species_params_gears, inter)
+#' params <- MizerParams(NS_species_params_gears, inter)
 #' # With constant fishing effort for all gears for 20 time steps
 #' sim <- project(params, t_max = 20, effort = 0.5)
 #' # With constant fishing effort which is different for each gear
@@ -113,49 +99,52 @@ NULL
 #' effort_array[,"Otter"] <- seq(from = 1, to = 0.5, length = length(times))
 #' sim <- project(params, effort = effort_array)
 #' }
-project <- function(object, effort,
-                    t_max = 100, dt = 0.1, t_save = 1, t_start = 0,
-                    initial_n, initial_n_pp, initial_B,
-                    append = TRUE,
-                    progress_bar = TRUE, ...) {
-    validObject(object)
-    if (is(object, "MizerSim")) {
-        params <- object@params
-        no_t <- dim(object@B)[1]
-        initial_n <- params@initial_n # Needed to get the right dimensions
-        initial_n[] <- object@n[no_t, , ]
-        initial_n_pp <- params@initial_n_pp # Needed to get the right dimensions
-        initial_n_pp[] <- object@n_pp[no_t, ]
-        initial_B <- params@initial_B # Needed to get the right dimensions
-        initial_B[] <- object@B[no_t, ]
-        t_start <- as.numeric(dimnames(object@n)[[1]][no_t])
-    } else {
-        params <- object
-        if (missing(initial_n))       initial_n <- params@initial_n
-        if (missing(initial_n_pp)) initial_n_pp <- params@initial_n_pp
-        if (missing(initial_B))       initial_B <- params@initial_B
-    }
-    params@initial_n[] <- initial_n
-    params@initial_n_pp[] <- initial_n_pp
-    params@initial_B[] <- initial_B
-    
-    no_sp <- length(params@w_min_idx)
-    assert_that(is.array(initial_n),
-                are_equal(dim(initial_n), c(no_sp, length(params@w))))
-    assert_that(is.vector(initial_n_pp),
-                length(initial_n_pp) == length(params@w_full))
-    if (length(params@resource_dynamics) > 0) {
-        if (!is.character(names(initial_B))) {
-            stop("The initial_B needs to be a named vector")
-        }
-        if (!setequal(names(initial_B), names(params@resource_dynamics))) {
-            stop("The names of the entries in initial_B do not match the names of the unstructured resource components of the model.")
-        }
-    }
-    
-    # Create effort array ----
-    if (missing(effort)) effort <- params@initial_effort
+#' 
+project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
+                    temperature = rep(params@t_ref, times = t_max), 
+                    initial_n = params@initial_n,
+
+                    # AA
+                    initial_n_pp = params@initial_n_pp, 
+                    initial_n_bb = params@initial_n_bb,
+                    initial_n_aa = params@initial_n_aa,
+                    # CN
+                    fleetDynamics, management, multiFleet, price = price, 
+                    cost = cost, scaling_price = scaling_price, ke = ke,
+                    initial_effort = initial_effort,
+                    Blevel_management = Blevel_management,
+                    
+                    shiny_progress = NULL, 
+                    # AA
+                    diet_steps=10, ...) {  
+
+  # # # # trial
+  # params = params_baserun
+  # effort = effort_temp
+  # dt = dt
+  # fleetDynamics = FALSE
+  # management = FALSE
+  # multiFleet = FALSE
+  # price = NA
+  # cost = NA
+  # diet_steps = diet_steps
+  # ke = NA
+  # initial_effort = NA
+  # scaling_price = NA
+  # Blevel_management = NA
+  # initial_n = params@initial_n
+  # initial_n_pp = params@initial_n_pp
+  # initial_n_bb = params@initial_n_bb
+  # 
+  # t_save=1
+  # t_max = t_max
+  # temperature = temperature
+  # shiny_progress = NULL
+
+    validObject(params)
+
     # Do we need to create an effort array?
+    
     if (is.vector(effort)) {
         no_gears <- dim(params@catchability)[1]
         if ((length(effort) > 1) & (length(effort) != no_gears)) {
@@ -168,217 +157,704 @@ project <- function(object, effort,
             effort_gear_names <- gear_names
         }
         if (!all(gear_names %in% effort_gear_names)) {
-            stop(paste0("Gear names in the MizerParams object (", 
-                        paste(gear_names, collapse = ", "), 
-                        ") do not match those in the effort vector."))
+            gear_names_error_message <- paste("Gear names in the MizerParams object (", paste(gear_names, collapse=", "), ") do not match those in the effort vector.", sep="")
+            stop(gear_names_error_message)
         }
         # Set up the effort array transposed so we can use the recycling rules
-        time_dimnames <- seq(from = t_start, 
-                             to = t_start + t_max, 
-                             by = dt)
+        time_dimnames <- signif(seq(from = 0, to = t_max, by = dt), 3)
         effort <- t(array(effort, dim = c(no_gears, length(time_dimnames)), 
-                          dimnames = list(gear = effort_gear_names, 
-                                          time = time_dimnames)))
+                          dimnames = list(gear = effort_gear_names, time = time_dimnames)))
     }
     
-    # Check that number and names of gears in effort array is same as in 
-    # MizerParams object
+    # Check that number and names of gears in effort array is same as in MizerParams object
     no_gears <- dim(params@catchability)[1]
-    if (dim(effort)[2] != no_gears) {
-        stop(paste0("The number of gears in the effort array (length of the second dimension = ", 
-                   dim(effort)[2], 
-                   ") does not equal the number of gears in the MizerParams object (", 
-                   no_gears, ")."))
+    if(dim(effort)[2] != no_gears){
+        no_gears_error_message <- paste("The number of gears in the effort array (length of the second dimension = ", dim(effort)[2], ") does not equal the number of gears in the MizerParams object (", no_gears, ").", sep="")
+        stop(no_gears_error_message)
     }
     gear_names <- dimnames(params@catchability)[[1]]
-    if (!all(gear_names %in% dimnames(effort)[[2]])) {
-        stop(paste0("Gear names in the MizerParams object (", 
-                    paste(gear_names, collapse = ", "), 
-                    ") do not match those in the effort array."))
+    if(!all(gear_names %in% dimnames(effort)[[2]])){
+        gear_names_error_message <- paste("Gear names in the MizerParams object (", paste(gear_names, collapse=", "), ") do not match those in the effort array.", sep="")
+        stop(gear_names_error_message)
     }
     # Sort effort array to match order in MizerParams
-    effort <- effort[, gear_names, drop = FALSE]
+    effort <- effort[,gear_names, drop=FALSE]
     
     # Blow up time dimension of effort array
-    # i.e. effort might have been passed in using time steps of 1, but actual 
-    # dt = 0.1, so need to blow up
-    if (is.null(dimnames(effort)[[1]])) {
+    # i.e. effort might have been passed in using time steps of 1, but actual dt = 0.1, so need to blow up
+    if (is.null(dimnames(effort)[[1]])){
+        stop("The time dimname of the effort argument must be numeric.")
+    }
+    if (any(is.na(as.numeric(dimnames(effort)[[1]])))){
         stop("The time dimname of the effort argument must be numeric.")
     }
     time_effort <- as.numeric(dimnames(effort)[[1]])
-    if (any(is.na(time_effort))) {
-        stop("The time dimname of the effort argument must be numeric.")
-    }
     if (is.unsorted(time_effort)) {
         stop("The time dimname of the effort argument should be increasing.")
     }
-    t_end <- time_effort[length(time_effort)]
+    
+    t_max <- time_effort[length(time_effort)]
     # Blow up effort so that rows are dt spaced
-    time_effort_dt <- seq(from = time_effort[1], to = t_end, by = dt)
-    effort_dt <- t(array(NA, dim = c(length(time_effort_dt), dim(effort)[2]), 
-                         dimnames = list(time = time_effort_dt,
-                                         dimnames(effort)[[2]])))
-    for (i in 1:(length(time_effort) - 1)) {
+    time_effort_dt <- seq(from = time_effort[1], to = t_max, by = dt)
+    effort_dt <- t(array(NA, dim = c(length(time_effort_dt), dim(effort)[2]), dimnames=list(time = time_effort_dt, dimnames(effort)[[2]])))
+    for (i in 1:(length(time_effort)-1)){
         effort_dt[,time_effort_dt >= time_effort[i]] <- effort[i,]
     }
     effort_dt <- t(effort_dt)
     
-    # Make the MizerSim object with the right size ----
+    ## expand temperature vector in the required number of timesteps 
+    ## at the moment we just repeat yearly values for the entire year, no smothing or interpolation is used
+    if (length(temperature) != t_max) {
+      stop("your temperature input vector is not the same length as t_max")
+    }
+    
+    time_temperature_dt <- rep(temperature, length = t_max/dt, each = 1/dt) # works if t_max = length(temperature)
+    x_axis <- seq(length.out=(t_max/dt),from =1)   # = time vector
+    # need smoothing?
+    # myData <- data.frame("y" = time_temperature_dt, "x" = x_axis) # create dataframe for smoothing (not sure if needed)
+    # temperature_dt <- matrix(predict(loess(y~x, myData, span = 0.1)), dimnames = list(x_axis, "temperature")) # temperature vector following dt
+    
+    temperature_dt <- matrix(time_temperature_dt, dimnames = list(x_axis, "temperature")) # without smoothing
+    
+    #arrays with scalar values for all time, species and size
+    metTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    matTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    morTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+    intTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+
+    for(iSpecies in 1:dim(params@species_params)[1]){
+      metTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_met[iSpecies], 
+                                            c_a = params@species_params$ca_met[iSpecies], w = params@w)
+      
+      matTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_mat[iSpecies], 
+                                            c_a = params@species_params$ca_mat[iSpecies],  w = params@w)
+      
+      morTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_mor[iSpecies], 
+                                            c_a = params@species_params$ca_mor[iSpecies],  w = params@w)
+      
+      intTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, 
+                                            Ea = params@species_params$ea_int[iSpecies], 
+                                            c_a = params@species_params$ca_int[iSpecies],  w = params@w)
+    }
+
+    # CN create effortOut, yield, revenue and profit matrices and specify price and costs 
+    # All new arguments have the blown up time dimension as effort does
+    # CN moved from below:
+    # Handy things
+    no_sp <- nrow(params@species_params) # number of species
+    no_w <- length(params@w) # number of fish size bins
+    idx <- 2:no_w
+    # CN added: 
+    fleet = params@fleet
+    species = params@species_params$species
+    w = params@w
+ 
+    if (fleetDynamics == TRUE){ 
+      
+      # Blow up time dimension of price array
+      if (is.null(dimnames(price)[[1]])){
+        stop("The time dimname of the price argument must be numeric.")
+      }
+      if (any(is.na(as.numeric(dimnames(price)[[1]])))){
+        stop("The time dimname of the price argument must be numeric.")
+      }
+      time_price <- as.numeric(dimnames(price)[[1]])
+      if (is.unsorted(time_price)) {
+        stop("The time dimname of the price argument should be increasing.")
+      }
+      
+      t_max <- time_price[length(time_price)]
+      # Blow up price so that rows are dt spaced
+      time_price_dt <- seq(from = time_price[1], to = t_max, by = dt)
+      price_dt <- t(array(NA, dim = c(length(time_price_dt), dim(price)[2]), dimnames=list(time = time_price_dt, dimnames(price)[[2]])))
+      for (i in 1:(length(time_price)-1)){ # I m not sure why this is -1
+        price_dt[,time_price_dt >= time_price[i]] <- price[i,]
+      }
+      price_dt <- t(price_dt)
+    
+      # need to adjust effort_dt to have the same time dimention as price. 
+      effort_dt <- t(array(NA, dim = c(length(time_price_dt), dim(effort)[2]), dimnames=list(time = time_price_dt, dimnames(effort)[[2]])))
+      effort_dt <- t(effort_dt)
+      
+      # blow up costs with same dimension as price
+      cost_dt_fixed <- t(array(NA, dim = c(length(time_price_dt), dim(cost)[2]), dimnames=list(time = time_price_dt, dimnames(cost)[[2]])))
+      for (i in 1:(length(time_price)-1)){ 
+        cost_dt_fixed[,time_price_dt >= time_price[i]] <- cost[i,,1]
+      }
+      cost_dt_fixed <- t(cost_dt_fixed)
+      
+      cost_dt_variable <- t(array(NA, dim = c(length(time_price_dt), dim(cost)[2]), dimnames=list(time = time_price_dt, dimnames(cost)[[2]])))
+      for (i in 1:(length(time_price)-1)){ 
+        cost_dt_variable[,time_price_dt >= time_price[i]] <- cost[i,,2]
+      }
+      cost_dt_variable <- t(cost_dt_variable)
+      cost_dt<-list(fixed = cost_dt_fixed, variable = cost_dt_variable)
+      
+      # create all other matrices but with price determining their dimention
+      effortOut_dt<-array(0,dim = c(length(time_price_dt),length(fleet)),dimnames=list(time = time_price_dt, fleet = fleet)) # effort output of the model 
+      yield_dt <- array(0,dim = c(length(time_price_dt),no_sp,no_w,length(fleet)), dimnames = list(time = time_price_dt, species, w, fleet)) # B*Q*S*E
+      revenue_dt<-array(0,dim = c(length(time_price_dt),length(fleet)),dimnames=list(time = time_price_dt, fleet = fleet)) # yield * price
+      profit_dt<-array(0,dim=c(length(time_price_dt),length(fleet)),dimnames=list(time= time_price_dt, fleet=fleet)) # revenu - costXeffort
+      F_dt <- array(0,dim = c(length(time_price_dt),no_sp,no_w,length(fleet)), dimnames = list(time = time_price_dt, species, w, fleet)) # f_mort_gear matrix. time X sp X w X gear 
+      dim(effortOut_dt)
+      
+      ## AA
+      ## expand temperature vector in the required number of timesteps 
+      ## at the moment we just repeat yearly values for the entire year, no smothing or interpolation is used
+      temperature = rep(params@t_ref, times = t_max)
+      
+      if (length(temperature) != t_max) {
+        stop("your temperature input vector is not the same length as t_max")
+      }
+      
+      time_temperature_dt <- rep(temperature, length = t_max/dt, each = 1/dt) 
+      x_axis <- seq(length.out=(t_max/dt),from =1)  
+      temperature_dt <- matrix(time_temperature_dt, dimnames = list(x_axis, "temperature")) 
+      
+      #arrays with scalar values for all time, species and size
+      metTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+      matTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+      morTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+      intTempScalar <- array(NA, dim = c(dim(params@species_params)[1], length(params@w), length(temperature_dt)), dimnames = list(params@species_params$species,params@w,temperature_dt)) 
+      
+      for(iSpecies in 1:dim(params@species_params)[1])
+      {
+        metTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, Ea = params@species_params$ea_met[iSpecies], c_a = params@species_params$ca_met[iSpecies], w = params@w)
+        
+        matTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, Ea = params@species_params$ea_mat[iSpecies],c_a = params@species_params$ca_mat[iSpecies],  w = params@w)
+        
+        morTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, Ea = params@species_params$ea_mor[iSpecies], c_a = params@species_params$ca_mor[iSpecies],  w = params@w)
+        
+        intTempScalar[iSpecies,,] <-  tempFun(temperature = temperature_dt[,1], t_ref = params@t_ref, Ea = params@species_params$ea_int[iSpecies], c_a = params@species_params$ca_int[iSpecies],  w = params@w)
+      }
+       
+    } # end of fleetdynamics == TRUE
+    
+    if (multiFleet == TRUE){ # this and all the rest related with yield in a multifleet contest is not needed because yeild is calculated outside project given Fmort and Biomass but it's not needed to e.g. calculate the next step of effort as in FD.... NEED TO REMOVE
+      yield_dt <- array(0,dim = c(length(time_effort_dt),no_sp,no_w,length(fleet)), dimnames = list(time = time_effort_dt, species, w, fleet)) # B*Q*S*E
+    }
+    
+    # Make the MizerSim object with the right size
     # We only save every t_save steps
     # Divisibility test needs to be careful about machine rounding errors,
     # see https://github.com/sizespectrum/mizer/pull/2
-    if ((t_save < dt) || !isTRUE(all.equal((t_save - round(t_save / dt) * dt), 0)))
+    if((t_save < dt) || !isTRUE(all.equal((t_save - round(t_save / dt) * dt), 0)))
         stop("t_save must be a positive multiple of dt")
     t_skip <- round(t_save/dt)
-    t_dimnames_index <- seq(1, to = length(time_effort_dt), by = t_skip)
-    t_dimnames <- time_effort_dt[t_dimnames_index]
+    
+    # CN if fleetdynamics is on, effort is not given and the price matrix gives the dimention instead (it overwrites t_max) 
+    if(fleetDynamics==TRUE){
+      t_dimnames_index <- seq(1, to = length(time_price_dt), by = t_skip)
+      t_dimnames <- time_price_dt[t_dimnames_index]
+    }else{
+      t_dimnames_index <- seq(1, to = length(time_effort_dt), by = t_skip)
+      t_dimnames <- time_effort_dt[t_dimnames_index]
+    }
+    
+    # CN mizer uses effort and effort_dt. The fleetDynamics version needs these parameters as well, but also uses effortOut and effortOut_dt
+    # I also created yield_dt, revenue_dt and profit_dt and yield revenue and profit matrices, but I am not using the dt version of these matrices for much (beside the below if statement)
     sim <- MizerSim(params, t_dimnames = t_dimnames) 
-    # Fill up the effort array
-    sim@effort[] <- effort_dt[t_dimnames_index,]
     
-    ## Initialise ----
+    sim@effort[] <- effort_dt[t_dimnames_index,] 
+    
+    # AA
+    # attach temperature dimension and all the rate scalars to the sim object, so it is stored and can be viewed later
+    sim@temperature <- temperature_dt
+    sim@metTempScalar <- metTempScalar
+    sim@matTempScalar <- matTempScalar
+    sim@morTempScalar <- morTempScalar
+    sim@intTempScalar <- intTempScalar
+
+    # CN effortOut etc are created in MizerSim, now you change the time indexing using the previously created effortOut_dt etc.  
+    if(fleetDynamics==TRUE){
+      sim@effortOut[] <- effortOut_dt[t_dimnames_index,]
+      sim@yield[] <- yield_dt[t_dimnames_index,,,]
+      sim@revenue[] <- revenue_dt[t_dimnames_index,]
+      sim@profit[] <- profit_dt[t_dimnames_index,]
+      sim@F[] <- F_dt[t_dimnames_index,,,]
+    }
+    
+    if(multiFleet==TRUE){
+      sim@yield[] <- yield_dt[t_dimnames_index,,,]
+    }
+    
     # Set initial population
-    sim@n[1, , ] <- initial_n 
-    sim@n_pp[1, ] <- initial_n_pp
-    sim@B[1, ] <- initial_B
-    
+    sim@n[1,,] <- initial_n 
+    sim@n_pp[1,] <- initial_n_pp
+    sim@n_bb[1,] <- initial_n_bb
+    sim@n_aa[1,] <- initial_n_aa
+
     # Handy things
-    no_sp <- nrow(sim@params@species_params) # number of species
-    no_w <- length(sim@params@w) # number of fish size bins
-    idx <- 2:no_w
-    plankton_dynamics_fn <- get(sim@params@plankton_dynamics)
+    # AA
+    no_w_full<- length(sim@params@w_full) 
+    
     # Hacky shortcut to access the correct element of a 2D array using 1D notation
     # This references the egg size bracket for all species, so for example
-    # n[w_minidx_array_ref] = n[,w_min_idx]
     w_min_idx_array_ref <- (sim@params@w_min_idx - 1) * no_sp + (1:no_sp)
     
-    # sex ratio - DO SOMETHING LATER WITH THIS
+    # sex ratio
     sex_ratio <- 0.5
     
+    # create a matrix for diet comparison. For prey it has the number of columns set at no_sp+3 because we have 3 background spectra
+    sim@diet_comp<-array(0, c(no_sp, no_w, no_sp + 3, no_w_full), 
+                         dimnames=list( predator=as.character(params@species_params$species), pred_size = params@w, prey = c(as.character(params@species_params$species), "plankton", "benthos", "algae"), prey_size = params@w_full))
+    
     # Matrices for solver
-    a <- matrix(0, nrow = no_sp, ncol = no_w)
-    b <- matrix(0, nrow = no_sp, ncol = no_w)
+    A <- matrix(0, nrow = no_sp, ncol = no_w)
+    B <- matrix(0, nrow = no_sp, ncol = no_w)
     S <- matrix(0, nrow = no_sp, ncol = no_w)
     
-    # initialise n n_pp and B
-    # We want the first time step only but cannot use drop as there may only 
-    # be a single species
+    # initialise n and nPP
+    # We want the first time step only but cannot use drop as there may only be a single species
     n <- array(sim@n[1, , ], dim = dim(sim@n)[2:3])
     dimnames(n) <- dimnames(sim@n)[2:3]
     n_pp <- sim@n_pp[1, ]
-    B <- initial_B
+    n_bb <- sim@n_bb[1, ]
+    n_aa <- sim@n_aa[1, ]
+
+    # CN 
+    if(fleetDynamics == TRUE){
+      t_steps <- dim(price_dt)[1] - 1
+    }else{
+      t_steps <- dim(effort_dt)[1] - 1
+    }
+    
+    if(fleetDynamics == TRUE){
+      # set initial effort 
+      sim@effortOut[1,]<-initial_effort 
+    }
     
     # Set up progress bar
-    if (progress_bar == TRUE) {
-        pb <- progress::progress_bar$new(
-            format = "[:bar] :percent ETA: :eta",
-            total = length(t_dimnames_index), width = 60)
-    }
-    if (is(progress_bar, "Progress")) {
-        # We have been passed a shiny progress object
-        progress_bar$set(message = "Running simulation", value = 0)
-        proginc <- 1/length(t_dimnames_index)
+    # CN turn off when running calibration 
+    # pb <- progress::progress_bar$new(
+    #     format = "[:bar] :percent ETA: :eta",
+    #     total = length(t_dimnames_index), width = 60)
+    # if (hasArg(shiny_progress)) {
+    #     # We have been passed a shiny progress object
+    #     shiny_progress$set(message = "Running simulation", value = 0)
+    #     proginc <- 1/length(t_dimnames_index)
+    # }
+    
+    # If storing diet compisiton, make diet_comp_all array ahead of main loop 
+    if (diet_steps>0){
+      diet_comp_all<- array(0, dim(sim@diet_comp))
     }
     
-    ## Loop over time ----
-    t <- 0  # keep track of time
-    t_steps <- dim(effort_dt)[1] - 1
     for (i_time in 1:t_steps) {
-        r <- getRates(params, n = n, n_pp = n_pp, B = B,
-                      effort = effort_dt[i_time,])
+      # for (i_time in 1:5) {
+      # i_time = 1
         
-        # Update time
-        t <- t + dt
-        # Update unstructured resource biomasses
-        B_current <- B  # So that the plankton dynamics can still use the 
-                        # current value
-        if (length(params@resource_dynamics) > 0) {
-            for (res in names(params@resource_dynamics)) {
-                B[res] <-
-                    params@resource_dynamics[[res]](
-                        params,
-                        n = n,
-                        n_pp = n_pp,
-                        B = B_current,
-                        rates = r,
-                        t = t,
-                        dt = dt
-                    )
-            }
+        # Calculate amount E_{a,i}(w) of available food
+        avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)
+        # to fix: Error in mu_S[mu_S < 0] <- x[x < 0]
+        avail_energy[is.na(avail_energy)]<-0
+        
+        # Calculate amount f_i(w) of food consumed
+        feeding_level <- getFeedingLevel(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, avail_energy = avail_energy)
+        # trial to fix error as above
+        feeding_level[is.na(feeding_level)]<-0
+        
+        # Calculate the predation rate
+        pred_rate <- getPredRate(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], feeding_level = feeding_level)
+        
+        # Calculate predation mortality on fish \mu_{p,i}(w)
+        # AA
+        m2 <- getPredMort(sim@params, pred_rate = pred_rate, intakeScalar = sim@intTempScalar[,,i_time])
+        
+        # Calculate mortality on the plankton spectrum
+        m2_background <- getPlanktonMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], pred_rate = pred_rate)
+
+        #Calculate mortality of the benthis spectrum 
+        m2_benthos <- getBenthosMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, pred_rate = pred_rate)
+        m2_algae <- getAlgalMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, pred_rate = pred_rate)
+        
+        # Calculate the resources available for reproduction and growth
+        e <- getEReproAndGrowth(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time],feeding_level = feeding_level)
+        # trial to fix error above
+        e[is.na(e)]<-0
+        
+        if(fleetDynamics==TRUE){
+
+          # error checking - ask Javi
+          # if(i_time==102)browser()
+          
+          # calcualte biomass 
+          B_itime<-sweep(n, 2, sim@params@w * sim@params@dw, "*")
+          
+          # set an intial value of effort also for effortOut_dt and based on initial_effort 
+          effortOut_dt[1,]<-sim@effortOut[1,] 
+          
+          z <- getMort_CN(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], morScalar = sim@morTempScalar[,,i_time], effort = effortOut_dt[i_time,], e = e, m2 = m2)
+
+          # new outputs needed to calcualte yield in fleetDynamics eqn
+          # Fmortality = effort * catchability * selectivity 
+          F_itime <- getFMort_CN(sim@params, effort = effortOut_dt[i_time,])$f_mort_gear 
+          F_itime <-aperm(F_itime, c(2,3,1)) 
+          # Fmortality = catchability * selectivity
+          F_itime_FL <- getFMort_CN(sim@params, effort = effortOut_dt[i_time,])$f_mort_gear_FL
+          F_itime_FL <-aperm(F_itime_FL, c(2,3,1))
+          
+        }else if(multiFleet==TRUE){
+          
+          # calcualte biomass at this time step and important to calucalte yield 
+          B_itime<-sweep(n, 2, sim@params@w * sim@params@dw, "*") 
+          
+          # mortality
+          z <- getMort_CN(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa,intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], morScalar = sim@morTempScalar[,,i_time], effort = effort_dt[i_time,], e = e, m2 = m2)
+          
+          # fishing mortality: 
+          F_itime <- getFMort_CN(sim@params, effort = effort_dt[i_time,])$f_mort_gear 
+          F_itime <-aperm(F_itime, c(2,3,1)) # as for yield and all the other matrices 
+          
+        }else{
+          
+         # total mortality
+         z <- getMort(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], morScalar = sim@morTempScalar[,,i_time], effort = effort_dt[i_time,], e = e, m2 = m2)
         }
         
-        # Update plankton
-        n_pp <- plankton_dynamics_fn(params, n = n, n_pp = n_pp,
-                                     B = B_current, rates = r,
-                                     t = t, dt = dt)
+        # Calculate the resources for reproduction
+        e_repro <- getERepro(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, e = e, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time])
         
+        # Calculate the growth rate g_i(w)
+        e_growth <- getEGrowth(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], e_repro = e_repro, e = e) 
+  
+        # R_{p,i}
+        rdi <- getRDI(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], e_repro = e_repro, sex_ratio = sex_ratio)
+        
+        # R_i
+        rdd <- getRDD(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, rdi = rdi,intakeScalar = sim@intTempScalar[,,i_time],metScalar = sim@metTempScalar[,,i_time])
+
+        # check if diet output is needed and if so call the diet comparison function 
+        diet_store <- tail(t_dimnames_index, diet_steps) %in% (i_time + 1)
+        
+        if (any(diet_store)) {
+          diet_comp_all[]<- getDietComp(sim@params, n=n,  n_pp=n_pp, n_bb = n_bb, n_aa = n_aa, diet_comp_all=diet_comp_all, diet_steps=diet_steps, intakeScalar = sim@intTempScalar[,,i_time])
+          sim@diet_comp[]<-(diet_comp_all/diet_steps) + sim@diet_comp
+        }
+
         # Iterate species one time step forward:
         # See Ken's PDF
-        # a_{ij} = - g_i(w_{j-1}) / dw_j dt
-        a[, idx] <- sweep(-r$e_growth[, idx - 1, drop = FALSE] * dt, 2,
-                          sim@params@dw[idx], "/")
-        # b_{ij} = 1 + g_i(w_j) / dw_j dt + \mu_i(w_j) dt
-        b[, idx] <- 1 + sweep(r$e_growth[, idx, drop = FALSE] * dt, 2, 
-                              sim@params@dw[idx], "/") +
-                        r$mort[, idx, drop = FALSE] * dt
+        # A_{ij} = - g_i(w_{j-1}) / dw_j dt
+        A[,idx] <- sweep(-e_growth[,idx-1,drop=FALSE]*dt, 2, sim@params@dw[idx], "/")
+        # B_{ij} = 1 + g_i(w_j) / dw_j dt + \mu_i(w_j) dt
+        B[,idx] <- 1 + sweep(e_growth[,idx,drop=FALSE]*dt,2,sim@params@dw[idx],"/") + z[,idx,drop=FALSE]*dt
         # S_{ij} <- N_i(w_j)
-        S[,idx] <- n[, idx, drop = FALSE]
+        S[,idx] <- n[,idx,drop=FALSE]
         # Boundary condition upstream end (recruitment)
-        b[w_min_idx_array_ref] <- 1 + r$e_growth[w_min_idx_array_ref] * dt /
-                                        sim@params@dw[sim@params@w_min_idx] +
-                                    r$mort[w_min_idx_array_ref] * dt
+        B[w_min_idx_array_ref] <- 1+e_growth[w_min_idx_array_ref]*dt/sim@params@dw[sim@params@w_min_idx]+z[w_min_idx_array_ref]*dt
         # Update first size group of n
-        n[w_min_idx_array_ref] <-
-            (n[w_min_idx_array_ref] + r$rdd * dt / 
-                 sim@params@dw[sim@params@w_min_idx]) /
-            b[w_min_idx_array_ref]
-        # Update n
-        # for (i in 1:no_sp) # number of species assumed small, so no need to 
-        #                      vectorize this loop over species
+        n[w_min_idx_array_ref] <- (n[w_min_idx_array_ref] + rdd*dt/sim@params@dw[sim@params@w_min_idx]) / B[w_min_idx_array_ref]
+        
+        # Update n - old version 
+        # for (i in 1:no_sp) # number of species assumed small, so no need to vectorize this loop over species
         #     for (j in (sim@params@w_min_idx[i]+1):no_w)
         #         n[i,j] <- (S[i,j] - A[i,j]*n[i,j-1]) / B[i,j]
-        # This is implemented via Rcpp
-        n <- inner_project_loop(no_sp = no_sp, no_w = no_w, n = n,
-                                A = a, B = b, S = S,
-                                w_min_idx = sim@params@w_min_idx)
         
+        n <- inner_project_loop(no_sp = no_sp, no_w = no_w, n = n,
+                                A = A, B = B, S = S,
+                                w_min_idx = sim@params@w_min_idx)
+
+        # Dynamics of plankton spectrum uses a semi-chemostat model (de Roos - ask Ken)
+        # We use the exact solution under the assumption of constant mortality during timestep
+        tmp <- sim@params@rr_pp * sim@params@cc_pp / (sim@params@rr_pp + m2_background) 
+        n_pp <- tmp - (tmp - n_pp) * exp(-(sim@params@rr_pp + m2_background) * dt)
+
+        # Dynamics of benthic spectrum uses a semi-chemostat model 
+        # currently it follows exactly the same rules as plankton but has it's own parameters
+        tmp <- (sim@params@rr_bb * sim@params@cc_bb / (sim@params@rr_bb + m2_benthos))
+        n_bb <- tmp - (tmp - n_bb) * exp(-(sim@params@rr_bb + m2_benthos) * dt)
+        n_bb[sim@params@initial_n_bb == 0] <- 0 
+        
+        # Dynamics of the algal spectrum uses a semi-chemostat model 
+        # currently it follows exactly the same rules as plankton but has it's own parameters
+        tmp <- (sim@params@rr_aa * sim@params@cc_aa / (sim@params@rr_aa + m2_algae))
+        n_aa <- tmp - (tmp - n_aa) * exp(-(sim@params@rr_aa + m2_algae) * dt)
+        n_aa[sim@params@initial_n_aa == 0] <- 0 
+        
+        # fleet dynamics
+        if(fleetDynamics==TRUE){
+
+          # calcualte yield, revenue and profit - all based on biomass at current time step (B_itime) as per EULER method
+
+          # yield (spp X w X fleet) yield by fleet and total
+          yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
+          # dim(yield_itime)
+          # colSums(rowSums(aperm(yield_itime,c(1,3,2)),dims=2))
+
+          # price
+          price_itime<-price_dt[i_time,]*scaling_price 
+          
+          # revenue
+          revenue_itime<-sweep(yield_itime, c(1), price_itime,"*")
+          revenue_itime_tot<-apply(revenue_itime, 3, sum)
+
+          # cost
+          cost_itime_fixed<-cost_dt$fixed[i_time,]
+          cost_itime_variable<-cost_dt$variable[i_time,]
+
+          # profit
+          profit_itime<-revenue_itime_tot - (cost_itime_fixed + (cost_itime_variable*effortOut_dt[i_time,]))
+          profit_itime<-ifelse(is.na(profit_itime),0, profit_itime) 
+          
+          # effort will be calcuated in loop and depends on the management component
+          Effort_itime_change <-list()
+          Effort_itime_next <-list()
+
+          if(management == TRUE){
+            
+            if(Blevel_management == "Bref"){
+
+              if("Bref" %in% colnames(params@species_params) == TRUE){ 
+                Blim<-params@species_params$Bref
+              }else{
+                Blim<-rowSums(sweep(sim@n[1,,],2,sim@params@w * sim@params@dw,"*"))
+                }
+              
+              Blim<-data.frame(species = species, bioUnfished = Blim, bio20 = Blim*0.2, bio40 = Blim*0.4, bio48 = Blim*0.48)
+              
+              }else{ # Blevel_management == Bmsy
+              
+              Blim<-params@species_params$Bmsy
+              Blim<-data.frame(species = species, bioUnfished = Blim, bio20 = Blim*0.5, bio40 = Blim, bio48 = Blim*1.2) # Beth: in reality B20 is bio unfished or Historical bio, B40 is Bmsy and B48 is Bmse, but the above values are common approssimations
+            }  
+            
+            # biomass level
+            Blevel<-data.frame(species = species, bioLevel = rowSums(B_itime))
+              
+            # biomass level vs biomass ref points
+            Bio<-merge(Blim, Blevel)
+            Bio$bio48check<-ifelse(Bio$bioLevel > Bio$bio48, "Above","Below")
+            Bio$bio40check<-ifelse(Bio$bioLevel > Bio$bio40, "Above","Below")
+            Bio$bio20check<-ifelse(Bio$bioLevel > Bio$bio20, "Above","Below")
+            
+            Bio2<-Bio[,c("species","bioLevel","bio20","bio40","bio48")]
+            
+            Bio<-melt(Bio[,c("species","bio48check","bio40check","bio20check")], id.vars = "species")
+            colnames(Bio)<-c("species","bioLim","bioStatus")
+            
+            # spp under management for each fishery
+            target<-as.data.frame(t(sim@params@target))
+            target$species<-rownames(target)
+            target<-melt(target,id.vars = "species")
+            colnames(target)<-c("species","fleet","target")
+            
+            Bio2<-merge(Bio2, target) 
+            Bio2<-split(Bio2, Bio2$fleet)
+            
+            # merge info biomass level, ref points and target spp
+            Bio<-merge(Bio,target)
+            Bio$timestep<-i_time
+            Bio<-split(Bio, Bio$fleet)
+            Bio<-lapply(Bio, function(x) x[-which(x$target == 0 | x$bioStatus =="Above"),])
+              
+            # output this info 
+            BioOut<-do.call("rbind",Bio) %>% 
+              select(-c(target, bioStatus))
+            rownames(BioOut)<-NULL
+              
+            # calcualte effort of each fleet for the next time step and based on profits maximisation: whether effort is allowed change based on profits or forced to stabilise or decrease is based on biomass treshold.
+            
+            for(i in 1:length(Bio)){
+              
+              # i = 3
+              
+              # try with no seriorella - check the decreases in effort and how it it weighted: 
+              # with seriorella (without the fix), decreases in effort is 0.07508566
+              # without seriorella (with the fix), decreases in effort is 0.1636155 - Bigger!
+              # BioOut<-BioOut %>% filter(species != "seriolella punctata")
+              
+              # calcualte how many species reached tresholds for each fleet 
+              SpBelowLimits<-split(BioOut, BioOut$fleet)
+              SpBelowLimits<-SpBelowLimits[[i]]
+              n20<-SpBelowLimits[SpBelowLimits$bioLim == "bio20check",]
+              n20<-nrow(n20)
+              n40<-SpBelowLimits[SpBelowLimits$bioLim == "bio40check",]
+              n40<-nrow(n40)
+              n48<-SpBelowLimits[SpBelowLimits$bioLim == "bio48check",]
+              n48<-nrow(n48)
+              
+              # calcualte by how much each spp is below msy tresholds 
+              Perc40<-SpBelowLimits[SpBelowLimits$bioLim == "bio40check",]
+              Perc40<-merge(Perc40,Bio2[[i]], all = FALSE)
+              # % of decrease in species abundance
+              Perc40$Perc40<-((Perc40$bio40-Perc40$bioLevel)/Perc40$bio40) 
+              
+              # % of decrease in effort
+              
+              # option A - weighted sum of contributing species: (a*Ba + b*Bb + c*Bc)/(Ba + Bb + Bc)
+              # contribution to the community
+              Perc40$contribution<-Perc40$bioLevel*Perc40$Perc40 
+              # contribution to the catch # this can be added to slow decreases 
+              # Perc40$contribution<-Perc40$contribution*Perc40$target # to comment 
+
+              # MeanPerc40A<-sum(Perc40$contribution)/sum(Perc40$bioLevel) # problem: less species below target result in lower biolevel (less spp = less abundance) and higher decrease in effort. # to comment 
+              
+              # instead: consider sum of biomass in the whole commuity. decreases in effort are too low as here you are considering all spp so dividing by a huge number  
+              # MeanPerc40A<-sum(Perc40$contribution)/sum(Blevel$bioLevel)
+              
+              # instead: consider sum of biomass of the species that are target of the fisheriy? (basically this needs to be a fixed quantity across the runs as it's the reference level)
+              ref<-Bio2[[i]] %>% filter(target>0.005) # consider only target and bycatch # to uncomment
+              # # ref$bioLevel<-ref$bioLevel*ref$target # wait for their importance as target spp
+              MeanPerc40A<-sum(Perc40$contribution)/sum(ref$bioLevel)
+              # MeanPerc40A<-MeanPerc40A*2.5 # this is to speed decreases in effort up instead of using a cut bigger than 0 on ref. 
+
+              # option B - cube root of (a * b * c) 
+              # MeanPerc40B<-prod(Perc40$Perc40)^(1/3)
+              
+              # option C - simple mean
+              # MeanPerc40C<-mean(Perc40$Perc40) 
+              
+              if(n48<5 & n40==0 & n20==0) # if all these conditions are true at the same time effort changes accoring to profits 
+              {
+                # print("all good")
+                Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+                Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                  
+              }else if(n48>=5 & n40==0 & n20==0){ # if more than 5 spp are  below 48 but above 40 and 20 .... 
+                # if fishing is profitable, do not allow any increase in effort
+                if(profit_itime[[i]]>0) { 
+                  Effort_itime_change[i]<-0
+                  Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                  
+                # if fishing is not profitable and it is decreasing, let it decrease according to profits  
+                }else{ 
+                  Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+                  Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                  }
+
+                }else if(n40!=0 & n20<5){
+                  # if some speceis is below 40 but more then 5 spp are below 20 descrease effort 
+                  
+                  # new effort according to profits 
+                  test = effortOut_dt[i_time,][i] + (ke[i,"ke"]*(profit_itime[[i]]) * dt) 
+                  # new effort according to management
+                  test2 = effortOut_dt[i_time,][i] * (1 - MeanPerc40A*dt)
+                  
+                  # if fishing is not profitable and it is decreasing more than how it would decrease according to management, let it decrease according to profits
+                  if(profit_itime[[i]]<= 0 & test < test2){
+                    Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+                    Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+                    
+                    # if fishing is profitable or decreasesin effort according to profits are small, force a descrease in effort proportional to the decrease in biomass below tresholds. the old version only had this.
+                  }else{ 
+                    Effort_itime_change[i]<-NA
+                    Effort_itime_next[i]<-effortOut_dt[i_time,][i] * (1 - MeanPerc40A*dt)
+                    # should we add ke[i,"ke"] here as this determined the fleet adjustmetn time?
+                    # Effort_itime_next[i]<-ke[i,"ke"]*(effortOut_dt[i_time,][i] * (1 - MeanPerc40A*dt))
+                  }
+                  
+                }else{
+                  # if more than 5 speceis are below 20% stop the fishery
+                  Effort_itime_change[i]<-0
+                  Effort_itime_next[i]<-0
+                }
+                
+                names(Effort_itime_change)[i]<-fleet[i]
+                names(Effort_itime_next)[i]<-fleet[i]
+                Effort_itime_next[[i]]<-ifelse(is.na(Effort_itime_next[[i]]) | Effort_itime_next[[i]]<0 | is.infinite(Effort_itime_next[[i]]),0, Effort_itime_next[[i]])
+              
+              } # end of for loop
+            }else{ # start of management = FALSE
+
+            for(i in 1:length(fleet)){
+              
+              Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
+              Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
+
+              names(Effort_itime_change)[i]<-fleet[i]
+              names(Effort_itime_next)[i]<-fleet[i]
+              Effort_itime_next[[i]]<-ifelse(is.na(Effort_itime_next[[i]]) | Effort_itime_next[[i]]<0 | is.infinite(Effort_itime_next[[i]]),0, Effort_itime_next[[i]])
+
+            } # end of fo loop
+
+          } # end of managemetn = FALSE
+
+          # change format of effort
+          Effort_itime_change<-t(do.call("rbind", Effort_itime_change))
+          Effort_itime_next<-t(do.call("rbind", Effort_itime_next))
+
+          # update effort for next time step
+          effortOut_dt[i_time+1, ]<-Effort_itime_next
+          
+          # # but if the fishery has been inactive for the previous e.g. 4 runs, and effort is sill negative or zero, then set effort for next time step to a minimum value to allow for a fleet to start fishing again.
+          # OR if the conditions above are met: no species below biomass etc.... 
+          if(i_time>5){
+          for(i in 1:length(fleet)){
+            effortOut_dt[i_time+1, i]<- ifelse(sum(effortOut_dt[i_time-5,i],effortOut_dt[i_time-4,i],effortOut_dt[i_time-3,i],effortOut_dt[i_time-2,i],effortOut_dt[i_time-1,i],effortOut_dt[i_time,i],Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
+            
+          }}
+          
+          # yield, revenue and profits in df format - important when saving these data below 
+          yield_dt[i_time,,,]<-yield_itime
+          revenue_dt[i_time,]<-revenue_itime_tot
+          profit_dt[i_time,]<-profit_itime
+          F_dt[i_time,,,]<-F_itime
+
+        }else if(multiFleet==TRUE){
+          yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
+        } # end of fleetDynamics = TRUE or multiFleet == TRUE
+       
         # Store results only every t_step steps.
-        store <- t_dimnames_index %in% (i_time + 1)
+        store <- t_dimnames_index %in% (i_time + 1) 
+        
         if (any(store)) {
-            # Advance progress bar
-            if (is(progress_bar, "Progress")) {
-                progress_bar$inc(amount = proginc)
-            }
-            if (progress_bar == TRUE) {
-                pb$tick()
-            }
+
+          # Advance progress bar
+          # CN you can turn off bar when running calibration 
+          # pb$tick()
+          # if (hasArg(shiny_progress)) {
+          #   shiny_progress$inc(amount = proginc)
+          # }
+          
             # Store result
-            sim@n[which(store), , ] <- n
+            sim@n[which(store), , ] <- n 
             sim@n_pp[which(store), ] <- n_pp
-            sim@B[which(store), ] <- B
+            sim@n_bb[which(store), ] <- n_bb
+            sim@n_aa[which(store), ] <- n_aa
+          
+          # CN store fleetDynamics results
+          if(fleetDynamics == TRUE){
+
+            # sim@effort
+            sim@effortOut[which(store), ] <- effortOut_dt[i_time,] 
+            sim@yield[which(store),,,] <- yield_itime
+            sim@revenue[which(store), ] <- revenue_itime_tot
+            sim@profit[which(store), ] <- profit_itime
+            sim@F[which(store),,,] <- F_itime
+            
+            # info on declining spp
+            # stop for calibration
+            sim@BioOut[[i_time]]<-BioOut
+            # info on Biological limits for each species
+            sim@BioLimits[[i_time]]<-Bio2
+            
+            # add values for time step 1. this is because n, n_pp etc and effort are initialised above (before the loop) while these parameters at time step = 1 are calcualted withing the loop. The loop saves from time step 2 leaving 1 at initial values.  
+            sim@yield[1,,,]<-yield_dt[1,,,]
+            sim@revenue[1,]<-revenue_dt[1,]
+            sim@profit[1,]<-profit_dt[1,]
+            sim@F[1,,,] <-F_dt[1,,,]
+            
+          }else if (multiFleet==TRUE){
+            sim@yield[which(store),,,] <- yield_itime
+            sim@yield[1,,,]<-yield_dt[1,,,]
+          }
+
         }
-    }
-    if (is(object, "MizerSim") && append) {
-        # append to previous simulation ----
-        no_t_old <- dim(object@n)[1]
-        no_t <- length(t_dimnames)
-        new_t_dimnames <- c(as.numeric(dimnames(object@n)[[1]]),
-                            t_dimnames[2:length(t_dimnames)])
-        new_sim <- MizerSim(params, t_dimnames = new_t_dimnames)
-        old_indices <- 1:no_t_old
-        new_indices <- seq(from = no_t_old + 1, length.out = no_t - 1)
-        new_sim@n[old_indices, , ]  <- object@n
-        new_sim@n[new_indices, , ]  <- sim@n[2:no_t, , ]
-        new_sim@n_pp[old_indices, ] <- object@n_pp
-        new_sim@n_pp[new_indices, ] <- sim@n_pp[2:no_t, ]
-        new_sim@B[old_indices, ]    <- object@B
-        new_sim@B[new_indices, ]    <- sim@B[2:no_t, ]
-        new_sim@effort[old_indices, ] <- object@effort
-        new_sim@effort[new_indices, ] <- sim@effort[2:no_t, ]
-        return(new_sim)
-    }
+        
+        if(fleetDynamics == TRUE & management == TRUE){
+          # info on declining spp - could be moved in if above 
+          # stop for calibration
+          sim@BioOut[[i_time]]<-BioOut
+        }
+
+    } # end of for loop
+
     return(sim)
-}
+    
+ } # end of function
 
 
 #' Calculate initial population abundances for the community populations
@@ -397,7 +873,7 @@ project <- function(object, effort,
 #' @examples
 #' \dontrun{
 #' data(NS_species_params_gears)
-#' params <- newMultispeciesParams(NS_species_params_gears)
+#' params <- MizerParams(NS_species_params_gears)
 #' init_n <- get_initial_n(params)
 #' }
 get_initial_n <- function(params, n0_mult = NULL, a = 0.35) {
@@ -409,8 +885,8 @@ get_initial_n <- function(params, n0_mult = NULL, a = 0.35) {
     dimnames(initial_n) <- dimnames(params@intake_max)
     # N = N0 * Winf^(2*n-q-2+a) * w^(-n-a)
     # Reverse calc n and q from intake_max and search_vol slots (could add get_n function)
-    n <- params@n
-    q <- params@q
+    n <- (log(params@intake_max[,1] / params@species_params$h) / log(params@w[1]))[1]
+    q <- (log(params@search_vol[,1] / params@species_params$gamma) / log(params@w[1]))[1]
     # Guessing at a suitable n0 value based on kappa - this was figured out using trial and error and should be updated
     if (is.null(n0_mult)) {
         lambda <- 2 + q - n
