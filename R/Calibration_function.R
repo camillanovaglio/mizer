@@ -61,13 +61,13 @@ calibrate <- function(logParams,
       params@species_params$r_max <- 10^(logParams[1:nrow(df_param.f)]) 
     }
   
-  sim <- project(params, t_max = t_max, effort = effort, dt = dt, fleetDynamics = fleetDynamics, management = management, price =price, cost = cost, diet_steps = diet_steps, initial_n = initial_n, initial_n_pp = initial_n_pp)
+  sim <- project(params, t_max = t_max, effort = effort, dt = dt, fleetDynamics = fleetDynamics, multiFleet = multiFleet ,management = management, price =price, cost = cost, diet_steps = diet_steps, initial_n = initial_n, initial_n_pp = initial_n_pp)
   # plot(sim)
   
   # unfished community
   effort_unfished<-effort
   effort_unfished[]<-0
-  sim_unfished<-project(params, t_max = t_max, effort = effort_unfished, dt = dt, fleetDynamics = fleetDynamics, management = management, price =price, cost = cost, diet_steps = diet_steps, initial_n = initial_n, initial_n_pp = initial_n_pp)
+  sim_unfished<-project(params, t_max = t_max, effort = effort_unfished, dt = dt, fleetDynamics = fleetDynamics, multiFleet = multiFleet, management = management, price =price, cost = cost, diet_steps = diet_steps, initial_n = initial_n, initial_n_pp = initial_n_pp)
   # plot(sim_unfished)
   
   # error basaed on yields (always done) 
@@ -131,6 +131,7 @@ Yielderror <- function(Newcomm,
   
   # do not compare yield from mycto - not there - and perch - there but not to be considered 
   toDelete<-c("myctophids","helicolenus barathri")
+  toDelete<-c(toDelete, "squalus spp.") # added this when running calibration for opn3 (local) as squalus catches are too low nand result in unrealistic abundances
   temp<-Newcomm@params@species_params
   temp<-temp[-which(temp$species %in% toDelete),]
   Yieldobs <- temp$catchComm_t
