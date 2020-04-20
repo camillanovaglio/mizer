@@ -1,0 +1,1127 @@
+---
+title: "SEAmodel_run"
+author: "Camilla Novaglio"
+date: "15/11/2018"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# key folders: 
+
+1. /Users/nov017/Dropbox/Mizer-fleet/R. My Mizer codes, linked to my GitHub account (use the fleet branch). Here you can modify codes and commit/push changes 
+2. /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/R. r codes to prepare input parameters and data (e.g. SEA_EcolParam.Rmd and SEA_FleetParam.Rmd calling the GET functions)
+3. /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia. input, output and docs folders -> these should be moved to the dropbox folder where Mizer-fllet.Rproj linked to the github account is! 
+
+Clean forlders! in red are files and folder to delete 
+
+# summary of communities: 
+
+Fmort: 
+1. sim1 - initial uncalibrated community with constant effort/mortalities 
+3. sim_calibrated - calibrated community with r_max with constant effort/mortalities
+4. sim_fitted - calibrated community with time variant fishing mortalities 
+
+#-----------------------------------------
+# Load code
+#-----------------------------------------
+
+```{r codes}
+
+rm(list=ls())
+library(tidyverse)
+library(devtools)
+library(plyr) 
+library(Rcpp) # this will allow you to run the inner_project_loop 
+library(reshape2)
+library(inline)
+library(ggplot2)
+library(vegan)
+library(mizer) # if inner_loop error, you need to upload mizer
+
+setwd("/Users/nov017/Dropbox/Mizer-fleet/R")
+source("data.R") 
+source("help.R") 
+source("MizerParams-class.R") 
+source("MizerSim-class.R")
+source("plots.R")
+source("project_methods.R")
+source("project.R")
+source("RcppExports.R") 
+source("selectivity_funcs.R")
+source("summary_methods.R")
+source("wrapper_functions.R")
+source("DataFunction.R") 
+
+# calcualte area of the ecosystem using googe map: see screen shot 
+# from https://www.calcmaps.com/map-area/
+areaEco<-853512602888*400 # area m2 * depth m = m3 
+areaEco<-areaEco*1.5 #1e15 - need to ask for the area of the system to SA people - this fixes the low catches....
+
+```
+
+#-----------------------------------------
+# species, selectiveity, effort Matrix, theta
+#----------------------------------------------
+
+```{r input data}
+
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SEA_EcolParam.RData")
+load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SEA_FleetParamTemp.RData") 
+
+########### select speceis 
+df_param<-SpSelect(df_param)
+df_param$alpha_g<-0.6 # this is def in your model - but def is 1 in Mizer
+
+########### selectivity
+df_param<-df_param %>%
+  left_join(sel_for_df_param) %>%
+  mutate(gear = ifelse(is.na(gear), "trawl", gear)) %>% 
+  mutate(W25_S = ifelse(is.na(W25_S), 0.25*w_inf, W25_S)) %>%
+  mutate(W50_S = ifelse(is.na(W50_S), 0.5*w_inf, W50_S)) %>%
+  mutate(W50_B = ifelse(is.na(W50_B), 0.5*w_inf, W50_B)) %>%
+  mutate(sigma_B = ifelse(is.na(sigma_B), 0.5*W50_B, sigma_B))
+names(df_param)[names(df_param) == "gear"] <- "sel_func"
+
+########### effort matrix
+t_max = 600
+output_function<-CreateFmort(df_param, all_mortality, t_max, areaEco)
+df_param<-output_function$df_param
+Fmort<-output_function$Fmort 
+Fmort_mean<-output_function$Fmort_mean
+matrix_effort<-output_function$matrix_effort
+yieldObs_timeVariant<-output_function$yieldObs_timeVariant 
+
+########### theta 
+# theta<-CalcTheta(df_param, df_ismp_spp)
+# upload new theta
+theta<- read.csv("/Users/nov017/Desktop/feedingTrial/theta_trial_PM_feeding.csv")
+rownames(theta)<-theta[,1]
+theta<-theta[,-1]
+colnames(theta)<-rownames(theta)
+theta<-as.matrix(theta)
+
+########### fixed parameters 
+kappa = 0.001 # intercpet of PP
+kappa_ben = kappa # intercpet of BB benthic spectrum
+kappa_alg = 0 # intercpet for algae spectrum
+lambda = 2.33 # slope of spectrum - def
+lambda_ben = 2.33 # slope of spectrum - def
+w_pp_cutoff = 20 
+min_w_bb = 1e-7 
+w_bb_cutoff = 100 # if I increase this from 10 to 100, the big ones don't seem to starv 
+n = 2/3 # Exponent for max. food intake - def
+q = 0.8 # Exponent for volumetric search rate - def
+dt = 0.25
+no_w = 100 # def - if set to 200, results change 
+
+```
+
+# notes 
+chat with Miriana nd Jemery and Robin about missing Fmort. No Fmort values for dories, sawshark (tiers 4) and deepwater shark. The only info is in ERA report (soon to be published in AFMA), and it is a current fishing mortality considering the last 5 years (mean I guess). Miriana will send the rport when ready, now you hava mean values. SA report sent by Robin on school and gummy sharks - no Fmort there neither (though need to look better) and Robin does not know if there is such an estimate.  
+
+chat with Cla, who sent the SA for Dories: also chek Neil's paper on how to calculate Fmort from catch and length frequncy data (Neil 2012 - An evaluation of the performance of a harvest strategy that uses an average-length-based assessment method). this value is for 2017, but there are other assessments you could use cited in this one. # email Cla and ask where he got this info? 
+
+Species interaction terms are calculated as probability of co-occurrence between speceis pairs using ISMP data. These *values are incresed by 10* otherwise too low and there is no interaction between speceis. These values are then adjusted considering diet data and feeding strategies. 
+
+# interaction trials: 
+
+1. theta_prova_PPinteractions_AFMA. includes modification of PP interactions according to spp' predators and preys reported in AFMA website. no changes in sim.
+
+2. theta_trial_PM_feeding -> the one used. 
+Interaction terms are adjust to fix Predation Mortality and feeding level. Specifi aims: 
+1) increase predation on small individuals of all spp 
+2) no starvation
+3) avoid OR and other species known to have declined to increase in abundance when fished  
+who feeds on <1 g? only mycto right now 
+
+potential ways to meet point 1): 
+higher predation of small to big - main - top rigth of matrix (zeus included)
+higher predation of small to small - top left of matrix
+higher predation of big to small - bottom left of matrix
+ 
+changes done - see theta_trial_PM_feeding.xls:
+-mycto preying on (larvae) of all others 
+-decrease predation by big fish on some other fish (the list below) to lower PM at medium/high sizes:
+  -genypterus 
+  -mycto
+  -macrurus
+  -platichephalus 
+  -zeus
+look at school for example on other sharks 
+possibly need more small fish
+
+methods for point 2: 
+- trachurus and mycto are starving, increased PP cutoff to 50 
+- nemadactilus and seriorell no changes if tured to 0, but they starv after calibration. beta for them turned to 1000 (bottom feeder not predating on fishes)
+
+
+#-----------------------------------------
+# modify some params
+#----------------------------------------------
+
+```{r}
+
+########### change h, ks, r_max, beta, sigma, available_PP and BB, w_min 
+df_param<-modDf_Param(df_param, kappa)
+
+########### effort - increase Fmort 
+# this is justified for squalus as the mean Fmort should be around 5 (see CreateFmort). not so much for macrurus, which has a mortality of 0.07 and here is increased to 0.2 
+matrix_effort<-modFmort(matrix_effort)
+# matrix_effort[300:400,]
+
+########### theta
+output_function<-modTheta(theta)
+theta<-output_function$theta  
+p_theta<-output_function$p_theta 
+
+########### rescale yield 
+scaling_total = 1000000/areaEco
+df_param$catchComm_t<-df_param$catchComm_t*scaling_total 
+
+```
+
+# comments
+some other parameters values have been tried 
+
+H and KS
+Asta's values 
+by default mizer will set h values, calcualted as h = [3 X k_vb/(alfa X f0)] X W_inf^(1/3)
+I use size dependent scaling, derived from earlier explorations
+
+EREPRO
+mutate(erepro = 0.05*w_inf^-0.5) %>%  # set and calibrate the community (reach coexistence) using erepro 
+mutate(erepro = ifelse(class=="chondrichthyes", erepro + 0.05, erepro)) %>%  # increase for shaks, which have big eggs - note my biggest species is a shark with large eggs, so they need higher erepro
+mutate(erepro = ifelse(species %in% c("sillago flindersi","trachurus declivis","centroberyx affinis"), erepro + 0.05, erepro)) %>% # as decided before
+mutate(r_max = Inf) %>% # if you are calibrating using erepro, you don't need r_max
+select(-erepro) %>% # use def values
+
+BETA and SIGMA
+mutate(beta = beta/(exp((2 - 2*n + q)/sigma^2))) %>% # adjust beta from realised to preferred - see Julia's NS  # not working (diet composition is bed here but feeding level is OK) , so change values
+mutate(beta = 100) %>% # the more I increase this the better in terms of predation mortality and feeding level, this is because I have lots of big spp feeding on mid-sizes
+
+PP and BB
+mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis"),1,ifelse(species %in% c("sillago flindersi","nototodarus gouldi","helicolenus barathri","nemadactylus macropterus","seriolella brama","seriolella punctata"),0.7,0.5))) %>%
+mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis"),0,ifelse(species %in% c("sillago flindersi","nototodarus gouldi","helicolenus barathri","nemadactylus macropterus","seriolella brama","seriolella punctata"),0.3,0.5)))
+
+
+# PROBLEM 
+*problesm with h* (maximum consumption rate) and gamma (search volume)? Asta: gamma should be lower than h otherwise gamma does not constrain feeding. Asta calcualted both h and gamma according to data. you used Asta's relationship to calcualte h, but Mizer def methods to calculate gamma. As a result, gamma is higher than h - I am not sure this is a problem - higher gamma still constrain feeding, feeding also depends on prey biomass - see eqn consumption in mizer guide. can play with values. if E is low then it limits feeding and needs high gamma for the food to be found. gamma is calcualted given kappa, higher kappa gives smaller gamma. E is also indirectly calcuated given kappa as kappa is used to get initial abundance and r_max - what will happen if you'll specify initial abundance?   
+
+
+
+# PROBLEM 
+- School increases when fished. decreasing food available does not change anythings. decreasing r_max only decreases abundance but does not change patterns. increasing fishing mortality to 0.3 makes it work. After calibration the stock is at very low abundances and closed to collapse
+- the problem for this and other species is worst after calibration - their abundance decreases when fishing stops
+- abundances are all very low 
+
+# to do 
+need to calcuate diet composition for specific time steps and compare it 
+
+# note 
+you have a 10 degree temperature by default as you are using the code merged with Asta's codes 
+
+
+#
+#
+#
+#
+#-----------------------------------------
+# first run *option 1*
+#----------------------------------------------
+
+```{r Fmort run}
+
+params <- MizerParams(df_param, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+# no fishing then fishing
+sim <- project(params, t_max= t_max, effort = matrix_effort, multiFleet= FALSE, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+
+plot(sim)
+
+# modelled vs observed plot before calibration
+compareEql_outputs<-compareEql(areaEco, df_param, sim, matrix_effort, df_log_spp, calibration = TRUE)
+plotYield_sp<-compareEql_outputs$plotYield_sp
+
+# these just include some of the info necessary for calibration - e.g. 
+df_param<-compareEql_outputs$df_param 
+sim<-compareEql_outputs$sim
+
+# no fishing
+matrix_effort_nofishing<-rbind(matrix_effort[1:300,],matrix_effort[301:600,], matrix_effort[1:300,]) 
+rownames(matrix_effort_nofishing)<-seq(1,900)
+# sim_unfished <- project(params, effort= matrix_effort_nofishing, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
+
+```
+
+# options for comparison between observed and modelled and for data used for calibration
+
+we compared the modelled community to different data: 
+1 - row yields 
+2 - B0 from Atlantis
+3 - changes in SSB due to fishing -> SSB from unfished vs SSB from fished between 1995 and 2005
+4 - abundance ranking using SSB and Atlantis outputs
+
+we explored diffrent options fo calibration - results are described at the end of section
+
+1 - CPUE
+  a) row cpue
+  B) cpue * scaling factor
+2 - catches 
+  a) catches in t within the system 
+  b) catches in g m3 -> THIS IS THE OPTION USED
+  observed catches are transformed in g m3 before being compared with modelled catches during calibration (optim)
+3 - catches and SSB 
+
+# steps after comparisons: 
+
+1. increase r_max using a multiplier when calucalting df_param above.
+
+2. squalus has high abundances -> historical reasons
+squalus were abundant in the past but got depleted in the 1970. given you fish with Fmort values of 1995-2005, you miss this whole history. to crush a bit the stock you can: 1) spike the mortality 'before' 1995 (see changes in matrix_effort). Not much change though. 2) Decrease B0 (through r_max) for squalus
+
+3. low abundances and cathes of flathead possibly due to high squalus feeding on them. turn down the squalus population. turn down predation on flathead (cannibalism and dories - see changes to predator- prey matrix). lower Q for flathead (0.8 - not working)
+what is platicephalus eating and what is it eaten by? 
+plotDietComp(sim2, prey = "platycephalus richardsoni")
+plotDietComp(sim2, prey = df_param$species, predator = "platycephalus richardsoni")
+plotDietComp(sim1, prey = "squalus spp.")
+plotDietComp(sim1, prey = df_param$species, predator = "squalus spp.")
+
+4. as a gemneral comment. you can play with r_max to increase/decrease abundances and with Q to play with catches. e.g. if cacthes are too high, it may be because biomass is high but also because you have high Q - you could set a level of Q that decreases catches. Also, if you decrease Q you descrease cacthes and may also increase biomass (more left in the sea) and vice versa. 
+
+5. diet composition does not seem to make spp interacting much... 
+check Beth's eamil on contribution of your spp to the diet of your spp according to Atlantis
+check diet data to explore the same (how much each predaor eats of each prey in your model)
+may need to add a common predator to make spp interacting
+reduce kappa to lower values (you could say that SE australi is much less productive than the NS) but without reducing r_max -> spp are eating too much of the background. also reduce availability of that background for spp to force interaction. 
+
+6. add a fishery for squid, makarel, perch. considering all catches from squid fishery and trawling. You are not interested in this fishery but you need a background mortality. better would be if you could directly substract the catches from abundances of these spp. quite difficult - you could exttract n individuals after line 698 according to cacthes, but this extraction should be also for each weight class and proportional to selectivity. if you go with the fishing mortality and infer it from cacthes it may be easier but you'd still need selectivity values.   
+
+My notes: 
+7. the lenfest needs a version where fleets are specified with their own Fmort and selectivity and can catch overlapping spp - but where the fleet dynamics is off (?) - is this what Beth thinks my version is? That's what Coco did
+
+8. other note, if you add a Q term, then Fmort = Fmort *sel *Q, becasue you are not using effort here... 
+
+what am I doing here if thei model does not include fleets and their interactions? and If I am not using it for Lenfest or for my paper? 
+
+
+#-----------------------------------------
+# save data for calibration in pearcey *skip if nothing changes above*
+#----------------------------------------------
+
+```{r}
+# object to save if calibration is run in pearcey
+# change of folder from Mizer-fleet to mizer-fleet_extension: setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_server/data
+# save(sim, df_param, kappa, theta, w_pp_cutoff, min_w_bb, w_bb_cutoff, matrix_effort, file = "/Users/nov017/Dropbox/Mizer-fleet/R/model/dataForRemoteCalibration.RData") # but this specific file is in /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input... possibly old 
+```
+
+# note for pearcey: 
+for pearcey you need 
+- dataForRemoteCalibration.RData
+- calibration.q
+- submit_job.sh
+- remoteCalibration_loop.R
+
+
+#-----------------------------------------
+# run calibration in pearcey (remote calibration) 
+#----------------------------------------------
+
+# files and data 
+input data -> dataForRemoteCalibration.RData
+codes used are: 
+1. calibration.q
+2. submit_jobs.sh
+3. remoteCalibration_loop.r
+outputs are: optim_...RData
+
+# optimisation criteria *need to run* (same for calibration in pearcey - remoteCalibration_loop.r) 
+
+```{r}
+
+Initialcomm = sim
+kappa = kappa 
+kappa_ben = kappa_ben
+df_param = df_param
+
+# kappa, r_max and Q
+logR <- log10(Initialcomm@params@species_params$r_max)
+logQ <- log10(df_param$catchability)
+logK <- log10(kappa)
+logK_ben <- log10(kappa_ben)
+logParams <- c(logR, logQ, logK, logK_ben)
+
+# # lower and upper are needed for calibration with Q as this value should not be above 1
+lower = c(log10(Initialcomm@params@species_params$r_max*0.01),log10(rep(0.001, nrow(df_param))), log10(kappa*0.01), log10(kappa_ben*0.01))
+upper = c(log10(Initialcomm@params@species_params$r_max/0.01),log10(rep(1, nrow(df_param))), log10(kappa/0.01), log10(kappa_ben/0.01))
+
+# for mizerParams()
+theta = theta
+fleetDynamics = FALSE
+selectivity_params = NA
+catchability = NA
+target = NA
+dt =  0.25
+
+# for project() 
+kappa_ben = kappa  
+kappa_alg = 0 
+w_pp_cutoff = w_pp_cutoff 
+min_w_bb = min_w_bb 
+w_bb_cutoff = w_bb_cutoff
+management = FALSE
+constant_effort = matrix_effort[301:500,]
+effort = constant_effort
+rownames(effort)<-seq(1:200) 
+price = NA
+cost = NA
+
+# for error functions
+meantsteps = 30     
+extinction_test = TRUE 
+extinct_threshold = 0.9 
+diet_steps = 0
+
+```
+
+# run calibration locally *skip*  
+note - folders have been changed 
+```{r}
+
+# # upload calibration function
+# source("/Users/nov017/Dropbox/Mizer-fleet/R/model/Calibration_function.R")
+# 
+# # optim function
+# optimizer_count=0 # Initialize count of function evaluations
+# 
+# debug(calibrate)
+# undebug(calibrate)
+# 
+# optim_SEA   <- optim(par = logParams,
+#                      lower=lower,
+#                      upper=upper,
+#                      method ="L-BFGS-B",
+#                      fn = calibrate,
+#                      SSBcali = TRUE,
+#                      rankCali = TRUE,
+#                      Q = TRUE,
+#                      K = TRUE,
+#                      R = TRUE)
+#                      # changeSSBCali = TRUE)
+# 
+# # save calibrated param
+# setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output")
+# save(optim_SEA, file = "optim_SEA_Description.Rdata")
+# load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/optim_SEA_description.RData")
+
+```
+
+# calibration trials from local runs *skip* - to delete 
+
+1) focus on parameters: 
+
+parameters considered:
+  theta - from all 1 to species-specific
+  erepro - from 1 to def to original data
+  beta - from 100 to species-specific
+  sigma - from 2 to speceis specific
+
+optim_SEA.RData => theta = 1, beta = 100 and sigma = 2, erepro as per original data - choose this one
+optim_SEA_inter => theta as per kapala, beta and sigma as per diet data and erepro as per original data - feeding level and predation mortalities are very strange, modelled vs observed are good
+
+2) focus on data for calibration (see above): 
+
+optim_SEA_cpue.RData 
+optim_SEA_cpueScaling.RData   
+optim_SEA_kappaSurv.RData 
+optim_SEA_kappa001.RData - choose this one - perfect match observed vs modelled
+
+NOTE the result of the above parameterisation/calibration lead to increases in OR when fishing is on 
+
+I changed some parameters as described above:
+theta, PP cut off size and Fmort for school shark 
+
+3) NEW results 
+
+- optim_SEA_kappa001_thetaDataModified_beta100_catch.RData.
+no redfish, beta = 100, theta according to cooccurrnce + manually modified, cutoff size = 50.   
+OK calibration, fit a little less good than with theta = 1. if: 
+beta =100 for all spp, the bottom feeders starv, so cutoff was set to 50.
+
+- optim_SEA_kappa001_thetaDataModified_beta100or1000_catch.RData.
+as above but beta 1000 for bottom feeders. the community seems OK but modelled vs observed yield is worst, and fitting time series yield by speceis is the same. PM are extrimely high (>1 ?).
+
+- optim_SEA_kappa001_thetaDataModified_beta100_catch_ssb.RData
+calibration error !!! "ERROR: ABNORMAL_TERMINATION_IN_LNSRCH"
+use SSB as initial abundances instead
+
+4) NEW RESULTS after talking with Beth - run in pearcey 
+whith Beth I changed r_max (see scalar for this param), and added catchability (now Fmort is in effort matrix and not in catchability anymore, while catchability is a new param). and after fixing the bug on feeding (gustav)
+
+5) Pearcey authomatic routine by Bec.. it chooses which parameters to calibrate among kappa, R_max and Q and which data to use among yield, SSB and rank abundance  
+
+Calibration trial in pearcey after all the above, priority according to Beth: 
+1 – data: yield, ssb, rank ab; param: r_max, Q, kappa – *prioirity*  
+2 – data: yield, ssb, rank ab; param: r_max, kappa – *prioirity*
+3 – data: yield, ssb, rank ab; param: Q, kappa
+4 – data: yield, ssb, rank ab; param: r_max, Q 
+
+5 – data: yield, ssb; param: r_max, Q, kappa
+6 – data: yield, ssb; param: r_max, kappa – *prioirity*
+7 – data: yield, ssb; param, Q, kappa
+
+5 – data: yield, rank; param: r_max, Q, kappa – *prioirity*
+6 – data: yield, rank; param: r_max, kappa – *prioirity*
+7 – data: yield, rank; param, Q, kappa
+
+5 – data: yield; param: r_max, Q, kappa – *prioirity* 
+6 – data: yield; param: r_max, kappa – *prioirity*
+7 – data: yield; param, Q, kappa
+
+# load outputs from calibration in pearcey *skip if already analysed MOVE TO FUNCTION!* 
+note - folders have been changed 
+```{r}
+
+# # list all files starting with 'optim' in getwd()
+# setwd("/Users/nov017/Dropbox/Mizer-fleet/R/model")
+# ramtwo=list.files(pattern="optim_SEA_kappa")
+# 
+# # loop over files, extrapolate 
+# all_optim<-list()
+# par<-list()
+# conv<-list()
+# 
+# for (name in ramtwo){
+#   
+#   # ----- read files 
+#   load(name)
+# 
+#   # ----- put results into lists and give them a different name than optim_SEA
+#   all_optim[[name]]<-optim_SEA
+#   par[[name]]<-optim_SEA$par
+#   conv[name]<-optim_SEA$convergence
+#   
+#   # # ----- unused but nice codes
+#   # new_name<-sub("*.RData","",name) # set a new name 
+#   # load(name) # load the file 
+#   # eval(call("<-", as.name(new_name),optim_SEA)) # rename it as per new name
+# }  
+# 
+# # names(all_optim)
+# # all_optim$optim_SEA_kappa_Cali_R
+# 
+# # rename files 
+# new_name<-sub("*.RData","",names(all_optim))
+# new_name[which(new_name=="optim_SEA_kappa")]<-"uncalibrated"
+# names(all_optim)<-new_name
+# names(par)<-new_name
+# names(conv)<-new_name
+# 
+# # consider only trial where convergence has been reached 
+# par_0<-par[names(par) %in% names(conv[conv==0])]
+# names(par_0)
+# 
+# # wich one did not reach convergencec because maxit too low? rerun but increasing maxit? 
+# par_1<-par[names(par) %in% names(conv[conv==1])]
+# names(par_1)
+# par_0<-c(par_0, par_1)
+# 
+# # manually delete some useless trial 
+# # kappa -> use yield (always as def)
+# # cali -> use rank abundance from ISMP
+# # SSB -> use SSB 
+# # K -> calibrate kappa 
+# # R -> calibrate r_max
+# # Q -> calibrate catchability
+# # par_0<-par_0[-which(names(par_0) %in% c("optim_SEA_kappa_Cali","optim_SEA_kappa_SSB_Cali","optim_SEA_kappa_SSB"))]
+# names(par_0)
+# 
+# # delete previous runs 
+# par_0<-par_0[-which(names(par_0) %in% c("optim_SEA_kappa_Q_K_R_SECOND","optim_SEA_kappa_K_R_SECOND","optim_SEA_kappa_SSB_Q_K_R_FIRST","optim_SEA_kappa_SSB_K_R_FORTH", "optim_SEA_kappa_SSB_Q_K_SIXTH", "optim_SEA_kappa_K_R_SIXTH"))]
+# names(par_0)
+
+```
+
+# analise results from calibration in pearcey *skip if already analysed MOVE TO FUNCTION!* 
+note - folders have been changed 
+```{r}
+
+# plot_list = list()
+# fit_list = list()
+# 
+# for(i in 1:length(par_0)){
+# 
+#   new_par<-par_0[[i]]
+#   
+#   # kappa<-10^new_par[length(new_par)]
+#   # r_max<-10^new_par[1:nrow(df_param)]
+#   # Q<-10^new_par[(nrow(df_param)+1):(length(new_par)-1)]
+# 
+#   # if calibration is on kappa_ben too... 
+# 
+#   kappa<-10^new_par[length(new_par)-1]
+#   kappa_ben<-10^new_par[length(new_par)]
+#   Q<-10^(new_par[(nrow(df_param)+1):(length(new_par)-2)])
+#   r_max <- 10^(new_par[1:nrow(df_param)]) 
+#   
+#   df_param$r_max<-r_max
+#   df_param$catchability<-Q
+#   
+#   params_calibration_test <- MizerParams(df_param, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+# 
+#   sim_calibration_test <- project(params_calibration_test, effort = constant_effort, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+# 
+#   yield_sim <- getYield(sim_calibration_test)
+#   yield_sim <- yield_sim[dim(yield_sim)[1],]
+#   df_y<-data.frame(calibrated = yield_sim, obs_y = Initialcomm@params@species_params$catchComm_t, species = names(yield_sim))
+#   df_y<-df_y %>% 
+#     gather("option", "value", -species, -obs_y) %>% 
+#     `colnames<-`(c("observed", "species", "option", "modelled")) %>% 
+#     mutate(type = "YIELD", 
+#            species = df_param$spCommon)
+#   
+#   fit_y<-summary(lm(modelled~ observed, df_y))$adj.r.squared
+# 
+#   ssb_sim <- getSSB(sim_calibration_test)
+#   ssb_sim <- ssb_sim[dim(ssb_sim)[1],]
+#   df_ssb<-data.frame(calibrated = ssb_sim, obs_ssb = Initialcomm@params@species_params$ssbObs, species = names(ssb_sim)) 
+#   df_ssb<-df_ssb %>% 
+#     gather("option", "value", -species, -obs_ssb) %>% 
+#     `colnames<-`(c("observed", "species", "option", "modelled")) %>% 
+#     mutate(type = "SSB",
+#            species = df_param$spCommon)
+#   
+#   fit_ssb<-summary(lm(modelled~ observed, df_ssb))$adj.r.square
+#   
+#   rank_sim<-getBiomass(sim_calibration_test)
+#   rank_sim<-rank_sim[dim(rank_sim)[1],]
+#   rank_sim<-rank(-rank_sim)
+#   df_rank<-data.frame(calibrated = rank_sim, obs_rank = Initialcomm@params@species_params$rankAb, species = names(rank_sim))
+#   df_rank<-df_rank %>% 
+#     gather("option", "value", -species, -obs_rank) %>% 
+#     `colnames<-`(c("observed", "species", "option", "modelled")) %>% 
+#     mutate(type = "RANK",
+#            species = df_param$spCommon)
+#   
+#   fit_rank<-summary(lm(modelled~ observed, df_rank))$adj.r.squared
+# 
+#   fit<-data.frame(y = fit_y, ssb = fit_ssb, rank = fit_rank)
+#   fit_list[[i]]<-fit
+#   
+#   df_plot_validation<-rbind(df_y, df_ssb, df_rank) %>% 
+#     mutate(type = paste(type, option))
+# 
+#   # p<-ggplot(df_plot_validation, aes(x = log(observed), y = log(modelled), label = species))+
+#   #   geom_point()+
+#   #   geom_text()+
+#   #   geom_smooth(method='lm',formula=y~x)+
+#   #   geom_abline(intercept = 0, slope = 1)+
+#   #   facet_wrap(~type, scale="free", ncol=2)
+#   # 
+#   # plot_list[[i]]<-p
+#   # names(plot_list)[i]<-names(par_0)[i]
+# 
+# }
+# 
+# fit_df<-do.call(rbind, fit_list) %>% 
+#   mutate(calibration = names(par_0))
+# 
+# # extrapolate error too, but it may be smaller becasue you are using only 1 dataset... 
+# error<-do.call(rbind.data.frame,lapply(all_optim, function (x) x$value)) %>% 
+#   mutate(calibration = names(all_optim)) %>% 
+#   `colnames<-`(c("error", "calibration")) %>% 
+#   right_join(fit_df)
+# error[which.min(error$error),]
+# 
+# # # Save plots to tiff. Makes a separate file for each plot.
+# # setwd("/Users/nov017/Dropbox/Mizer-fleet/plot/calibration")
+# # for (i in 1:length(plot_list)) {
+# #     file_name = paste( names(plot_comm_list)[i], ".tiff", sep="")
+# #     tiff(file_name, height=8, width=8, units ='in', res=300)
+# #     print(plot_list[[i]])
+# #     dev.off()
+# # }
+
+```
+
+# PROBLEM 
+there is a problem in running these 'generalised calibrations': e.g. if R=FALSE, optim will pick values for this parameters because this param is in logParams (vactors of param to be calibrated), but new R values won't be incorportated in df_param and tested becasue we are not interested in calibrating them (i.e R+FALSE). So, these will be accounted as calibration trials, but parameters considered in df_param won't change and so the error won't change. These are 'empty runs' that optim may interpret as 'nothing is changing' so the error is minimised. Does it happen in reaslity? check results... 
+
+
+#-----------------------------------------
+# final calibrated community *need to run*
+#----------------------------------------------
+
+```{r}
+
+# # choosing according to highiest fir_df 
+# fit_df$sum<-fit_df$y+fit_df$ssb+fit_df$rank
+# fit_df[,c("calibration","y","ssb","rank","sum")]
+# fit_df[,c("calibration", "y", "ssb","rank","sum")]
+# fit_df[which.max(fit_df$sum),]
+
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_server/data")
+
+# * see calibration trials in plot/calibrationTrial.doc
+# FIRST
+# optim_SEA_kappa_SSB_Q_K_R_FIRST    0.6621979 0.97068210  0.1367932214 1.7696732 BEST 
+
+# SECOND: 
+# optim_SEA_kappa_K_R_SECOND           0.9919354  0.65934157 -0.056599110 1.5946779 BEST  
+# optim_SEA_kappa_Q_K_R_SECOND         0.9356289  0.69926770 -0.064671898 1.5702247 BEST
+
+# THIRD.... in all sharks declines... BUG:                              
+# kappa_ben specified as calibrated kappa here but not during calibration 
+
+# FORTH
+# optim_SEA_kappa_SSB_K_R_FORTH.Rdata
+
+# SIXTH
+# optim_SEA_kappa_K_R_SIXTH      0.6912189 0.7391539 -0.06473318 1.3656396 # extinction with no fishing... BUG hopefully fixed
+# optim_SEA_kappa_SSB_Q_K_SIXTH  0.5890372 0.7999809  0.07806167 1.4670798
+
+# SEVENTH ... almost all error 54 "ERROR: ABNORMAL_TERMINATION_IN_LNSRCH"
+# optim_SEA_kappa_Cali_Q  0.5794887 0.8533087  0.01046713 1.4432645
+# optim_SEA_kappa_SSB_K_R 0.9283478 0.5356242 -0.02067474 1.4432973
+
+load("optim_SEA_kappa_SSB_K_R.Rdata") # this refers to SEVENTH
+
+# if calubrating kappa_ben too 
+kappa<-10^optim_SEA$par[length(optim_SEA$par)-1]
+kappa_ben<-10^optim_SEA$par[length(optim_SEA$par)]
+Q<-10^(optim_SEA$par[(nrow(df_param)+1):(length(optim_SEA$par)-2)])
+r_max <- 10^(optim_SEA$par[1:nrow(df_param)]) 
+
+df_param$r_max<-r_max
+df_param$catchability<-Q
+
+params_calibrated <- MizerParams(df_param, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = fleetDynamics, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_calibrated <- project(params_calibrated, effort = constant_effort, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+
+plot(sim_calibrated)
+
+# test unfished to see if tehre is coexistence and to calcualte Bref below 
+matrix_effort_nofishing<-matrix_effort_nofishing[301:900,]
+
+params_unfished <- MizerParams(df_param, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = fleetDynamics, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_calibrated_unfished <- project(params_unfished, effort= matrix_effort_nofishing, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
+
+# plot(sim_calibrated_unfished)
+
+```
+
+# to do 
+*rescale catches before using them for calibration* - rescale by area - using either effort or speceis disribution - or use CPUE - or use SSB too. *ask for bioreg data* to cathy? or Donna? or Mike? -> I tried using CPUE and SSB but calibration is not working as well as with catches
+are *diet dynamics* ok?  
+add *initial abundance* from ISMP? if so, rescale abundance given the same fishing mortatility - e.g. abundance of OR is high becasue fishing mortality for OR is high
+figure out *plotPPMR* and what Jon used as preferred and realised PPMR
+
+
+#-----------------------------------------
+# plot recruitment *can skip* 
+#----------------------------------------------
+
+```{r}
+
+# get RDI - density independent 
+a1 <- getRDI(params,sim_calibrated@n[dim(constant_effort)[1],,],sim_calibrated@n_pp[dim(constant_effort)[1],], sim_calibrated@n_bb[dim(constant_effort)[1],], sim_calibrated@n_aa[dim(constant_effort)[1],], sim_calibrated@intTempScalar[,,(dim(constant_effort)[1]/dt)], sim_calibrated@metTempScalar[,,(dim(constant_effort)[1]/dt)])
+ 
+# get RDD
+a2 <- getRDD(params,sim_calibrated@n[dim(constant_effort)[1],,],sim_calibrated@n_pp[dim(constant_effort)[1],], sim_calibrated@n_bb[dim(constant_effort)[1],], sim_calibrated@n_aa[dim(constant_effort)[1],], sex_ratio = 0.5, sim_calibrated@intTempScalar[,,(dim(constant_effort)[1]/dt)], sim_calibrated@metTempScalar[,,(dim(constant_effort)[1]/dt)])
+ 
+# #get RDD to rmax ratio
+# rmaxratio <- a2/df_param$r_max
+# plot(rmaxratio)
+# 
+# rdiratio<-a1/a2
+# plot(rdiratio)
+
+# # explore available energy from food 
+# AE<-getAvailEnergy(params3, n, n_pp, n_bb, n_aa) # Calculates the amount of food \eqn{E_{a,i}(w)} exposed to each predator as a function of predator size. need to plot AE by species and size to understand food linkages and parameters 
+
+# also add the new getDiet, which calcualtes food proportion - Ask Asta as the function id in her code (or the gitHub mizer one) 
+
+```
+
+# PROBLEM
+*calculate or get RDI and RDD* and check the proportion. if RDI (non density dependente recruitment) is much higher than RDD it means that most of eggs (e.g. 0.999 99%) are lots and that the spp is stil there becasue only a very low number of eggs are needed to maintan population - i.e. even few individuals can recover the stock and the stock is hard to crush through fishing. I think it's the case for my spp and in particular spp 12 (OR) to 16 
+
+#-----------------------------------------
+# validate catches and SSB modelled vs observed
+#----------------------------------------------
+
+```{r}
+
+compareEql_outputs<-compareEql(areaEco, df_param, sim_calibrated, constant_effort, df_log_spp, calibration = FALSE)
+
+plotYield_eql<-compareEql_outputs$plotYield_sp
+
+ssbObs<-compareEql_outputs$ssbObs # needed for the function below on comparing trends 
+
+# now in calibration_server folder
+# the folder has changed to Mizer-fleet_extension...
+# setwd("/Users/nov017/Dropbox/Mizer-fleet/plot/calibration/SEVENTH")
+# tiff("optim_SEA_kappa_SSB_K_R_SEVENTH_calibration.tiff", height=8, width=8, units ='in', res=300)
+# print(p)
+# dev.off()
+
+```
+
+#-----------------------------------------
+# run time variant Fmort 
+#----------------------------------------------
+
+```{r}
+
+# Fmort adjusted
+Fmort[is.na(Fmort)]<-0
+Fmort_adjusted<-Fmort 
+
+# apply same transformation as in matrix_effort for the equilibrium and calibration phase.  
+Fmort_adjusted<- modFmort(Fmort_adjusted)
+
+relative_effort<-rbind(constant_effort, Fmort_adjusted)
+rownames(relative_effort)<-seq((1995-200), 2017)
+
+# project the community
+params_fitted <- MizerParams(df_param, no_w = no_w,interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_fitted <- project(params_fitted, effort = relative_effort, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
+
+# plot(sim_fitted)
+
+```
+
+# PROBLEMS 
+Abudnances increase if effort decreases in time from 1995, reference value - i.e. they recover. See brama and solandri as clear example. not sure this is a problem...  
+
+
+#-----------------------------------------
+# validate time variant catch and SSB 
+#----------------------------------------------
+
+```{r}
+
+plotYield<-compareTrends(sim_fitted,sim_FD = NA, fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+
+plotSSB<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+
+# now in calibration_server folder
+# setwd("/Users/nov017/Dropbox/Mizer-fleet/plot/calibration/SEVENTH")
+# tiff("optim_SEA_kappa_SSB_K_R_SEVENTH_yieldTrendsScaled.tiff", height=6, width=10, units ='in', res=300)
+# print(plotYield)
+# dev.off()
+
+# setwd("/Users/nov017/Dropbox/Mizer-fleet/plot/calibration/SEVENTH")
+# tiff("optim_SEA_kappa_SSB_K_R_SEVENTH_SSBTrendsRaw.tiff", height=6, width=10, units ='in', res=300)
+# print(plotSSB)
+# dev.off()
+
+```
+
+# to do 
+check that: 
+1. mean_fmort is based on 1995-2005 data - OK
+2. observed catcahes for calibration (in df_param) are based on 1995-2005 data (in FleetParam line 1400) - OK 
+3. Fmort (and Fmort_adjuset) based on 1995-2017 data - OK - even befoer if it's possible in the model
+4. observed catches for validation (datValidationYieldSpp) based on 1995-2017 - OK - even before as for Fmort
+
+# PROBLEM 
+- for some species, Fmort does not change in time (no available values). Can we caclualte these values given catch and effort? 
+- for these speceis, modelled yields are changing in time even if Fmort is constant e.g. 0.3 for squalus - trends in yields should match trends in biomass (but they don't)?...  yield = biomass X catchability X effort X selectivity.
+-  for the reasons above all sharks have a bed fit 
+
+# to do 
+*validate modelled vs obs length frequency (or growth curve) using ISMP data*
+# PROBLEM 
+- trends in SSB match trends in biomass (the scale in the 2 plots is different)... it makes sense
+- bad fit
+- no values for recent years. I also assumed Fmort as per last year but trends in catches changed for the worst as often Fmort actually decreased. - spp recover too fast when Fmort = 0 ?! though keep in ming that the 2 dataset (modelled and assessed) are rescaled from 0 to 1 independently so recoveries look higher in plots 
+- no values for not assessed spp 
+- if scaled across spp there is more agreement, but OR is way too high and blue granadier is way too low... also flathead adn morwong are too low. Calibration using SSB values does not give better results (error) 
+
+
+#-----------------------------------------
+# save temporary data from steps above *option 1* 
+#----------------------------------------------
+
+```{r}
+
+save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn1.RData")
+
+```
+
+#
+#
+#
+#
+#
+#-----------------------------------------
+# second run *option 2*  
+#----------------------------------------------
+
+```{r}
+
+# here you are tuning r_max and scaling areaEco up (by 1.5). this is becasue in option 1 raw modelled catches were much lower than observed, and abundances are much lower then in atlantis and SA and sometimes lower than the TAC
+
+# new r_max parameters: 
+df_param2<-modQ(df_param)
+
+# community at eql 
+params_calibrated2 <- MizerParams(df_param2, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = fleetDynamics, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_calibrated2 <- project(params_calibrated2, effort = constant_effort, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
+
+# plot(sim_calibrated2)
+# plotDietComp(sim_calibrated2)$p
+
+# comapre fit now to fit from before
+# compareEql(areaEco, df_param, sim_calibrated, constant_effort, df_log_spp, calibration = FALSE)$plotYield_sp
+# compareEql(areaEco, df_param2, sim_calibrated2, constant_effort, df_log_spp, calibration = FALSE)$plotYield_sp
+
+# time variant community 
+sim_fitted2 <- project(params_calibrated2, effort = relative_effort, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
+
+# plot(sim_fitted2)
+# a<-plotBiomass(sim_fitted2, start_time = 1990, end_time =2017)$plot
+# a+facet_wrap(~Species) # recoveries/increases given lower effort in more recent years
+
+# NOTE when rescale = 0 values are given in tonnes for the whole system. Can change back in line 825. 
+plotYield<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+plotYield<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+plotSSB<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+
+# output data: 
+DataPlotYield<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$DataPlotYield
+DataPlotSSB<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$DataPlotYield
+
+# stop fishing 
+sim_calibrated_unfished2<- project(params_calibrated2, effort= matrix_effort_nofishing, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
+
+# plot(sim_calibrated_unfished2)
+# plotBiomass(sim_calibrated_unfished2)$plot + facet_wrap(~Species)
+
+```
+
+#-----------------------------------------
+# re-calibrate
+#----------------------------------------------
+#-----------------------------------------
+# save temporary data from steps above *option 2*
+#----------------------------------------------
+
+```{r}
+
+df_param<-df_param2
+
+sim_calibrated_unfished<-sim_calibrated_unfished2
+sim_calibrated<-sim_calibrated2
+sim_fitted<-sim_fitted2
+
+save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn2.RData")
+
+```
+#
+#
+#
+#
+#
+#-----------------------------------------
+# third run *option 3*  
+#----------------------------------------------
+
+```{r}
+
+# here you are fixing squalus, accounting for onthogenetic shifts in diet, fixing diet, fixing growth curve, and adjusting cacthes given TAC and last changes. It all started becasue abundances were still low compared to Atlantis and SA, but there was an error in this calucaltion. However adjustments above were needed. 
+
+df_param3<-df_param2
+theta3<-theta
+constant_effort3<-constant_effort
+
+### Squalus - fixed ####
+# problem = abundance low, growth high, decreasing when unfished. fixed 
+theta3[1:16,7]<-0 # predation by genypterus was making squalus decreasing when unfished
+constant_effort3[,7]<-constant_effort3[,7]*0.5 # reduce Fmort 
+constant_effort3[,7]<-constant_effort3[,7]*0.1 # reduce Fmort, after working with time varinat 
+theta3[7,1]<-0 # predation on mycto is unrealistic 
+df_param3[7,"alpha_g"]<-0.4 # lower growth efficiency to fix the growth curve
+df_param3[,"alpha"]<-0.6 # def 
+df_param3[7,"alpha"]<-0.4 # lower assimilation efficiency to fix the growth curve
+
+### growth curve - partially fixed ####
+# fix growth curve for other sharks, hely and OR. Fix for some but community resrtucturing...  
+# df_param3[c(4,12,17,18,19),"alpha_g"]<-0.4
+
+### onthogenetic shift - fixed ####
+# w_pp_cutoff = 20 
+# min_w_bb = 1e-7 
+# w_bb_cutoff = 100
+min_w_bb3 = 0.0001 # but small fish starve a little because allocation to PP is low  
+w_pp_cutoff3 = 5 # could be even lower, but mackerel would starve
+w_bb_cutoff3 = 200 # sharks (including squalus) eat cardinal fish, flatheads and lots of macrobenthos (squids, octopods, crabs, praws, bivalves) - 32 kg can eat 300 g
+
+### diet - not fixed ####
+# problem = too much food for piscivorous 
+df_param3[,c(1,2,24,25)]
+# mycto 100% on pp (1)
+# squid and mackarel increase PP as they support all other fishes
+df_param3[c(3,5),"avail_PP"]<-0.8 # shift towards lower catches... 
+# whiting and perch (2,4) and all other piscovourus  
+# df_param3[c(2,4,6,9,10,12,13,15,16), "avail_BB"]<-0.2 # community restructuring
+# nemadactylus (8) eats small worms, crustaceans, molluscs and echinoderms 40% on PP and 60% on BB
+df_param3[c(8),"avail_PP"]<-0.3  # some shfts towards lower catches e.g. platy
+df_param3[c(8),"avail_BB"]<-0.5
+#  seriorella/s eat pelagic invertebrates, salps, tunicates and small squids - SHOULD be CHANGED!
+df_param3[c(11,14),"avail_PP"]<-0.3  # some shfts towards lower catches e.g. platy
+df_param3[c(11,14),"avail_BB"]<-0.5
+# benthic big sharks 0% of PP and 70% of BB
+df_param3[c(7,17,18,19),"avail_PP"]<-0 # some shift towards lower catches e.g. mustelus but positive
+df_param3[c(7,17,18,19),"avail_BB"]<-0.8
+
+# starving OR, macrurus and genypterus ... not good for cacthes - macrurus in particular
+# df_param3[c(12,13,16), "avail_BB"]<-0.5
+
+# # how do I make fish eating fish??!!
+# df_param3$w_inf/df_param3$beta
+# df_param3$beta<-df_param3$beta/10
+# theta3[]<-1
+# df_param3$r_max[1:10]<-df_param3$r_max[1:7]*200
+
+### cacthes - fixed #### 
+# adjust trends- yes 
+df_param3[2,"r_max"]<- df_param3[2,"r_max"]*1.5 # whiting 
+df_param3[9,"r_max"]<- df_param3[9,"r_max"]*1.5 # flathead
+df_param3[10,"r_max"]<- df_param3[10,"r_max"]*1.5 # dories
+df_param3[6,"r_max"]<- df_param3[6,"r_max"]*1.5 # redfish
+df_param3[13,"r_max"]<- df_param3[13,"r_max"]*1.5 # macrurus
+df_param3[15,"r_max"]<- df_param3[15,"r_max"]*1.5 # rexea
+df_param3[7,"r_max"]<- df_param3[7,"r_max"]*2 # squalus 
+
+### catchability - if needed to fix catches #### 
+# catches has changed after increasing biomasses
+# df_param3[1, "catchability"]<-1
+
+# community at eql 
+params_calibrated3 <- MizerParams(df_param3, no_w = no_w, interaction = theta3, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff3, min_w_bb = min_w_bb3, w_bb_cutoff = w_bb_cutoff3, fleetDynamics = fleetDynamics, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_calibrated3 <- project(params_calibrated3, effort = constant_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2)  
+
+# plot(sim_calibrated3)
+# plotFeedingLevel(sim_calibrated3) + facet_wrap(~Species) 
+# plotDietComp(sim_calibrated3)$p
+
+# compare fit before with fit now
+# compareEql(areaEco, df_param2, sim_calibrated2, constant_effort, df_log_spp, calibration = FALSE)$plotYield_sp
+# compareEql(areaEco, df_param3, sim_calibrated3, constant_effort3, df_log_spp, calibration = FALSE)$plotYield_sp
+
+spp = as.character(df_param3[19,1])
+# plotGrowthCurves(sim_calibrated3, species = spp) # 4 HELY,7 SQ,12 OR,17,18,19
+
+# community time varinat 
+# apply same changes to effort as per constant
+relative_effort3<-relative_effort
+relative_effort3[,7]<-relative_effort3[,7]*0.5
+relative_effort3[,7]<-relative_effort3[,7]*0.1 # bycatch... this is perfect 
+
+# replacing sim_fitted
+sim_fitted3 <- project(params_calibrated3, effort = relative_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
+
+# plot(sim_fitted3)
+# plotDietComp(sim_fitted3)
+# plotBiomass(sim_fitted3)$plot + facet_wrap(~Species)
+
+# compare fit before with fit now 
+plotYield<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+plotYield2<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+plotYield3<-compareTrends(sim_fitted3,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+
+plotSSB<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+plotSSB2<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+plotSSB3<-compareTrends(sim_fitted3,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+
+# stop fishing 
+sim_calibrated_unfished3<- project(params_calibrated3, effort= matrix_effort_nofishing, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
+
+# plot(sim_calibrated_unfished3)
+# plotBiomass(sim_calibrated_unfished3)$plot + facet_wrap(~Species)
+
+```
+
+#-----------------------------------------
+# check abundance and diet comp   
+#----------------------------------------------
+
+```{r}
+
+# abundances - tonnes in the ecosystem 
+e<-getBiomass(sim_fitted3) 
+dim(e)
+e<-e[223,] # in 1995 (200) or in 2017 (223)  
+(e*areaEco)/1000000
+
+# diet and predation
+diet<-sim_fitted3@diet_comp # pred X pred size X prey X prey size
+f<-rowSums(aperm(diet,c(1,2,3,4)),dims=3) # sum over prey size
+f<-rowSums(aperm(f,c(1,3,2)),dims=2) # sum over predator size
+val<-1e10
+options("scipen"=100)
+sort(f[16,]*val) # prey 
+sort(f[,9]*val) # predators 
+
+# contribution of each spp to the diet of another spp. (same data as above)
+diet<-plotDietComp(sim_fitted3)$dietData 
+unique(diet$predator)
+unique(10^(diet$predsize))
+spp = as.character(df_param3[9,1]) # choose a spp
+size = unique(10^(diet$predsize))[80:99] # chose a size range
+diet_predator<-diet %>% 
+  filter(predator == spp, value !=0, 10^(predsize) > 1000) %>% 
+  group_by(prey) %>% 
+  dplyr::summarise(value = sum(value)) %>% 
+  mutate(contribution = (value/sum(value))*100)
+# view(diet_predator)  
+
+# galoe, mustelus, pristoph OK with 90% of diet being benthos 
+# ling (76% benthos), gamefish (85%), granadier (90%), or (97 - need to exclude trachurus and platy from diet), zeus (81% lots of micto), platy (90%), squalus (94% - should eat 80% of mackarel) are fish eaters
+
+# need to increase availability of mackerel, squid and dories to e.g. ling but not sharks (can increase abundance of these spp and availability of PP and BB to these spp back, increaes availability of BB to sharks back)
+
+# weight of each prey to the overall diet in the community
+diet_comp <- diet %>% 
+  group_by(prey) %>% 
+  dplyr::summarise(value = sum(value)) %>% 
+  mutate(contribution = (value/sum(value))*100)
+# view(diet_comp)
+ 
+```
+
+#-----------------------------------------
+# re-calibrate *?????!!!!!*
+#----------------------------------------------
+
+#-----------------------------------------
+# save temporary data from steps above *option 3*
+#----------------------------------------------
+
+```{r}
+
+df_param<-df_param3
+theta<-theta3
+relative_effort<-relative_effort3
+constant_effort<-constant_effort3
+w_pp_cutoff<-w_pp_cutoff3 
+min_w_bb<-min_w_bb3 
+w_bb_cutoff<-w_bb_cutoff3
+
+sim_calibrated_unfished<-sim_calibrated_unfished3
+sim_calibrated<-sim_calibrated3
+sim_fitted<-sim_fitted3
+
+save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn3.RData")
+
+```

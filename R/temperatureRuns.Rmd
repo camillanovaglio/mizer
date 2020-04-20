@@ -1,0 +1,280 @@
+---
+title: "Untitled"
+author: "Camilla Novaglio"
+date: "08/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+This was to run the temperature trial for John's paper and as discussd during the workshop in Dec 2018. the file uses parameters related to sim_calibrated from SEAmodel_run.Rmd
+
+```{r cars}
+
+rm(list=ls())
+# load("/Users/nov017/Dropbox/Mizer-fleet/R/model/tempData_Oct.RData") # from SEAmodel_run
+load("/Users/nov017/Dropbox/Mizer-fleet/R/model/FDData_Nov.RData") # from SEAmodel_run_FD_timeVariant_shiny (it is the same sim_calibrated community)
+
+library(tidyverse)
+library(devtools)
+library(plyr) 
+library(Rcpp) # this will allow you to run the inner_project_loop 
+library(reshape2)
+library(inline)
+library(ggplot2)
+library(vegan)
+# install.packages("shiny")
+library(mizer) # if inner_loop error, you need to upload mizer
+library(shiny)
+
+setwd("/Users/nov017/Dropbox/Mizer-fleet/R/model")
+source("data.R") 
+source("help.R") 
+source("MizerParams-class.R") 
+source("MizerSim-class.R")
+source("plots.R")
+source("project_methods.R")
+source("project.R")
+source("RcppExports.R") 
+source("selectivity_funcs.R")
+source("summary_methods.R")
+source("wrapper_functions.R")
+source("DataFunction.R") 
+
+
+# sim_calibrated - is calibrated with mean cathes 
+# sim_fitted - is calibrated with mean catches and then let run for few years with Fmort values  
+plot(sim_calibrated)
+
+# should be the same as base_run becasue these are the def setting (where temp does not ) 
+
+# my community is already calibrated with def t_ref of 10 degrees and ea_met, ea_mat etc. of 0.63 
+# sim_calibrated@params@t_ref - BUT temperature is not given as a function argument - so might be that it is not considered when running project
+
+# use sim_calibrated
+# baserun ####
+df_param_temp<-df_param
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+no_w = 100 # my model uses the def (100) - Lots changes!
+# dt = 0.5 # my model 
+dt = 0.2 # temperature code - not much changes
+diet_steps = 2 # not working if > 0 and no_w = 200  
+effort_temp = sim_calibrated@effort
+rownames(effort_temp)<-1:200
+t_max = nrow(sim_calibrated@effort)
+temperature = rep(10, t_max)
+
+df_param_temp<-df_param_temp[,-which(colnames(df_param_temp)=="k_vb")] # k_vb is only used to calcualte h if not given (not the case of your model) and to plot the vb relationship in growth curves
+
+# update and project with new param:
+params_baserun <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_baserun <- project(params_baserun, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet= FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_baserun)
+plot(sim_calibrated)
+plotDietComp(sim_baserun)
+
+sim<-sim_baserun
+
+# testing function
+
+g <- mizerRewire::getEGrowth(sim@params, sim@n[dim(sim@n)[1], , ],
+                        sim@n_pp[dim(sim@n)[1], ], sim@n_bb[dim(sim@n)[1], ],
+                        sim@n_aa[dim(sim@n)[1], ],
+                        sim@intTempScalar[,, (dim(sim@temperature)[1])],
+                        sim@metTempScalar[, , dim(sim@temperature)[1]] )
+
+g <- getEGrowth(sim@params, sim@n[dim(sim@n)[1], , ],
+                        sim@n_pp[dim(sim@n)[1], ], sim@n_bb[dim(sim@n)[1], ],
+                        sim@n_aa[dim(sim@n)[1], ],
+                        sim@intTempScalar[,, (dim(sim@temperature)[1])],
+                        sim@metTempScalar[, , dim(sim@temperature)[1]] )
+
+g <- getERepro(sim@params, sim@n[dim(sim@n)[1], , ],
+                        sim@n_pp[dim(sim@n)[1], ], sim@n_bb[dim(sim@n)[1], ],
+                        sim@n_aa[dim(sim@n)[1], ],
+                        sim@intTempScalar[,, (dim(sim@temperature)[1])],
+                        sim@metTempScalar[, , dim(sim@temperature)[1]] )
+
+g <- getEReproAndGrowth(sim@params, sim@n[dim(sim@n)[1], , ],
+                        sim@n_pp[dim(sim@n)[1], ], sim@n_bb[dim(sim@n)[1], ],
+                        sim@n_aa[dim(sim@n)[1], ],
+                        sim@intTempScalar[,, (dim(sim@temperature)[1])],
+                        sim@metTempScalar[, , dim(sim@temperature)[1]] )
+
+# sim_baserun<-sim_calibrated
+
+# # most grow too slow.... 
+# plotGrowthCurves(sim_baserun, species = "myctophids", max_age = 4) # Electrona antarctica # too slow
+# plotGrowthCurves(sim_baserun, species = "sillago flindersi", max_age = 7) # too slow
+# plotGrowthCurves(sim_baserun, species = "nototodarus gouldi", max_age = 10) # made up # too slow
+# plotGrowthCurves(sim_baserun, species = "helicolenus barathri", max_age = 40) # too fast 
+# plotGrowthCurves(sim_baserun, species = "trachurus declivis", max_age = 25) # OK
+# plotGrowthCurves(sim_baserun, species = "centroberyx affinis", max_age = 44) # OK
+# plotGrowthCurves(sim_baserun, species = "squalus spp.", max_age = 30) # OK - vb relationship is strange and can be fixed if: df_param_temp[which(df_param_temp$species == "squalus spp."), "k_vb"]<-0.2 # however k_vb is not used in the model (see commetn at enad of file) 
+# plotGrowthCurves(sim_baserun, species = "nemadactylus macropterus", max_age = 40) # OK
+# plotGrowthCurves(sim_baserun, species = "platycephalus richardsoni", max_age = 12) # too slow
+# plotGrowthCurves(sim_baserun, species = "zeus faber", max_age = 15) # too slow
+# plotGrowthCurves(sim_baserun, species = "seriolella brama", max_age = 22) # OK
+# plotGrowthCurves(sim_baserun, species = "hoplostethus atlanticus", max_age = 100) # too fast (more food to flathead instead?)
+# plotGrowthCurves(sim_baserun, species = "macruronus novaezelandiae", max_age = 25) # OK
+# plotGrowthCurves(sim_baserun, species = "seriolella punctata", max_age = 23) # OK
+# plotGrowthCurves(sim_baserun, species = "rexea solandri", max_age = 16) # too slow
+# plotGrowthCurves(sim_baserun, species = "genypterus blacodes", max_age = 30) # OK
+# plotGrowthCurves(sim_baserun, species = "pristiophorus cirratus", max_age = 15) # too slow
+# plotGrowthCurves(sim_baserun, species = "mustelus antarcticus", max_age = 16) # too slow
+# plotGrowthCurves(sim_baserun, species = "galeorhinus galeus", max_age = 55) # OK
+
+# a<-plotGrowthCurves(sim_baserun)
+# a +facet_wrap(~Species)
+
+# warming_all #### should I run this from initial abundances? 
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_all <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all <- project(params_warming_all, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet= FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_warming_all) # relative abundances and community structure change
+plotGrowthCurves(sim_warming_all, species = sim_baserun@params@species_params$species[5]) # it grows sligthly faster 
+plotGrowthCurves(sim_baserun, species = sim_baserun@params@species_params$species[5])
+
+# warming_all_eaint ####
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.4
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_all_eaint <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all_eaint <- project(params_warming_all_eaint, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_warming_all_eaint)
+plotGrowthCurves(sim_warming_all_eaint, species = sim_baserun@params@species_params$species[5])
+
+# warming_all_ca ####
+df_param_temp$ca_met<- -0.006
+df_param_temp$ca_int<- -0.006
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_all_ca <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all_ca <- project(params_warming_all_ca, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_warming_all_ca)
+plotGrowthCurves(sim_warming_all_ca, species = sim_baserun@params@species_params$species[5])
+
+# warming_all_eaint_ca ####
+df_param_temp$ca_met<- -0.006
+df_param_temp$ca_int<- -0.006
+df_param_temp$ea_int<-0.4
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0.63
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_all_eaint_ca <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_all_eaint_ca <- project(params_warming_all_eaint_ca, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature)
+
+plot(sim_warming_all_eaint_ca)
+plotGrowthCurves(sim_warming_all_eaint_ca, species = sim_baserun@params@species_params$species[5])
+
+# warming_int ####
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0.63
+df_param_temp$ea_met<-0
+df_param_temp$ea_mor<-0
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_int <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_int <- project(params_warming_int, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_warming_int)
+plotGrowthCurves(sim_warming_int, species = sim_baserun@params@species_params$species[5])
+
+# warming_met ####
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0
+df_param_temp$ea_met<-0.63
+df_param_temp$ea_mor<-0
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_met <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_met <- project(params_warming_met, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_warming_met)
+plotGrowthCurves(sim_warming_met, species = sim_baserun@params@species_params$species[5])
+
+# warming_mort ####
+df_param_temp<-df_param3
+df_param_temp$ca_met<-0
+df_param_temp$ca_int<-0
+df_param_temp$ea_int<-0
+df_param_temp$ea_met<-0
+df_param_temp$ea_mor<-0.63
+temperature = rep(12, t_max)
+
+# update and project with new param:
+params_warming_mort <- MizerParams(df_param_temp, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=FALSE, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_warming_mort <- project(params_warming_mort, effort = effort_temp, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = diet_steps, temperature = temperature) 
+
+plot(sim_warming_mort)
+plotGrowthCurves(sim_warming_mort, species = sim_baserun@params@species_params$species[5])
+
+# save results ####
+
+setwd("/Users/nov017/Dropbox/Warming model comparison/modelOutputs/SEAustralia")
+saveRDS(sim_baserun, file = "SEAustralia_baserun100.RDS")
+saveRDS(sim_warming_all, file = "SEAustralia_warming_all100.RDS")
+saveRDS(sim_warming_all_eaint, file = "SEAustralia_warming_all_eaint100.RDS")
+saveRDS(sim_warming_all_ca, file = "SEAustralia_warming_all_ca100.RDS")
+saveRDS(sim_warming_all_eaint_ca, file = "SEAustralia_warming_all_eaint_ca100.RDS")
+saveRDS(sim_warming_int, file = "SEAustralia_warming_int100.RDS")
+saveRDS(sim_warming_met, file = "SEAustralia_warming_met100.RDS")
+saveRDS(sim_warming_mort, file = "SEAustralia_warming_mort100.RDS")
+
+# setwd("/Users/nov017/Dropbox/Warming model comparison/modelOutputs/IrishSea")
+# saveRDS(sim_baserun, file = "IrishSea_baserun.RDS")
+# saveRDS(sim_warming_all, file = "IrishSea_warming_all.RDS")
+# saveRDS(sim_warming_all_eaint, file = "IrishSea_warming_all_eaint.RDS")
+# saveRDS(sim_warming_all_ca, file = "SIrishSea_warming_all_ca.RDS")
+# saveRDS(sim_warming_all_eaint_ca, file = "IrishSea_warming_all_eaint_ca.RDS")
+# saveRDS(sim_warming_int, file = "IrishSea_warming_int.RDS")
+# saveRDS(sim_warming_met, file = "IrishSea_warming_met.RDS")
+# saveRDS(sim_warming_mort, file = "IrishSea_warming_mort.RDS")
+
+```
+
+# to do 
+not much is changing - which plot should you use to check temp effects? 
+plot growth curves to see if they work - if the species argument is specified you get a colored curve which is the one modelled and a black curve which is the vonbertalanffy growth given k_vb, a and b and age (not sure how age is calcualted, but seems easy). the modelled growth is caclaulted given the available energy to grow (instead of reproduce), which depends on food consumption and maturation level. K_vb in the model is only used to calcualte h (maximum consumption rate) if h is not a column of the df_param and to compare modelled growth with von bertalanffy growth in this plot - von bertalanffy growth may have a strance shape because k_vb is often small and growth is slow - but no problem as k_vb is actually not used in the model (to recheck but quite sure).   
+
