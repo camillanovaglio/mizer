@@ -213,11 +213,6 @@ df_cost2<-rbind(df_cost2,addCost2015,addCost2016, addCost2017)
 df_cost2<-acast(df_cost2, formula = year ~ subfleet ~ cost_type, value.var = "cost") 
 df_cost2<-df_cost2[,rownames(df_target),] # order cost by fleet
 
-# Problem from previous version (IMBeR version): 
-# 1. not possible to reproduce observed trends in catches and effort etc. after calibrating ke and scaling price parameters with the FD running - and this is because the calibration forced the model to reach equilibrium, which due to model structure and managemtn constrains is when MEY is reached and effort is stabilised. loosing dynamics. So instead, run the time variant version of the FD model without FD calibraion and tune parameters for a better fit. 
-# 2. no costs difference between fleets results in fitting problems. Use costs in g (cost of fishing 1 g of fish and different between fleets as bsed on catches) instead of coasts per operation (same for all trawling as based on data at teh fishery level?). Also, could use costs in g calculated for trawlers of the shelf and rescale that using scaling factors from beth (Atlantis)
-# 3. check for bugs in managemtn as at present fishing steeply declines if only one specis is declining despite the  
-
 # OPTION 1 use costs in g or use costs in g rescaled as per Beth's data - NO CHANGE from above
 # Beth's adjustment on costs - see email 'price' and file 'costs_from_SESSF_2005'
 
@@ -234,6 +229,11 @@ df_cost2[,4,2]<-ref*0.67 # upper slope
 df_cost2[,5,2]<-ref*0.94 # gillnet
 
 ```
+
+# Problem from previous version (IMBeR version): 
+1. not possible to reproduce observed trends in catches and effort etc. after calibrating ke and scaling price parameters with the FD running - and this is because the calibration forced the model to reach equilibrium, which due to model structure and managemtn constrains is when MEY is reached and effort is stabilised. loosing dynamics. So instead, run the time variant version of the FD model without FD calibraion and tune parameters for a better fit. 
+2. no costs difference between fleets results in fitting problems. Use costs in g (cost of fishing 1 g of fish and different between fleets as bsed on catches) instead of coasts per operation (same for all trawling as based on data at teh fishery level?). Also, could use costs in g calculated for trawlers of the shelf and rescale that using scaling factors from beth (Atlantis)
+3. check for bugs in managemtn as at present fishing steeply declines if only one specis is declining despite the  
 
 # TO DO 
 there are data on profits that can be used for calibration/validation - see xlsx file and ASK INGRID on how to use these data
@@ -309,28 +309,24 @@ p<-ggplot(bio_plot, aes(x = variable, y = value))+
 
 ```{r}
 
-# scaling cost area scales both cost and effort becasue it transform them from operation to m3. then you should have separate scaling for simulations etc. 
-# costs - should you use the scaling costs to transform $ g-1 opn-1 into $ g-1 m-3 (or $ opn-1 into $ m-3 )?
-
-scaling_cost_area = 14000*10*20 # mean trawl length from SESSFdataCleaning considering trawling and gill net = 14 km = 14000 m. net opening: 20m *10m
-scaling_cost_area = scaling_cost_area*5000 # I need justifications for this 140 000 000 000 m3 fished in a tralwing operation (Beth's suggestion below)?! this makes things ... running cost wise?
-
+# scaling cost area - to get units right
+# from costs in $ g-1 opn-1 to costs in $ g-1 m-3
+# m3 fished in a tralwing operation:
+scaling_cost_area = 14000*10*20 # SESSFdataCleaning (trawling+gillnet opn) m trawled*net opening: 20m *10m
+scaling_cost_area = scaling_cost_area*5000 # interpretation: soak time for a net (Beth)
 df_cost3<-df_cost2
 df_cost3[]<-df_cost3/scaling_cost_area 
-# Beth -> if you need a further rescaling -> use soak time for a net 
 
-# scaling for costs alone
-# e.g. increase costs shoud decrease profits and effort - nothing changes unless costs are disproportionally increased. This is due to the units in this model.... 
-scaling_costs<-1
-scaling_costs<-c(0.000001,1,1,1,1)
-df_cost3[,1,] = df_cost3[,1,]*scaling_costs[1] # making SED very cheap to run -> positive profits -> increase in effort if no spp < 40% 
+# scaling costs 
+scaling_costs<-1 # interpretation: subsidies? 
+scaling_costs<-c(0.000001,1,1,1,1) # making SED very cheap to run -> positive profits -> increase in effort if no spp < 40%
+df_cost3[,1,] = df_cost3[,1,]*scaling_costs[1] 
 df_cost3[,2,] = df_cost3[,2,]*scaling_costs[2]
 df_cost3[,3,] = df_cost3[,3,]*scaling_costs[3]
 df_cost3[,4,] = df_cost3[,4,]*scaling_costs[4]
 df_cost3[,5,] = df_cost3[,5,]*scaling_costs[5]
 
-# scaling for price alone
-# e.g. decrease price should decrease profits and effort  -  
+# scaling price
 scaling_price<-1
 df_price_new[]<-df_price_new*scaling_price
 
@@ -342,51 +338,38 @@ df_price_new[]<-df_price_new*scaling_price
 
 ```{r}
 
-# ke TO UPDATE THE BELOW 
-# ke is effective only if effort is driven by profits and not overwritten by the managemtn rule. 
-# if you are considering ke also when effort is forced to decrease (by management - see line 694) values higher than 1 will mild the decreases (or increase!) in effort while values lower than 1 will further decrease effort. Not sure it should be the same parameter used in both cases .... 
-# see units for these and work out value, but now set as 1... 
-# ke_fleet = data.frame(fleet= rownames(df_target), ke = rep(0.01, 5))
-# ke_fleet = data.frame(fleet= rownames(df_target), ke = rep(scaling_cost_area, 5))
-ke_fleet = data.frame(fleet= rownames(df_target), ke = rep(1, 5)) # use this to figure out the scaling of ke by comapring output effort and output profits 
-ke_fleet = data.frame(fleet= rownames(df_target), ke = c(500000,70000,250000,500000,10)) # 100000 # decreasing ke decreases the rate of change
+# ke_fleet is effective only if no spp below 40 or if decreases in profit would result in higher decreases than those due to management. The lower ke, the lower the rate of change
+ke_fleet = data.frame(fleet= rownames(df_target), ke = rep(1, 5)) 
+ke_fleet = data.frame(fleet= rownames(df_target), ke = c(500000,70000,250000,500000,10))
 
-# tuning price and costs 
-scaling_price = 1
-
-# initial effort see campareTrends for more info on how effort is treated and plotted. 
-# if this is the unit maybe initial effort shuld not be higher than 1 - e.g. the whole m3 fished? or maybe it can be as in the whole m3 can be fished more than once in a year? but unrealistic...  
+# initial effort (from data)
+# see campareTrends for more info on how effort data is treated and plotted.
+# can sum(initial_effort) be >1 ? what is the meaning? 
 trial<-datValidationEffort %>% 
   ungroup() %>% 
   mutate(opn = (opn*scaling_cost_area)/areaEco) %>% # from opn to m3 trawled in m3
   filter(YEAR == 2006)
 trial<-trial[c(3,4,5,6,1),] # reorder fleets
 initial_effort = trial$opn
-# initial effort is from data and no matter the scaling you are using, the first value of modelled and observed will be the same! 
 
-# scaling for effort alone
-# if I increase effort, effort it's OK because it's rescaled, but Fmort is super low and yeilds are too low too
-scaling_effort<-rep(1,5) # needed in DataFunction anyway
-# initial_effort = initial_effort*scaling_effort
-
-# initial_effort*df_target needs to be on the scale of relative_effort 
-colSums(df_target*initial_effort) # this uses catch and effort data
-relative_effort[212,] # this uses Fmort 
-
-### note: this initial effort could be the value for the multifleet component.... 
+# scaling effort
+scaling_effort<-rep(1,5)
+initial_effort = initial_effort*scaling_effort
 
 ```
 
 #-----------------------------------------
-# Tune Q 
+# Tune Q *opn2 - obsolete*
 #----------------------------------------------
 
 ```{r}
 
+# initial_effort*df_target needs to be on the scale of relative_effort 
+colSums(df_target*initial_effort) # this is based on catch and effort data
+relative_effort[212,] # this is Fmort from SA (or catches) 
+
 # df_target is not real Q as the one incorporated in Fmort, it sums to 1 and is a proportion of how much each fleet cacthes the whole papolation available.
 df_target_bmsy <- df_target
-
-# df_target_bmsy[, "squalus spp."]<- df_target_bmsy[, "squalus spp."]*0.5 # this needs to be reduced in all fisheries as it's bycatch 
 
 # for squid and tracurus, df_target assumes these spp are fished by the fleets indicated here. but they are not and their catchability is usiually quite low - here represented as food 
 df_target_bmsy[, "nototodarus gouldi"]<- df_target_bmsy[, "nototodarus gouldi"]/25 
@@ -457,6 +440,61 @@ theta2<-theta
 ```
 
 #-----------------------------------------
+# tune Q *opn3 - better*
+#----------------------------------------------
+
+
+```{r}
+
+# initial_effort*df_target = relative_effort as they both determine catches by spp 
+colSums(df_target*initial_effort) # based on catch and effort data and used in FD
+relative_effort[212,] # Fmort from SA (or catches) and used in previous model 
+
+# rescale df_target*initial_effort using catchability
+# calculate catchability
+div<-relative_effort[212,]/colSums(df_target*initial_effort)
+# what to do with values >1 ? can these be transfered to other param - e.g. initial effort? 
+div[div>1]<-1
+
+df_target_bmsy<-df_target
+df_target_bmsy<-sweep(df_target_bmsy, 2, div, FUN = '*')
+df_target_bmsy[,1]<-0 # mycto
+df_target_bmsy[,11]<-df_target_bmsy[,11]*0.8 # seriorela 
+
+colSums(df_target_bmsy*initial_effort)
+relative_effort[212,]
+
+# Arrivata qui - need to check the calibration below 
+
+# further calibration - try options above  
+# fix upper slope 
+df_target_bmsy[4, "seriolella punctata"]<- df_target_bmsy[4, "seriolella punctata"]/2 
+# move target from shelf to sed 
+df_target_bmsy[3, "centroberyx affinis"]<- df_target_bmsy[3, "centroberyx affinis"]/2
+df_target_bmsy[3, "nemadactylus macropterus"]<- df_target_bmsy[3, "nemadactylus macropterus"]/2
+df_target_bmsy[3, "seriolella brama"]<- df_target_bmsy[3, "seriolella brama"]/2 
+df_target_bmsy[1, "centroberyx affinis"]<- df_target_bmsy[1, "centroberyx affinis"]*500
+df_target_bmsy[1, "nemadactylus macropterus"]<- df_target_bmsy[1, "nemadactylus macropterus"]*10
+df_target_bmsy[1, "seriolella brama"]<- df_target_bmsy[1, "seriolella brama"]*50
+
+# increase sed effort by removing some declning spp 
+df_target_bmsy[1, "helicolenus barathri"]<- 0
+df_target_bmsy[1, "seriolella punctata"]<- 0
+df_target_bmsy[1, "galeorhinus galeus"]<- 0
+df_target_bmsy[1, "squalus spp."]<- 0
+df_target_bmsy[1, "centroberyx affinis"]<- 0
+
+# decrease catches in US
+df_target_bmsy[4, "helicolenus barathri"]<- df_target_bmsy[4, "helicolenus barathri"]/2 
+df_target_bmsy[4, "galeorhinus galeus"]<- 0
+df_target_bmsy[4, "centroberyx affinis"]<- df_target_bmsy[4, "centroberyx affinis"]/2
+
+# decrease shelf catch 
+df_target_bmsy[3,]<-df_target_bmsy[3,]*0.8
+
+```
+
+#-----------------------------------------
 # First model run
 #----------------------------------------------
 
@@ -480,28 +518,36 @@ params_FD <- MizerParams(df_param, interaction = theta2, kappa = kappa, kappa_be
 
 sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 2, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort, scaling_price = scaling_price, Blevel_management = "Bmsy")
 
-# # compare profit and effort to figure out ke
-# sim_FD_bmsy@effortOut
-# sim_FD_bmsy@profit
-# sim_FD_bmsy@BioOut[[22]]
+# fast compare catches 
+compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_fl
+compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotEffort_fl
 
-# compared with other communities
-plot(sim_calibrated)
-plot(sim_fitted)
-plot_CN(sim_FD_bmsy)
-plotFleet(sim_FD_bmsy)
+# compare profit and effort (to figure out ke)
+sim_FD_bmsy@effortOut
+sim_FD_bmsy@profit
+sim_FD_bmsy@BioOut[[22]]
 
-# diet
-dim(sim_FD_bmsy@diet_comp) # predator X size X prey X prey size
-plotDietComp(sim_FD_bmsy)$p
-image(sim_FD_bmsy@diet_comp[19,,9,])
+# see catch by species and fleet to adjust Q can calibrate df_target better? 
 
-# growth
-df_param[,c(1,5,8)]
-df_param$max_age<-c(4,7,10,40,25,44,30,40,12,18,22,100,25,23,16,30,15,16,55)
-spp = as.character(df_param[19,1])
-max_age = df_param[19,"max_age"]
-plotGrowthCurves(sim_FD_bmsy, species = spp, max_age = max_age)
+
+# # compared with other communities
+# plot(sim_calibrated)
+# plot(sim_fitted)
+# plot_CN(sim_FD_bmsy)
+# plotFleet(sim_FD_bmsy)
+# 
+# # diet
+# dim(sim_FD_bmsy@diet_comp) # predator X size X prey X prey size
+# plotDietComp(sim_FD_bmsy)$p
+# image(sim_FD_bmsy@diet_comp[19,,9,])
+# 
+# # growth
+# df_param[,c(1,5,8)]
+# df_param$max_age<-c(4,7,10,40,25,44,30,40,12,18,22,100,25,23,16,30,15,16,55)
+# spp = as.character(df_param[19,1])
+# max_age = df_param[19,"max_age"]
+# plotGrowthCurves(sim_FD_bmsy, species = spp, max_age = max_age)
 
 ```
 
@@ -511,7 +557,7 @@ plotGrowthCurves(sim_FD_bmsy, species = spp, max_age = max_age)
 
 ```{r}
 
-save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input
+# save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input and Tune Q opn2 
 
 ```
 
@@ -526,7 +572,7 @@ trial<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type 
 trial<-as.data.frame.table(trial, responseName = "yield")
 colnames(trial)<-c("year", "species","fleet", "yield_tonnes")
 
-# observed catch by species and fleet. THis is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which theh bocame yieldObs_timeVariant in createFmort() in DataFunction.r - thus follwong same protocoll as per all observed data for validation 
+# observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which theh bocame yieldObs_timeVariant in createFmort() in DataFunction.r - thus follwong same protocoll as per all observed data for validation 
 datValidationYieldSppFl<-df_log_spp %>%
   filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
   group_by(SPC_NAME, metier, YEAR) %>% 
@@ -556,18 +602,16 @@ p <- ggplot(yieldData_sp_fl) +
   theme_bw() +
   facet_grid(fleet~color, scale ="free")
 
-# OPTION 1, and 2 adn 4 and 5 and 6 (and 7?)
+```
 
 # last updates: 
-# changed costs from g to opn and nothing changed in term of trnds but they make profits negative. 
-# changed management rule to decrease effort in proportion to biomass of target (fixed a bug) and that change trends but better because more straighforward 
-# need to reconsider the scale of ke so that changes in profits are reflected in changes in effort and as per units as discussed with Beth - values of ke ~ 100000 make changes in effort due to profit visible 
-# add profits to the data and plot? 
+I changed costs from g to opn and nothing changed in term of trends, but they make profits negative - keep g 
+I changed management rule to decrease effort in proportion to biomass of target (fixed a bug) - it improved trends 
+I need to reconsider the scale of ke so that changes in profits are reflected in changes in effort and as per units as discussed with Beth - values of ke ~ 100000 make changes in effort due to profit visible 
+I still need to add profits to the data and plot? 
 
-## Other importnatn notes 
-# from SEAmodel_run.Rmd: gummy sharks and OR abudnances are too high?! you have increased them to fix catches. You could have increased Fmort instaed of r_max.
-
-```
+# Other importnatn notes 
+from SEAmodel_run.Rmd: gummy sharks and OR abudnances are too high?! you have increased them to fix catches. You could have increased Fmort instaed of r_max.
 
 #-----------------------------------------
 # plot - catch and effort by species or fleet
