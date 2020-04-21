@@ -852,7 +852,7 @@ check that:
 
 ```{r}
 
-save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn1.RData")
+# save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn1.RData")
 
 ```
 
@@ -923,7 +923,7 @@ sim_calibrated_unfished<-sim_calibrated_unfished2
 sim_calibrated<-sim_calibrated2
 sim_fitted<-sim_fitted2
 
-save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn2.RData")
+# save(df_log_spp, df_selParam, df_price, df_cost_g, df_cost_opn, matrix_effort_nofishing,sim_calibrated_unfished, constant_effort,sim_calibrated, relative_effort, sim_fitted, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, datValidationYield, datValidationEffort, yieldObs_timeVariant, ssbObs, areaEco, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn2.RData")
 
 ```
 #
@@ -1105,6 +1105,10 @@ optim_SEA   <- optim(par = logParams,
 setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_local")
 save(optim_SEA, file = "optim_SEA_kappa_SSB_K_R_opn3.Rdata")
 
+# attempt 1 - OK but much higher kappas, and abundances. thus much higher cacthes for some spp so that observed vs modelled catches is not looking great. better agreeement between observed adn modelled SSB adn worst agreement between observed adn modelled cacthes. As expected 
+
+# attempt 2 - calibrate only with catches? or change Fmort. also squalus was left out of calibration but it might not be needed.  
+
 ```
 
 # final calibrated community *skip if no calibration*
@@ -1202,7 +1206,7 @@ diet_predator<-diet %>%
   group_by(prey) %>% 
   dplyr::summarise(value = sum(value)) %>% 
   mutate(contribution = (value/sum(value))*100)
-# view(diet_predator)  
+view(diet_predator)
 
 # galoe, mustelus, pristoph OK with 90% of diet being benthos 
 # ling (76% benthos), gamefish (85%), granadier (90%), or (97 - need to exclude trachurus and platy from diet), zeus (81% lots of micto), platy (90%), squalus (94% - should eat 80% of mackarel) are fish eaters
