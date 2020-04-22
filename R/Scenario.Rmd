@@ -11,6 +11,8 @@ output: html_document
 
 ```{r}
 
+# trial 
+
 rm(list=ls())
 
 library(tidyverse)
