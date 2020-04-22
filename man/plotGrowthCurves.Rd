@@ -2,9 +2,18 @@
 % Please edit documentation in R/plots.R
 \name{plotGrowthCurves}
 \alias{plotGrowthCurves}
+\alias{plotlyGrowthCurves}
 \title{Plot growth curves giving weight as a function of age}
 \usage{
 plotGrowthCurves(
+  object,
+  species,
+  max_age = 20,
+  percentage = FALSE,
+  highlight = NULL
+)
+
+plotlyGrowthCurves(
   object,
   species,
   max_age = 20,
@@ -29,32 +38,28 @@ of the maximal size.}
 \item{highlight}{Name or vector of names of the species to be highlighted.}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
 When the growth curve for only a single species is plotted, horizontal
-lines are included that indicate the maturity size and the maximum size for 
+lines are included that indicate the maturity size and the maximum size for
 that species. If furthermore the species parameters contain the variables
 a and b for length to weight conversion and the von Bertalanffy parameter
 k_vb (and optionally t0), then the von Bertalanffy growth curve is
 superimposed in black.
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 plotGrowthCurves(sim, percentage = TRUE)
 plotGrowthCurves(sim, species = "Cod", max_age = 24)
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}}
+\code{\link[=plotting_functions]{plotting_functions()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -64,14 +69,6 @@ Other plotting functions:
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

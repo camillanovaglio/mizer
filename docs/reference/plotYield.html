@@ -8,21 +8,29 @@
 
 <title>Plot the total yield of species through time — plotYield • mizer</title>
 
-<!-- jquery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-<!-- Bootstrap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha256-U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=" crossorigin="anonymous"></script>
+<!-- jquery -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<!-- Bootstrap -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.4.0/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script>
+
+<!-- bootstrap-toc -->
+<link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script>
 
 <!-- Font Awesome icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha256-eZrrJcwDc/3uDhsdt61sL2oOBY362qM3lon1gyExkL0=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous" />
 
 <!-- clipboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha256-FiZwavyI2V6+EXO1U+xzLG3IKldpiTFf3153ea9zikQ=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
 
-<!-- sticky kit -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sticky-kit/1.1.3/sticky-kit.min.js" integrity="sha256-c4Rlo1ZozqTPE2RLuvbusY3+SU1pQaJC0TjuhygMipw=" crossorigin="anonymous"></script>
+<!-- headroom.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
 
 <!-- pkgdown -->
 <link href="../pkgdown.css" rel="stylesheet">
@@ -30,12 +38,12 @@
 
 
 
-<meta property="og:title" content="Plot the total yield of species through time — plotYield" />
 
-<meta property="og:description" content="After running a projection, the total yield of each species across all 
+<meta property="og:title" content="Plot the total yield of species through time — plotYield" />
+<meta property="og:description" content="After running a projection, the total yield of each species across all
 fishing gears can be plotted against time. The yield is obtained with
-getYield." />
-<meta name="twitter:card" content="summary" />
+getYield()." />
+
 
 
 
@@ -49,9 +57,10 @@ getYield." />
 <![endif]-->
 
 
+
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#toc">
     <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -65,7 +74,7 @@ getYield." />
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">mizer</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">1.0.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">2.0.0</span>
       </span>
     </div>
 
@@ -73,7 +82,7 @@ getYield." />
       <ul class="nav navbar-nav">
         <li>
   <a href="../index.html">
-    <span class="fa fa-home fa-lg"></span>
+    <span class="fas fa fas fa-home fa-lg"></span>
      
   </a>
 </li>
@@ -84,20 +93,19 @@ getYield." />
   <a href="../reference/index.html">Reference</a>
 </li>
 <li>
-  <a href="../articles/index.html">Articles</a>
+  <a href="../articles/index.html">Guides</a>
 </li>
 <li>
   <a href="../articles/publications.html">Publications</a>
 </li>
 <li>
-  <a href="../dev/reference/index.html">New Version</a>
+  <a href="../news/index.html">Changelog</a>
 </li>
       </ul>
-      
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="https://github.com/sizespectrum/mizer">
-    <span class="fa fa-github fa-lg"></span>
+  <a href="https://github.com/sizespectrum/mizer/">
+    <span class="fab fa fab fa-github fa-lg"></span>
      
   </a>
 </li>
@@ -108,36 +116,35 @@ getYield." />
 </div><!--/.navbar -->
 
       
+
       </header>
 
 <div class="row">
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Plot the total yield of species through time</h1>
-    <small class="dont-index"><a href='https://github.com/sizespectrum/mizer/edit/master/R/plots.R'>Edit this page. &nbsp;</a> Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/plots.R'><code>R/plots.R</code></a></small>
+    <small class="dont-index">Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/plots.R'><code>R/plots.R</code></a></small>
     <div class="hidden name"><code>plotYield.Rd</code></div>
     </div>
 
     <div class="ref-description">
-    
-    <p>After running a projection, the total yield of each species across all 
+    <p>After running a projection, the total yield of each species across all
 fishing gears can be plotted against time. The yield is obtained with
-<code><a href='getYield.html'>getYield</a></code>.</p>
-    
+<code><a href='getYield.html'>getYield()</a></code>.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='no'>sim2</span>, <span class='no'>...</span>)
+    <pre class="usage"><span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='no'>sim2</span>, <span class='no'>species</span>, <span class='kw'>total</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>, <span class='kw'>log</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>, <span class='kw'>highlight</span> <span class='kw'>=</span> <span class='kw'>NULL</span>, <span class='no'>...</span>)
 
-<span class='co'># S4 method for MizerSim,missing</span>
-<span class='fu'>plotYield</span>(<span class='no'>sim</span>,
-  <span class='kw'>species</span> <span class='kw'>=</span> <span class='fu'><a href='https://www.rdocumentation.org/packages/base/topics/character'>as.character</a></span>(<span class='no'>sim</span>@<span class='kw'>params</span>@<span class='kw'>species_params</span>$<span class='no'>species</span>),
-  <span class='kw'>print_it</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>, <span class='kw'>total</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>, <span class='kw'>log</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>, <span class='no'>...</span>)
+<span class='fu'>plotlyYield</span>(
+  <span class='no'>sim</span>,
+  <span class='no'>sim2</span>,
+  <span class='no'>species</span>,
+  <span class='kw'>total</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>,
+  <span class='kw'>log</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>,
+  <span class='kw'>highlight</span> <span class='kw'>=</span> <span class='kw'>NULL</span>,
+  <span class='no'>...</span>
+)</pre>
 
-<span class='co'># S4 method for MizerSim,MizerSim</span>
-<span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='no'>sim2</span>,
-  <span class='kw'>species</span> <span class='kw'>=</span> <span class='fu'><a href='https://www.rdocumentation.org/packages/base/topics/character'>as.character</a></span>(<span class='no'>sim</span>@<span class='kw'>params</span>@<span class='kw'>species_params</span>$<span class='no'>species</span>),
-  <span class='kw'>print_it</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>, <span class='kw'>total</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>, <span class='kw'>log</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>, <span class='no'>...</span>)</pre>
-    
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
     <colgroup><col class="name" /><col class="desc" /></colgroup>
@@ -151,82 +158,82 @@ fishing gears can be plotted against time. The yield is obtained with
 this is provided its yields will be shown on the same plot in bolder lines.</p></td>
     </tr>
     <tr>
-      <th>...</th>
-      <td><p>Other arguments to pass to <code>getYield</code> method</p></td>
-    </tr>
-    <tr>
       <th>species</th>
       <td><p>Name or vector of names of the species to be plotted. By
-default all species contained in <code>sim</code> are plotted.</p></td>
-    </tr>
-    <tr>
-      <th>print_it</th>
-      <td><p>Display the plot, or just return the ggplot2 object.
-Defaults to TRUE</p></td>
+default all species are plotted.</p></td>
     </tr>
     <tr>
       <th>total</th>
-      <td><p>A boolean value that determines whether the total yield from
-all species in the system is plotted as well. Default is FALSE</p></td>
+      <td><p>A boolean value that determines whether the total over all
+species in the system is plotted as well. Default is FALSE</p></td>
     </tr>
     <tr>
       <th>log</th>
-      <td><p>Boolean whether yield should be plotted on a logarithmic axis. 
+      <td><p>Boolean whether yield should be plotted on a logarithmic axis.
 Defaults to true.</p></td>
     </tr>
+    <tr>
+      <th>highlight</th>
+      <td><p>Name or vector of names of the species to be highlighted.</p></td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td><p>Other arguments (currently unused)</p></td>
+    </tr>
     </table>
-    
+
     <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
-    <p>A ggplot2 object</p>
-    
+    <p>A plot</p>
     <h2 class="hasAnchor" id="see-also"><a class="anchor" href="#see-also"></a>See also</h2>
 
-    <div class='dont-index'><p><code><a href='getYield.html'>getYield</a></code></p></div>
-    
+    <div class='dont-index'><p><code><a href='plotting_functions.html'>plotting_functions()</a></code>,  <code><a href='getYield.html'>getYield()</a></code></p>
+<p>Other plotting functions: 
+<code><a href='plotMizerSim.html'>plot,MizerSim,missing-method</a></code>,
+<code><a href='plotBiomass.html'>plotBiomass</a>()</code>,
+<code><a href='plotDiet.html'>plotDiet</a>()</code>,
+<code><a href='plotFMort.html'>plotFMort</a>()</code>,
+<code><a href='plotFeedingLevel.html'>plotFeedingLevel</a>()</code>,
+<code><a href='plotGrowthCurves.html'>plotGrowthCurves</a>()</code>,
+<code><a href='plotPredMort.html'>plotPredMort</a>()</code>,
+<code><a href='plotSpectra.html'>plotSpectra</a>()</code>,
+<code><a href='plotYieldGear.html'>plotYieldGear</a>()</code>,
+<code><a href='plotting_functions.html'>plotting_functions</a></code></p></div>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
-    <pre class="examples"><span class='co'># NOT RUN {</span>
-<span class='fu'><a href='https://www.rdocumentation.org/packages/utils/topics/data'>data</a></span>(<span class='no'>NS_species_params_gears</span>)
-<span class='fu'><a href='https://www.rdocumentation.org/packages/utils/topics/data'>data</a></span>(<span class='no'>inter</span>)
-<span class='no'>params</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='MizerParams.html'>MizerParams</a></span>(<span class='no'>NS_species_params_gears</span>, <span class='no'>inter</span>)
-<span class='no'>sim</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='project.html'>project</a></span>(<span class='no'>params</span>, <span class='kw'>effort</span><span class='kw'>=</span><span class='fl'>1</span>, <span class='kw'>t_max</span><span class='kw'>=</span><span class='fl'>20</span>, <span class='kw'>t_save</span> <span class='kw'>=</span> <span class='fl'>0.2</span>)
-<span class='fu'>plotYield</span>(<span class='no'>sim</span>)
-<span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='kw'>species</span> <span class='kw'>=</span> <span class='fu'><a href='https://www.rdocumentation.org/packages/base/topics/c'>c</a></span>(<span class='st'>"Cod"</span>, <span class='st'>"Herring"</span>), <span class='kw'>total</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>)
-
+    <pre class="examples"><div class='input'><span class='co'># \donttest{</span>
+<span class='no'>params</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/message.html'>suppressMessages</a></span>(<span class='fu'><a href='newMultispeciesParams.html'>newMultispeciesParams</a></span>(<span class='no'>NS_species_params_gears</span>, <span class='no'>inter</span>))
+<span class='no'>sim</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='project.html'>project</a></span>(<span class='no'>params</span>, <span class='kw'>effort</span><span class='kw'>=</span><span class='fl'>1</span>, <span class='kw'>t_max</span><span class='kw'>=</span><span class='fl'>20</span>, <span class='kw'>t_save</span> <span class='kw'>=</span> <span class='fl'>0.2</span>, <span class='kw'>progress_bar</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>)
+<span class='fu'>plotYield</span>(<span class='no'>sim</span>)</div><div class='img'><img src='plotYield-1.png' alt='' width='700' height='433' /></div><div class='input'><span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='kw'>species</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"Cod"</span>, <span class='st'>"Herring"</span>), <span class='kw'>total</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>)</div><div class='img'><img src='plotYield-2.png' alt='' width='700' height='433' /></div><div class='input'>
 <span class='co'># Comparing with yield from twice the effort</span>
-<span class='no'>sim2</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='project.html'>project</a></span>(<span class='no'>params</span>, <span class='kw'>effort</span><span class='kw'>=</span><span class='fl'>2</span>, <span class='kw'>t_max</span><span class='kw'>=</span><span class='fl'>20</span>, <span class='kw'>t_save</span> <span class='kw'>=</span> <span class='fl'>0.2</span>)
-<span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='no'>sim2</span>, <span class='kw'>species</span> <span class='kw'>=</span> <span class='fu'><a href='https://www.rdocumentation.org/packages/base/topics/c'>c</a></span>(<span class='st'>"Cod"</span>, <span class='st'>"Herring"</span>), <span class='kw'>log</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>)
-<span class='co'># }</span></pre>
+<span class='no'>sim2</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='project.html'>project</a></span>(<span class='no'>params</span>, <span class='kw'>effort</span><span class='kw'>=</span><span class='fl'>2</span>, <span class='kw'>t_max</span><span class='kw'>=</span><span class='fl'>20</span>, <span class='kw'>t_save</span> <span class='kw'>=</span> <span class='fl'>0.2</span>, <span class='kw'>progress_bar</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>)
+<span class='fu'>plotYield</span>(<span class='no'>sim</span>, <span class='no'>sim2</span>, <span class='kw'>species</span> <span class='kw'>=</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span>(<span class='st'>"Cod"</span>, <span class='st'>"Herring"</span>), <span class='kw'>log</span> <span class='kw'>=</span> <span class='fl'>FALSE</span>)</div><div class='img'><img src='plotYield-3.png' alt='' width='700' height='433' /></div><div class='input'># }
+</div></pre>
   </div>
-  <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
-    <h2>Contents</h2>
-    <ul class="nav nav-pills nav-stacked">
-      <li><a href="#arguments">Arguments</a></li>
-      
-      <li><a href="#value">Value</a></li>
-
-      <li><a href="#see-also">See also</a></li>
-      
-      <li><a href="#examples">Examples</a></li>
-    </ul>
-
+  <div class="col-md-3 hidden-xs" id="pkgdown-sidebar">
+    <nav id="toc" data-toggle="toc" class="sticky-top">
+      <h2 data-toc-skip>Contents</h2>
+    </nav>
   </div>
 </div>
+
 
       <footer>
       <div class="copyright">
-  <p>Developed by Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>, <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>.</p>
+  <p>Developed by <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>, Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.3.0.9000.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.0.9000.</p>
 </div>
+
       </footer>
    </div>
 
   
 
+
   </body>
 </html>
+
 

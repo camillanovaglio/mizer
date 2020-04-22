@@ -10,23 +10,27 @@
 
 
 <!-- jquery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 <!-- Bootstrap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.4.0/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha256-U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script>
+
+<!-- bootstrap-toc -->
+<link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script>
 
 <!-- Font Awesome icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/all.min.css" integrity="sha256-PbSmjxuVAzJ6FPvNYsrXygfGhNJYyZ2GktDbkMBqQZg=" crossorigin="anonymous" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/v4-shims.min.css" integrity="sha256-A6jcAdwFD48VMjlI3GDxUd+eCQa7/KWy6G9oe/ovaPA=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous" />
 
 <!-- clipboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha256-FiZwavyI2V6+EXO1U+xzLG3IKldpiTFf3153ea9zikQ=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
 
 <!-- headroom.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/headroom.min.js" integrity="sha256-DJFC1kqIhelURkuza0AvYal5RxMtpzLjFhsnVIeuk+U=" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
 
 <!-- pkgdown -->
 <link href="../pkgdown.css" rel="stylesheet">
@@ -39,8 +43,8 @@
 <meta property="og:description" content="Runs the size spectrum model simulation.
 The function returns an object of type
 MizerSim that can then be explored with a range of
-summary_functions and plotting_functions." />
-<meta name="twitter:card" content="summary" />
+summary_functions(), indicator_functions() and
+plotting_functions()." />
 
 
 <meta name="robots" content="noindex">
@@ -58,7 +62,7 @@ summary_functions and plotting_functions." />
 
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#toc">
     <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -72,7 +76,7 @@ summary_functions and plotting_functions." />
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">mizer</a>
-        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">1.0.1.9000</span>
+        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">2.0.0.9000</span>
       </span>
     </div>
 
@@ -102,7 +106,7 @@ summary_functions and plotting_functions." />
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="https://github.com/sizespectrum/mizer">
+  <a href="https://github.com/sizespectrum/mizer/">
     <span class="fab fa fab fa-github fa-lg"></span>
      
   </a>
@@ -121,7 +125,7 @@ summary_functions and plotting_functions." />
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Project size spectrum forward in time</h1>
-    <small class="dont-index"><a href='https://github.com/sizespectrum/mizer/edit/master/R/project.R'>Edit this page. &nbsp;</a> Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/project.R'><code>R/project.R</code></a></small>
+    <small class="dont-index">Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/project.R'><code>R/project.R</code></a></small>
     <div class="hidden name"><code>project.Rd</code></div>
     </div>
 
@@ -129,7 +133,8 @@ summary_functions and plotting_functions." />
     <p>Runs the size spectrum model simulation.
 The function returns an object of type
 <a href='MizerSim-class.html'>MizerSim</a> that can then be explored with a range of
-<code><a href='summary_functions.html'>summary_functions</a></code> and <code><a href='plotting_functions.html'>plotting_functions</a></code>.</p>
+<code><a href='summary_functions.html'>summary_functions()</a></code>, <code><a href='indicator_functions.html'>indicator_functions()</a></code> and
+<code><a href='plotting_functions.html'>plotting_functions()</a></code>.</p>
     </div>
 
     <pre class="usage"><span class='fu'>project</span>(
@@ -141,7 +146,6 @@ The function returns an object of type
   <span class='kw'>t_start</span> <span class='kw'>=</span> <span class='fl'>0</span>,
   <span class='no'>initial_n</span>,
   <span class='no'>initial_n_pp</span>,
-  <span class='no'>initial_B</span>,
   <span class='kw'>append</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>,
   <span class='kw'>progress_bar</span> <span class='kw'>=</span> <span class='fl'>TRUE</span>,
   <span class='no'>...</span>
@@ -152,7 +156,7 @@ The function returns an object of type
     <colgroup><col class="name" /><col class="desc" /></colgroup>
     <tr>
       <th>object</th>
-      <td><p>Either a <a href='MizerParams-class.html'>MizerParams</a> object or a 
+      <td><p>Either a <a href='MizerParams-class.html'>MizerParams</a> object or a
 <a href='MizerSim-class.html'>MizerSim</a> object (which contains a <code>MizerParams</code> object).</p></td>
     </tr>
     <tr>
@@ -183,25 +187,14 @@ argument or a <code>MizerSim</code> for the <code>object</code> argument.</p></t
     </tr>
     <tr>
       <th>initial_n</th>
-      <td><p>The initial abundances of species. A matrix with dimensions 
-species x size. The order of species must be the same as in the 
-<code>MizerParams</code> argument. Ignored if the <code>object</code> argument is a 
-MizerSim object, but overrules the <code>initial_n</code> slot if <code>object</code> 
-is a <code>MizerParams</code> object.</p></td>
+      <td><p>Deprecated. The initial abundances of species. Instead of
+using this argument you should set <code><a href='initialN-set.html'>initialN(params)</a></code> to the desired value.</p></td>
     </tr>
     <tr>
       <th>initial_n_pp</th>
-      <td><p>The initial abundances of plankton. A numeric vector.
-Ignored if the <code>object</code> argument is a MizerSim object, but overrules
-the <code>initial_n_pp</code> slot if <code>object</code> is a <code>MizerParams</code>
-object.</p></td>
-    </tr>
-    <tr>
-      <th>initial_B</th>
-      <td><p>The initial biomasses of the unstructured resources. It
-should be a named vector with one entry for each resource. Ignored if the
-<code>object</code> argument is a MizerSim object, but overrules the
-<code>initial_B</code> slot if <code>object</code> is a <code>MizerParams</code> object.</p></td>
+      <td><p>Deprecated. The initial abundances of resource. Instead
+of using this argument you should set <code><a href='initialNResource-set.html'>initialNResource(params)</a></code> to the
+desired value.</p></td>
     </tr>
     <tr>
       <th>append</th>
@@ -212,7 +205,7 @@ are appended to the previous ones. Only relevant if <code>object</code> is a
     <tr>
       <th>progress_bar</th>
       <td><p>Either a boolean value to determine whether a progress
-bar should be shown in the console of a shiny progress object to implement 
+bar should be shown in the console of a shiny progress object to implement
 a progress bar in a shiny app</p></td>
     </tr>
     <tr>
@@ -245,26 +238,24 @@ must be named and the names must correspond to the gear names in the
 is used during the interval from that time to the next time in the array.</p></li>
 </ul>
 
-<p>If effort is specified as an array then the smallest time in the array is 
+<p>If effort is specified as an array then the smallest time in the array is
 used as the initial time for the simulation. Otherwise the initial time is
-set to the final time of the previous simulation if <code>object</code> is a 
+set to the final time of the previous simulation if <code>object</code> is a
 <code>MizerSim</code> object or to <code>t_start</code> otherwise. Also, if the effort is
 an array then the <code>t_max</code> argument is ignored and the maximum simulation
 time is the largest time of the effort array.</p>
 <p>If the <code>object</code> argument is of class <code>MizerSim</code> then the initial
-values for the simulation are taken from the final values in the 
+values for the simulation are taken from the final values in the
 <code>MizerSim</code> object and the corresponding arguments to this function will
 be ignored.</p>
     <h2 class="hasAnchor" id="see-also"><a class="anchor" href="#see-also"></a>See also</h2>
 
-    <div class='dont-index'><p><code><a href='MizerParams.html'>MizerParams</a></code>, <code><a href='summary_functions.html'>summary_functions</a></code> and 
-  <code><a href='plotting_functions.html'>plotting_functions</a></code></p></div>
+    <div class='dont-index'><p><code><a href='MizerParams.html'>MizerParams()</a></code>, <code><a href='summary_functions.html'>summary_functions()</a></code>,
+<code><a href='indicator_functions.html'>indicator_functions()</a></code> and <code><a href='plotting_functions.html'>plotting_functions()</a></code></p></div>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
     <pre class="examples"><div class='input'><span class='kw'>if</span> (<span class='fl'>FALSE</span>) {
 <span class='co'># Data set with different fishing gears</span>
-<span class='fu'><a href='https://rdrr.io/r/utils/data.html'>data</a></span>(<span class='no'>NS_species_params_gears</span>)
-<span class='fu'><a href='https://rdrr.io/r/utils/data.html'>data</a></span>(<span class='no'>inter</span>)
 <span class='no'>params</span> <span class='kw'>&lt;-</span> <span class='fu'><a href='newMultispeciesParams.html'>newMultispeciesParams</a></span>(<span class='no'>NS_species_params_gears</span>, <span class='no'>inter</span>)
 <span class='co'># With constant fishing effort for all gears for 20 time steps</span>
 <span class='no'>sim</span> <span class='kw'>&lt;-</span> <span class='fu'>project</span>(<span class='no'>params</span>, <span class='kw'>t_max</span> <span class='kw'>=</span> <span class='fl'>20</span>, <span class='kw'>effort</span> <span class='kw'>=</span> <span class='fl'>0.5</span>)
@@ -283,27 +274,21 @@ be ignored.</p>
 <span class='no'>sim</span> <span class='kw'>&lt;-</span> <span class='fu'>project</span>(<span class='no'>params</span>, <span class='kw'>effort</span> <span class='kw'>=</span> <span class='no'>effort_array</span>)
 }</div></pre>
   </div>
-  <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
-    <h2>Contents</h2>
-    <ul class="nav nav-pills nav-stacked">
-      <li><a href="#arguments">Arguments</a></li>
-      <li><a href="#value">Value</a></li>
-      <li><a href="#note">Note</a></li>
-      <li><a href="#see-also">See also</a></li>
-      <li><a href="#examples">Examples</a></li>
-    </ul>
-
+  <div class="col-md-3 hidden-xs" id="pkgdown-sidebar">
+    <nav id="toc" data-toggle="toc" class="sticky-top">
+      <h2 data-toc-skip>Contents</h2>
+    </nav>
   </div>
 </div>
 
 
       <footer>
       <div class="copyright">
-  <p>Developed by Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>, <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>.</p>
+  <p>Developed by <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>, Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.4.1.9000.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.0.9000.</p>
 </div>
 
       </footer>

@@ -2,9 +2,12 @@
 % Please edit documentation in R/plots.R
 \name{plotPredMort}
 \alias{plotPredMort}
+\alias{plotlyPredMort}
 \title{Plot predation mortality rate of each species against size}
 \usage{
 plotPredMort(object, species = NULL, time_range, highlight = NULL, ...)
+
+plotlyPredMort(object, species = NULL, time_range, highlight = NULL, ...)
 }
 \arguments{
 \item{object}{An object of class \linkS4class{MizerSim} or \linkS4class{MizerParams}.}
@@ -22,7 +25,7 @@ object.}
 \item{...}{Other arguments (currently unused)}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
 After running a projection, plot the predation mortality rate of each species
@@ -30,21 +33,17 @@ by size. The mortality rate is averaged over the specified time range (a
 single value for the time range can be used to plot a single time step).
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 plotPredMort(sim)
 plotPredMort(sim, time_range = 10:20)
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}},  \code{\link{getPredMort}}
+\code{\link[=plotting_functions]{plotting_functions()}},  \code{\link[=getPredMort]{getPredMort()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -54,14 +53,6 @@ Other plotting functions:
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

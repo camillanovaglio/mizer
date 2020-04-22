@@ -2,12 +2,15 @@
 % Please edit documentation in R/plots.R
 \name{plotYield}
 \alias{plotYield}
+\alias{plotlyYield}
 \title{Plot the total yield of species through time}
 \usage{
-plotYield(
+plotYield(sim, sim2, species, total = FALSE, log = TRUE, highlight = NULL, ...)
+
+plotlyYield(
   sim,
   sim2,
-  species = dimnames(sim@n)$sp,
+  species,
   total = FALSE,
   log = TRUE,
   highlight = NULL,
@@ -26,7 +29,7 @@ default all species are plotted.}
 \item{total}{A boolean value that determines whether the total over all
 species in the system is plotted as well. Default is FALSE}
 
-\item{log}{Boolean whether yield should be plotted on a logarithmic axis. 
+\item{log}{Boolean whether yield should be plotted on a logarithmic axis.
 Defaults to true.}
 
 \item{highlight}{Name or vector of names of the species to be highlighted.}
@@ -34,17 +37,15 @@ Defaults to true.}
 \item{...}{Other arguments (currently unused)}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
-After running a projection, the total yield of each species across all 
+After running a projection, the total yield of each species across all
 fishing gears can be plotted against time. The yield is obtained with
-\code{\link{getYield}}.
+\code{\link[=getYield]{getYield()}}.
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 0.2, progress_bar = FALSE)
 plotYield(sim)
@@ -53,14 +54,12 @@ plotYield(sim, species = c("Cod", "Herring"), total = TRUE)
 # Comparing with yield from twice the effort
 sim2 <- project(params, effort=2, t_max=20, t_save = 0.2, progress_bar = FALSE)
 plotYield(sim, sim2, species = c("Cod", "Herring"), log = FALSE)
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}},  \code{\link{getYield}}
+\code{\link[=plotting_functions]{plotting_functions()}},  \code{\link[=getYield]{getYield()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -70,14 +69,6 @@ Other plotting functions:
 \code{\link{plotPredMort}()},
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

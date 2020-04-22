@@ -1,7 +1,5 @@
 context("methods work for a single species data set")
 
-data(inter)
-data(NS_species_params_gears)
 # We choose the largest species for our single-species
 params <- newMultispeciesParams(NS_species_params_gears[12, ])
 n <- params@initial_n
@@ -32,4 +30,12 @@ test_that("summary methods return arrays of correct dimension", {
     expect_length(dim(getFMortGear(sim1)), 4)
     expect_length(dim(getYieldGear(sim1)), 3)
     expect_length(dim(getYield(sim1)), 2)
+})
+
+test_that("Can set up model with minimal information",{
+    sp <- data.frame(species = "test")
+    sp$w_inf <- 1000
+    sp$k_vb <- 10
+    params <- newMultispeciesParams(sp)
+    sim <- project(params, t_max = 1)
 })

@@ -2,15 +2,12 @@
 % Please edit documentation in R/plots.R
 \name{plotYieldGear}
 \alias{plotYieldGear}
+\alias{plotlyYieldGear}
 \title{Plot the total yield of each species by gear through time}
 \usage{
-plotYieldGear(
-  sim,
-  species = dimnames(sim@n)$sp,
-  total = FALSE,
-  highlight = NULL,
-  ...
-)
+plotYieldGear(sim, species, total = FALSE, highlight = NULL, ...)
+
+plotlyYieldGear(sim, species, total = FALSE, highlight = NULL, ...)
 }
 \arguments{
 \item{sim}{An object of class \linkS4class{MizerSim}}
@@ -26,7 +23,7 @@ species in the system is plotted as well. Default is FALSE}
 \item{...}{Other arguments (currently unused)}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
 After running a projection, the total yield of each species by fishing gear
@@ -34,26 +31,22 @@ can be plotted against time.
 }
 \details{
 This plot is pretty easy to do by hand. It just
-gets the biomass using the \code{\link{getYieldGear}} method and plots using
+gets the biomass using the \code{\link[=getYieldGear]{getYieldGear()}} method and plots using
 the ggplot2 package. You can then fiddle about with colours and linetypes
 etc. Just look at the source code for details.
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 0.2, progress_bar = FALSE)
 plotYieldGear(sim)
 plotYieldGear(sim, species = c("Cod", "Herring"), total = TRUE)
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}},  \code{\link{getYieldGear}}
+\code{\link[=plotting_functions]{plotting_functions()}},  \code{\link[=getYieldGear]{getYieldGear()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -63,14 +56,6 @@ Other plotting functions:
 \code{\link{plotPredMort}()},
 \code{\link{plotSpectra}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

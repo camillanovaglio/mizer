@@ -18,15 +18,13 @@ simulation time step.
 }
 \examples{
 \dontrun{
-data(NS_species_params_gears)
-data(inter)
 params <- newMultispeciesParams(NS_species_params_gears, inter)
 sim <- project(params, effort=1, t_max=10)
 y <- getYield(sim)
 }
 }
 \seealso{
-\code{\link{getYieldGear}}
+\code{\link[=getYieldGear]{getYieldGear()}}
 
 Other summary functions: 
 \code{\link{getBiomass}()},
@@ -34,7 +32,8 @@ Other summary functions:
 \code{\link{getGrowthCurves}()},
 \code{\link{getN}()},
 \code{\link{getSSB}()},
-\code{\link{getYieldGear}()}
+\code{\link{getYieldGear}()},
+\code{\link{getYieldVsFcurve}()}
 }
 \concept{summary functions}
 \concept{summary_function}

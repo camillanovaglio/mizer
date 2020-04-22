@@ -10,23 +10,27 @@
 
 
 <!-- jquery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 <!-- Bootstrap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.4.0/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha256-U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script>
+
+<!-- bootstrap-toc -->
+<link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script>
 
 <!-- Font Awesome icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/all.min.css" integrity="sha256-PbSmjxuVAzJ6FPvNYsrXygfGhNJYyZ2GktDbkMBqQZg=" crossorigin="anonymous" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/v4-shims.min.css" integrity="sha256-A6jcAdwFD48VMjlI3GDxUd+eCQa7/KWy6G9oe/ovaPA=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous" />
 
 <!-- clipboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha256-FiZwavyI2V6+EXO1U+xzLG3IKldpiTFf3153ea9zikQ=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
 
 <!-- headroom.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/headroom.min.js" integrity="sha256-DJFC1kqIhelURkuza0AvYal5RxMtpzLjFhsnVIeuk+U=" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
 
 <!-- pkgdown -->
 <link href="../pkgdown.css" rel="stylesheet">
@@ -37,8 +41,7 @@
 
 <meta property="og:title" content="A class to hold the results of a simulation — MizerSim-class" />
 <meta property="og:description" content="A class that holds the results of projecting a MizerParams
-object through time using the project function." />
-<meta name="twitter:card" content="summary" />
+object through time using project()." />
 
 
 <meta name="robots" content="noindex">
@@ -56,7 +59,7 @@ object through time using the project function." />
 
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#toc">
     <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -70,7 +73,7 @@ object through time using the project function." />
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">mizer</a>
-        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">1.0.1.9000</span>
+        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">2.0.0.9000</span>
       </span>
     </div>
 
@@ -100,7 +103,7 @@ object through time using the project function." />
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="https://github.com/sizespectrum/mizer">
+  <a href="https://github.com/sizespectrum/mizer/">
     <span class="fab fa fab fa-github fa-lg"></span>
      
   </a>
@@ -119,71 +122,83 @@ object through time using the project function." />
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>A class to hold the results of a simulation</h1>
-    <small class="dont-index"><a href='https://github.com/sizespectrum/mizer/edit/master/R/MizerSim-class.R'>Edit this page. &nbsp;</a> Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/MizerSim-class.R'><code>R/MizerSim-class.R</code></a></small>
+    <small class="dont-index">Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/MizerSim-class.R'><code>R/MizerSim-class.R</code></a></small>
     <div class="hidden name"><code>MizerSim-class.Rd</code></div>
     </div>
 
     <div class="ref-description">
     <p>A class that holds the results of projecting a <a href='MizerParams-class.html'>MizerParams</a>
-object through time using the <code><a href='project.html'>project</a></code> function.</p>
+object through time using <code><a href='project.html'>project()</a></code>.</p>
     </div>
 
 
 
     <h2 class="hasAnchor" id="details"><a class="anchor" href="#details"></a>Details</h2>
 
-    <p>A new <code>MizerSim</code> object can be created with the <code><a href='MizerSim.html'>MizerSim</a></code>
+    <p>A new <code>MizerSim</code> object can be created with the <code><a href='MizerSim.html'>MizerSim()</a></code>
 constructor, but you will never have to do that because the object is
-created automatically by the <code><a href='project.html'>project</a></code> function when needed.</p>
-<p>The arrays all have named dimensions. The names of the "time" dimension are
-numeric and denote the time in years. The names of the "sp" dimension are
-the same as the species name in the order specified in the species_params
-data frame. The names of the "gear" and "res" dimension are the names of the 
-gears and resources respectively, in the same order as specified when setting
-up the <code>MizerParams</code> object.</p>
-<p>There are several <code>link{summary_functions}</code> and
-<code><a href='plotting_functions.html'>plotting_functions</a></code> available to explore the contents of a
-<code>MizerSim</code> object.</p>
+created automatically by <code><a href='project.html'>project()</a></code> when needed.</p>
+<p>As a user you should never have to access the slots of a MizerSim object
+directly. Instead there are a range of functions to extract the information.
+<code><a href='N.html'>N()</a></code> and <code><a href='N.html'>NResource()</a></code> return arrays with the saved abundances of
+the species and the resource population at size respectively. <code><a href='effort.html'>effort()</a></code>
+returns the fishing effort of each gear through time.
+<code><a href='times.html'>times()</a></code> returns the vector of times at which simulation results
+were stored and <code><a href='idxFinalT.html'>idxFinalT()</a></code> returns the index with which to access
+specifically the value at the final time in the arrays returned by the other
+functions. T<code><a href='params.html'>params()</a></code> returns the <code>MizerParams</code> object that was
+passed in to <code><a href='project.html'>project()</a></code>. There are also several
+<a href='summary_functions.html'>summary_functions</a> and <a href='plotting_functions.html'>plotting_functions</a>
+available to explore the contents of a <code>MizerSim</code> object.</p>
+<p>The arrays all have named dimensions. The names of the <code>time</code> dimension
+denote the time in years. The names of the <code>w</code> dimension are weights in grams
+rounded to three significant figures. The names of the <code>sp</code> dimension are the
+same as the species name in the order specified in the species_params data
+frame. The names of the <code>gear</code> dimension are the names of the gears, in the
+same order as specified when setting up the <code>MizerParams</code> object.</p>
+<p>Extensions of mizer can use the <code>n_other</code> slot to store the abundances of
+other ecosystem components and these extensions should provide their own
+functions for accessing that information.</p>
+<p>The <code>MizerSim</code> class has changed since previous versions of mizer. To use
+a <code>MizerSim</code> object created by a previous version, you need to upgrade it
+with <code><a href='upgradeSim.html'>upgradeSim()</a></code>.</p>
     <h2 class="hasAnchor" id="slots"><a class="anchor" href="#slots"></a>Slots</h2>
 
     
 
-<dl class='dl-horizontal'>
+<dl'>
 <dt><code>params</code></dt><dd><p>An object of type <a href='MizerParams-class.html'>MizerParams</a>.</p></dd>
 
-<dt><code>n</code></dt><dd><p>Array that stores the projected community population abundances by
-time, species and size</p></dd>
+<dt><code>n</code></dt><dd><p>Three-dimensional array (time x species x size) that stores the
+projected community number densities.</p></dd>
 
-<dt><code>n_pp</code></dt><dd><p>Array that stores the projected plankton abundance by time and
-size</p></dd>
+<dt><code>n_pp</code></dt><dd><p>An array (time x size) that stores the projected resource number
+densities.</p></dd>
 
-<dt><code>B</code></dt><dd><p>Array that stores biomasses of unstructured resources by time and
-resource. Second dimension has length 0 if there are no unstructured
-resources.</p></dd>
+<dt><code>n_other</code></dt><dd><p>A list array (time x component) that stores the projected
+values for other ecosystem components.</p></dd>
 
-<dt><code>effort</code></dt><dd><p>Array that stores the fishing effort by time and gear</p></dd>
+<dt><code>effort</code></dt><dd><p>An array (time x gear) that stores the fishing effort by time and
+gear.</p></dd>
 
 </dl>
 
   </div>
-  <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
-    <h2>Contents</h2>
-    <ul class="nav nav-pills nav-stacked">
-      <li><a href="#details">Details</a></li>
-      <li><a href="#slots">Slots</a></li>
-    </ul>
-
+  <div class="col-md-3 hidden-xs" id="pkgdown-sidebar">
+    <nav id="toc" data-toggle="toc" class="sticky-top">
+      <h2 data-toc-skip>Contents</h2>
+    </nav>
   </div>
 </div>
 
 
       <footer>
       <div class="copyright">
-  <p>Developed by Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>, <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>.</p>
+  <p>Developed by <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>, Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.4.1.9000.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.0.9000.</p>
 </div>
 
       </footer>

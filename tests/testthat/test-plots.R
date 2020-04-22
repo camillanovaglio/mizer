@@ -1,10 +1,10 @@
 context("Plotting methods")
 
 # Initialisation ----------------
-data(NS_species_params_gears)
-data(inter)
-params <- newMultispeciesParams(NS_species_params_gears, inter, no_w = 30,
-                                n = 2/3, p = 0.7)
+species_params <- NS_species_params_gears
+species_params$pred_kernel_type <- "truncated_lognormal"
+params <- newMultispeciesParams(species_params, inter, no_w = 30,
+                                n = 2/3, p = 0.7, lambda = 2.8 - 2/3)
 sim <- project(params, effort = 1, t_max = 3, dt = 1, t_save = 1)
 sim0 <- project(params, effort = 0, t_max = 3, dt = 1, t_save = 1)
 species <- c("Cod", "Haddock")
@@ -40,23 +40,10 @@ p <- plotGrowthCurves(sim, species = species, percentage = TRUE,
                       max_age = 50)
 vdiffr::expect_doppelganger("Plot Growth Curves", p)
 
-sim@params@species_params$a <- 0.0058
-sim@params@species_params$b <- 3.13
+sim@params@species_params[["a"]] <- 0.0058
+sim@params@species_params[["b"]] <- 3.13
 p <- plotGrowthCurves(sim, species = "Haddock", max_age = 50)
 vdiffr::expect_doppelganger("Plot Single Growth Curve", p)
-
-p <- displayFrames(getBiomassFrame(sim0, 
-                                   species = species,
-                                   start_time = 1,
-                                   total = TRUE), 
-                   getBiomassFrame(sim,
-                                   end_time = 3,
-                                   ylim = c(1e12)),
-                   params)
-vdiffr::expect_doppelganger("Display Frames", p)
-
-expect_known_value(getSSBFrame(sim, species = "Cod", total = TRUE),
-                   "values/getSSBFrame")
 })
 
 test_that("plot function do not throw error", {

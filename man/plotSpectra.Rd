@@ -2,6 +2,7 @@
 % Please edit documentation in R/plots.R
 \name{plotSpectra}
 \alias{plotSpectra}
+\alias{plotlySpectra}
 \title{Plot the abundance spectra}
 \usage{
 plotSpectra(
@@ -13,7 +14,22 @@ plotSpectra(
   power = 1,
   biomass = TRUE,
   total = FALSE,
-  plankton = TRUE,
+  resource = TRUE,
+  background = TRUE,
+  highlight = NULL,
+  ...
+)
+
+plotlySpectra(
+  object,
+  species = NULL,
+  time_range,
+  wlim = c(NA, NA),
+  ylim = c(NA, NA),
+  power = 1,
+  biomass = TRUE,
+  total = FALSE,
+  resource = TRUE,
   background = TRUE,
   highlight = NULL,
   ...
@@ -38,18 +54,18 @@ for the y axis. Use NA to refer to the existing minimum or maximum. Any
 values below 1e-20 are always cut off.}
 
 \item{power}{The abundance is plotted as the number density times the weight
-raised to \code{power}. The default \code{power = 1} gives the biomass 
+raised to \code{power}. The default \code{power = 1} gives the biomass
 density, whereas \code{power = 2} gives the biomass density with respect
 to logarithmic size bins.}
 
 \item{biomass}{Obsolete. Only used if \code{power} argument is missing. Then
-\code{biomass = TRUE} is equivalent to \code{power=1} and 
+\code{biomass = TRUE} is equivalent to \code{power=1} and
 \code{biomass = FALSE} is equivalent to \code{power=0}}
 
 \item{total}{A boolean value that determines whether the total over all
 species in the system is plotted as well. Default is FALSE}
 
-\item{plankton}{A boolean value that determines whether plankton is included.
+\item{resource}{A boolean value that determines whether resource is included.
 Default is TRUE.}
 
 \item{background}{A boolean value that determines whether background species
@@ -61,7 +77,7 @@ Default is TRUE.}
 \item{...}{Other arguments (currently unused)}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
 Plots the number density multiplied by a power of the weight, with the power
@@ -74,9 +90,7 @@ to plot a single time step). When called with a \linkS4class{MizerParams}
 object the initial abundance is plotted.
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 plotSpectra(sim)
@@ -84,14 +98,12 @@ plotSpectra(sim, wlim = c(1e-6, NA))
 plotSpectra(sim, time_range = 10:20)
 plotSpectra(sim, time_range = 10:20, power = 0)
 plotSpectra(sim, species = c("Cod", "Herring"), power = 1)
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}}
+\code{\link[=plotting_functions]{plotting_functions()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -101,14 +113,6 @@ Other plotting functions:
 \code{\link{plotPredMort}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

@@ -6,7 +6,7 @@
 \usage{
 getCommunitySlope(
   sim,
-  species = 1:nrow(sim@params@species_params),
+  species = seq_len(nrow(species_params(params(sim)))),
   biomass = TRUE,
   ...
 )
@@ -35,7 +35,7 @@ over \code{max_w}.}
 }
 \value{
 A data.frame with four columns: time step, slope, intercept and the
-  coefficient of determination R^2.
+coefficient of determination R^2.
 }
 \description{
 Calculates the slope of the community abundance through time by performing a
@@ -48,8 +48,6 @@ calculation.
 }
 \examples{
 \dontrun{
-data(NS_species_params_gears)
-data(inter)
 params <- newMultispeciesParams(NS_species_params_gears, inter)
 sim <- project(params, effort=1, t_max=40, dt = 1, t_save = 1)
 # Slope based on biomass, using all species and sizes

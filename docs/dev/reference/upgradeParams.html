@@ -10,23 +10,27 @@
 
 
 <!-- jquery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 <!-- Bootstrap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.4.0/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha256-U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script>
+
+<!-- bootstrap-toc -->
+<link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script>
 
 <!-- Font Awesome icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/all.min.css" integrity="sha256-PbSmjxuVAzJ6FPvNYsrXygfGhNJYyZ2GktDbkMBqQZg=" crossorigin="anonymous" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/v4-shims.min.css" integrity="sha256-A6jcAdwFD48VMjlI3GDxUd+eCQa7/KWy6G9oe/ovaPA=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous" />
 
 <!-- clipboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha256-FiZwavyI2V6+EXO1U+xzLG3IKldpiTFf3153ea9zikQ=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
 
 <!-- headroom.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/headroom.min.js" integrity="sha256-DJFC1kqIhelURkuza0AvYal5RxMtpzLjFhsnVIeuk+U=" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
 
 <!-- pkgdown -->
 <link href="../pkgdown.css" rel="stylesheet">
@@ -37,11 +41,17 @@
 
 <meta property="og:title" content="Upgrade MizerParams object from earlier mizer versions — upgradeParams" />
 <meta property="og:description" content="Occasionally during the development of new features for mizer, the
-MizerParams object gains extra slots. MizerParams objects created in older
-versions of mizer are then no longer valid in the new version because of
-the missing slots. This function adds the missing slots and fills them
-with default values." />
-<meta name="twitter:card" content="summary" />
+MizerParams object gains extra slots. MizerParams objects
+created in older versions of mizer are then no longer valid in the new
+version because of the missing slots. You need to upgrade them withparams &amp;amp;lt;- upgradeParams(params)
+
+where params should be replaced by the name of your MizerParams object.
+This function adds the missing slots and fills them with default values. Any
+object from version 0.4 onwards can be upgraded. Any old
+MizerSim objects should be similarly updated with
+upgradeSim(). This function uses newMultispeciesParams() to create a new
+MizerParams object using the parameters extracted from the old MizerParams
+object." />
 
 
 <meta name="robots" content="noindex">
@@ -59,7 +69,7 @@ with default values." />
 
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#toc">
     <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -73,7 +83,7 @@ with default values." />
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">mizer</a>
-        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">1.0.1.9000</span>
+        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">2.0.0.9000</span>
       </span>
     </div>
 
@@ -103,7 +113,7 @@ with default values." />
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="https://github.com/sizespectrum/mizer">
+  <a href="https://github.com/sizespectrum/mizer/">
     <span class="fab fa fab fa-github fa-lg"></span>
      
   </a>
@@ -122,16 +132,23 @@ with default values." />
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Upgrade MizerParams object from earlier mizer versions</h1>
-    <small class="dont-index"><a href='https://github.com/sizespectrum/mizer/edit/master/R/MizerParams-class.R'>Edit this page. &nbsp;</a> Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/MizerParams-class.R'><code>R/MizerParams-class.R</code></a></small>
+    <small class="dont-index">Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/upgrade.R'><code>R/upgrade.R</code></a></small>
     <div class="hidden name"><code>upgradeParams.Rd</code></div>
     </div>
 
     <div class="ref-description">
     <p>Occasionally during the development of new features for mizer, the
-MizerParams object gains extra slots. MizerParams objects created in older
-versions of mizer are then no longer valid in the new version because of
-the missing slots. This function adds the missing slots and fills them
-with default values.</p>
+<a href='MizerParams-class.html'>MizerParams</a> object gains extra slots. MizerParams objects
+created in older versions of mizer are then no longer valid in the new
+version because of the missing slots. You need to upgrade them with</p><pre><span class='no'>params</span> <span class='kw'>&amp;</span><span class='no'>lt</span>;- <span class='fu'>upgradeParams</span>(<span class='no'>params</span>)</pre>
+
+<p>where <code>params</code> should be replaced by the name of your MizerParams object.
+This function adds the missing slots and fills them with default values. Any
+object from version 0.4 onwards can be upgraded. Any old
+<a href='MizerSim-class.html'>MizerSim</a> objects should be similarly updated with
+<code><a href='upgradeSim.html'>upgradeSim()</a></code>. This function uses <code><a href='newMultispeciesParams.html'>newMultispeciesParams()</a></code> to create a new
+MizerParams object using the parameters extracted from the old MizerParams
+object.</p>
     </div>
 
     <pre class="usage"><span class='fu'>upgradeParams</span>(<span class='no'>params</span>)</pre>
@@ -148,37 +165,43 @@ with default values.</p>
     <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
     <p>The upgraded MizerParams object</p>
-    <h2 class="hasAnchor" id="details"><a class="anchor" href="#details"></a>Details</h2>
+    <h2 class="hasAnchor" id="backwards-compatibility"><a class="anchor" href="#backwards-compatibility"></a>Backwards compatibility</h2>
 
-    <p>Uses newMultispeciesParams() to create a new MizerParams object using the
-parameters extracted from the old MizerParams object.</p>
+    
+
+<p>The internal numerics in mizer have changed over time, so there may be small
+discrepancies between the results obtained with the upgraded object
+in the new version and the original object in the old version. If it
+is important for you to reproduce the exact results then you should install
+the version of mizer with which you obtained the results. You can do this
+with</p><pre><span class='kw pkg'>remotes</span><span class='kw ns'>::</span><span class='fu'><a href='https://remotes.r-lib.org/reference/install_github.html'>install_github</a></span>(<span class='st'>"sizespectrum/mizer"</span>, <span class='kw'>ref</span> <span class='kw'>=</span> <span class='st'>"v0.2"</span>)</pre>
+
+<p>where you should replace "v0.2" with the version number you require. You can
+see the list of available releases at
+<a href='https://github.com/sizespectrum/mizer/tags'>https://github.com/sizespectrum/mizer/tags</a>.</p>
 <p>If you only have a serialised version of the old object, for example
-created via `saveRDS()`, and you get an error when trying to read it in
-with `readRDS()` then unfortunately you will need to install the old version
+created via <code><a href='https://rdrr.io/r/base/readRDS.html'>saveRDS()</a></code>, and you get an error when trying to read it in
+with <code><a href='https://rdrr.io/r/base/readRDS.html'>readRDS()</a></code> then unfortunately you will need to install the old version
 of mizer first to read the params object into your workspace, then switch
-to the current version and then call `upgradeParams()`. You can then save
-the new version again with `saveRDS()`.</p>
+to the current version and then call <code>upgradeParams()</code>. You can then save
+the new version again with <code><a href='https://rdrr.io/r/base/readRDS.html'>saveRDS()</a></code>.</p>
 
   </div>
-  <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
-    <h2>Contents</h2>
-    <ul class="nav nav-pills nav-stacked">
-      <li><a href="#arguments">Arguments</a></li>
-      <li><a href="#value">Value</a></li>
-      <li><a href="#details">Details</a></li>
-    </ul>
-
+  <div class="col-md-3 hidden-xs" id="pkgdown-sidebar">
+    <nav id="toc" data-toggle="toc" class="sticky-top">
+      <h2 data-toc-skip>Contents</h2>
+    </nav>
   </div>
 </div>
 
 
       <footer>
       <div class="copyright">
-  <p>Developed by Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>, <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>.</p>
+  <p>Developed by <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>, Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.4.1.9000.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.0.9000.</p>
 </div>
 
       </footer>

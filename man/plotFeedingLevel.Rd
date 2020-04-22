@@ -2,6 +2,7 @@
 % Please edit documentation in R/plots.R
 \name{plotFeedingLevel}
 \alias{plotFeedingLevel}
+\alias{plotlyFeedingLevel}
 \title{Plot the feeding level of species by size}
 \usage{
 plotFeedingLevel(
@@ -10,6 +11,16 @@ plotFeedingLevel(
   time_range,
   highlight = NULL,
   all.sizes = FALSE,
+  include_critical = FALSE,
+  ...
+)
+
+plotlyFeedingLevel(
+  object,
+  species = NULL,
+  time_range,
+  highlight = NULL,
+  include_critical,
   ...
 )
 }
@@ -29,13 +40,16 @@ object.}
 \item{all.sizes}{If TRUE, then feeding level is plotted also for sizes
 outside a species' size range. Default FALSE.}
 
+\item{include_critical}{If TRUE, then the critical feeding level is also
+plotted. Default FALSE.}
+
 \item{...}{Other arguments (currently unused)}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
-After running a projection, plot the feeding level of each species by size. 
+After running a projection, plot the feeding level of each species by size.
 The feeding level is averaged over the specified time range (a single value
 for the time range can be used).
 }
@@ -44,23 +58,25 @@ When called with a \linkS4class{MizerSim} object, the feeding level is averaged
 over the specified time range (a single value for the time range can be used
 to plot a single time step). When called with a \linkS4class{MizerParams}
 object the initial feeding level is plotted.
+
+If \code{include_critical = TRUE} then the critical feeding level (the feeding
+level at which the intake just covers the metabolic cost) is also plotted,
+with a thinner line. This line should always stay below the line of the
+actual feeding level, because the species would stop growing at any point
+where the feeding level drops to the critical feeding level.
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 plotFeedingLevel(sim)
 plotFeedingLevel(sim, time_range = 10:20, species = c("Cod", "Herring"))
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}}, \code{\link{getFeedingLevel}}
+\code{\link[=plotting_functions]{plotting_functions()}}, \code{\link[=getFeedingLevel]{getFeedingLevel()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -70,14 +86,6 @@ Other plotting functions:
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

@@ -8,21 +8,29 @@
 
 <title>Length based sigmoid selectivity function — sigmoid_length • mizer</title>
 
-<!-- jquery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-<!-- Bootstrap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha256-U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=" crossorigin="anonymous"></script>
+<!-- jquery -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<!-- Bootstrap -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.4.0/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script>
+
+<!-- bootstrap-toc -->
+<link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script>
 
 <!-- Font Awesome icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha256-eZrrJcwDc/3uDhsdt61sL2oOBY362qM3lon1gyExkL0=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous" />
 
 <!-- clipboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha256-FiZwavyI2V6+EXO1U+xzLG3IKldpiTFf3153ea9zikQ=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
 
-<!-- sticky kit -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sticky-kit/1.1.3/sticky-kit.min.js" integrity="sha256-c4Rlo1ZozqTPE2RLuvbusY3+SU1pQaJC0TjuhygMipw=" crossorigin="anonymous"></script>
+<!-- headroom.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
 
 <!-- pkgdown -->
 <link href="../pkgdown.css" rel="stylesheet">
@@ -30,14 +38,14 @@
 
 
 
-<meta property="og:title" content="Length based sigmoid selectivity function — sigmoid_length" />
 
+<meta property="og:title" content="Length based sigmoid selectivity function — sigmoid_length" />
 <meta property="og:description" content="A sigmoid shaped selectivity function. Based on two parameters l25 and
 l50 which determine the length at which 25% and 50% of the stock is
 selected respectively. As the size-based model is weight based, and this
-selectivity function is length based, it is also necessary to supply the
-length-weight parameters a and b." />
-<meta name="twitter:card" content="summary" />
+selectivity function is length based, it uses the
+length-weight parameters a and b to convert between length and weight." />
+
 
 
 
@@ -51,9 +59,10 @@ length-weight parameters a and b." />
 <![endif]-->
 
 
+
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#toc">
     <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -67,7 +76,7 @@ length-weight parameters a and b." />
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">mizer</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">1.0.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="Released version">2.0.0</span>
       </span>
     </div>
 
@@ -75,7 +84,7 @@ length-weight parameters a and b." />
       <ul class="nav navbar-nav">
         <li>
   <a href="../index.html">
-    <span class="fa fa-home fa-lg"></span>
+    <span class="fas fa fas fa-home fa-lg"></span>
      
   </a>
 </li>
@@ -86,20 +95,19 @@ length-weight parameters a and b." />
   <a href="../reference/index.html">Reference</a>
 </li>
 <li>
-  <a href="../articles/index.html">Articles</a>
+  <a href="../articles/index.html">Guides</a>
 </li>
 <li>
   <a href="../articles/publications.html">Publications</a>
 </li>
 <li>
-  <a href="../dev/reference/index.html">New Version</a>
+  <a href="../news/index.html">Changelog</a>
 </li>
       </ul>
-      
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="https://github.com/sizespectrum/mizer">
-    <span class="fa fa-github fa-lg"></span>
+  <a href="https://github.com/sizespectrum/mizer/">
+    <span class="fab fa fab fa-github fa-lg"></span>
      
   </a>
 </li>
@@ -110,28 +118,27 @@ length-weight parameters a and b." />
 </div><!--/.navbar -->
 
       
+
       </header>
 
 <div class="row">
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Length based sigmoid selectivity function</h1>
-    <small class="dont-index"><a href='https://github.com/sizespectrum/mizer/edit/master/R/selectivity_funcs.R'>Edit this page. &nbsp;</a> Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/selectivity_funcs.R'><code>R/selectivity_funcs.R</code></a></small>
+    <small class="dont-index">Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/selectivity_funcs.R'><code>R/selectivity_funcs.R</code></a></small>
     <div class="hidden name"><code>sigmoid_length.Rd</code></div>
     </div>
 
     <div class="ref-description">
-    
     <p>A sigmoid shaped selectivity function. Based on two parameters <code>l25</code> and
 <code>l50</code> which determine the length at which 25% and 50% of the stock is
 selected respectively. As the size-based model is weight based, and this
-selectivity function is length based, it is also necessary to supply the
-length-weight parameters <code>a</code> and <code>b</code>.</p>
-    
+selectivity function is length based, it uses the
+length-weight parameters <code>a</code> and <code>b</code> to convert between length and weight.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>sigmoid_length</span>(<span class='no'>w</span>, <span class='no'>l25</span>, <span class='no'>l50</span>, <span class='no'>a</span>, <span class='no'>b</span>)</pre>
-    
+    <pre class="usage"><span class='fu'>sigmoid_length</span>(<span class='no'>w</span>, <span class='no'>l25</span>, <span class='no'>l50</span>, <span class='no'>species_params</span>, <span class='no'>...</span>)</pre>
+
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
     <colgroup><col class="name" /><col class="desc" /></colgroup>
@@ -148,39 +155,42 @@ length-weight parameters <code>a</code> and <code>b</code>.</p>
       <td><p>the length which gives a selectivity of 50%.</p></td>
     </tr>
     <tr>
-      <th>a</th>
-      <td><p>the multiplier of the length-weight function.</p></td>
+      <th>species_params</th>
+      <td><p>A list with the species params for the current species.
+Used to get at the length-weight parameters <code>a</code> and <code>b</code></p></td>
     </tr>
     <tr>
-      <th>b</th>
-      <td><p>the exponent of the length-weight function.</p></td>
+      <th>...</th>
+      <td><p>Unused</p></td>
     </tr>
     </table>
-    
+
 
   </div>
-  <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
-    <h2>Contents</h2>
-    <ul class="nav nav-pills nav-stacked">
-      <li><a href="#arguments">Arguments</a></li>
-                </ul>
-
+  <div class="col-md-3 hidden-xs" id="pkgdown-sidebar">
+    <nav id="toc" data-toggle="toc" class="sticky-top">
+      <h2 data-toc-skip>Contents</h2>
+    </nav>
   </div>
 </div>
+
 
       <footer>
       <div class="copyright">
-  <p>Developed by Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>, <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>.</p>
+  <p>Developed by <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>, Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.3.0.9000.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.0.9000.</p>
 </div>
+
       </footer>
    </div>
 
   
 
+
   </body>
 </html>
+
 

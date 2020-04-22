@@ -4,7 +4,7 @@
 \alias{getMeanWeight}
 \title{Calculate the mean weight of the community}
 \usage{
-getMeanWeight(sim, species = 1:nrow(sim@params@species_params), ...)
+getMeanWeight(sim, species = seq_len(nrow(species_params(params(sim)))), ...)
 }
 \arguments{
 \item{sim}{A \linkS4class{MizerSim} object}
@@ -38,8 +38,6 @@ calculation.
 }
 \examples{
 \dontrun{
-data(NS_species_params_gears)
-data(inter)
 params <- newMultispeciesParams(NS_species_params_gears, inter)
 sim <- project(params, effort=1, t_max=10)
 getMeanWeight(sim)

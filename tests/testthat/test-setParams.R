@@ -1,18 +1,8 @@
 context("Setting parameters")
 ## Initialise ----
-data(NS_species_params_gears)
-data(NS_species_params)
-data(inter)
 no_sp <- nrow(NS_species_params)
 params <- MizerParams(NS_species_params, inter)
 
-resource_dynamics <-
-    list("detritus" = function(params, n, n_pp, B, rates, dt, ...) B["detritus"],
-         "carrion" = function(params, n, n_pp, B, rates, dt, ...) B["carrion"])
-NS_species_params$rho_detritus <- no_sp:1
-NS_species_params$rho_carrion <- 1:no_sp
-params_res <- MizerParams(NS_species_params, inter,
-                          resource_dynamics = resource_dynamics)
 
 ## set_species_param_default ----
 test_that("set_species_param_default sets default correctly", {
@@ -71,7 +61,7 @@ test_that("setInteraction works", {
                    "Dimnames of interaction matrix do not match")
     params@species_params$interaction_p <- -1
     expect_error(setInteraction(params),
-                 "Values in the plantkon interaction vector should be between 0 and 1")
+                 "Values in the resource interaction vector should be between 0 and 1")
 })
 
 ## setPredKernel ----
@@ -101,8 +91,15 @@ test_that("Comment works on pred kernel", {
     comment(pred_kernel) <- "test"
     params_c <- setPredKernel(params, pred_kernel = pred_kernel)
     expect_identical(comment(params_c@pred_kernel), "test")
-    expect_message(setPredKernel(params_c),
-                   "has been commented")
+})
+test_that("getPredKernel has correct dimnames",{
+    pred_kernel <- getPredKernel(params)
+    expect_identical(dimnames(pred_kernel)$sp, 
+                     dimnames(params@initial_n)$sp)
+    expect_identical(dimnames(pred_kernel)$w_pred, 
+                     dimnames(params@initial_n)$w)
+    expect_identical(dimnames(pred_kernel)$w_prey, 
+                     as.character(signif(params@w_full, 3)))
 })
 
 ## setSearchVolume ----
@@ -116,52 +113,59 @@ test_that("Comment works on search volume", {
     comment(params@search_vol) <- "test"
     params <- setSearchVolume(params, search_vol = params@search_vol)
     expect_identical(comment(params@search_vol), "test")
-    expect_message(setSearchVolume(params),
-                   "has been commented")
+    expect_message(setSearchVolume(params), NA)
+    params@species_params$gamma <- 1
+    expect_message(setSearchVolume(params), "has been commented")
 })
 
-## setIntakeMax ----
-test_that("ssetIntakeMax works", {
-    expect_identical(setIntakeMax(params, params@intake_max), params)
+## setMaxIntakeRate ----
+test_that("ssetMaxIntakeRate works", {
+    expect_identical(setMaxIntakeRate(params, params@intake_max), params)
     params@species_params$h <- 2 * params@species_params$h
-    p2 <- setIntakeMax(params)
+    p2 <- setMaxIntakeRate(params)
     expect_identical(2 * params@intake_max, p2@intake_max)
 })
 test_that("Comment works on intake_max", {
     comment(params@intake_max) <- "test"
-    params <- setIntakeMax(params, intake_max = params@intake_max)
+    params <- setMaxIntakeRate(params, intake_max = params@intake_max)
     expect_identical(comment(params@intake_max), "test")
-    expect_message(setIntakeMax(params),
+    expect_message(setMaxIntakeRate(params), NA)
+    params@species_params$h <- 1
+    expect_message(setMaxIntakeRate(params),
                    "has been commented")
 })
 
-## setMetab ----
-test_that("setMetab works", {
-    expect_identical(setMetab(params, params@metab), params)
+## setMetabolicRate ----
+test_that("setMetabolicRate works", {
+    expect_identical(setMetabolicRate(params, params@metab), params)
     params@species_params$ks <- 2 * params@species_params$ks
-    p2 <- setMetab(params)
+    p2 <- setMetabolicRate(params)
     expect_identical(2 * params@metab, p2@metab)
 })
 test_that("Comment works on metab", {
     comment(params@metab) <- "test"
-    params <- setMetab(params, metab = params@metab)
+    params <- setMetabolicRate(params, metab = params@metab)
     expect_identical(comment(params@metab), "test")
-    expect_message(setMetab(params),
+    expect_message(setMetabolicRate(params), NA)
+    params@species_params$k <- 1
+    expect_message(setMetabolicRate(params),
                    "has been commented")
 })
 
-## setBMort ----
-test_that("setBMort works", {
-    expect_identical(setBMort(params, params@mu_b), params)
+## setExtMort ----
+test_that("setExtMort works", {
+    expect_identical(setExtMort(params, params@mu_b), params)
     params@species_params$z0 <- 2 * params@species_params$z0
-    p2 <- setBMort(params)
+    p2 <- setExtMort(params)
     expect_identical(2 * params@mu_b, p2@mu_b)
 })
 test_that("Comment works on mu_b", {
     comment(params@mu_b) <- "test"
-    params <- setBMort(params, mu_b = params@mu_b)
+    params <- setExtMort(params, z0 = params@mu_b)
     expect_identical(comment(params@mu_b), "test")
-    expect_message(setBMort(params),
+    expect_message(setExtMort(params), NA)
+    params@species_params$z0 <- 1
+    expect_message(setExtMort(params),
                    "has been commented")
 })
 
@@ -173,15 +177,17 @@ test_that("setReproduction works", {
     expect_equal(p2, setReproduction(p2, maturity = maturity,
                                      repro_prop = p2@psi))
     expect_equal(params, setReproduction(params, repro_prop = p2@psi))
-    expect_error(setReproduction(params, srr = "sum"),
-                 "Arguments of srr function must be 'rdi' and 'species_params'")
+    expect_error(setReproduction(params, RDD = "str"),
+                 "Arguments of RDD function can only contain 'rdi', 'species_params' and `t`.")
+    expect_error(setReproduction(params, RDD = "sum"),
+                 "The RDD function needs to have at least arguments `rdi` and `...`.")
     params@species_params$erepro[1] <- NA
-    p2 <- setReproduction(params, srr = "srrSheperd")
+    p2 <- setReproduction(params, RDD = "SheperdRDD")
     expect_equal(p2@species_params$erepro[1], 1)
     p2@species_params$sheperd_b <- 0
     expect_error(getRDD(p2),
                  "The species_params dataframe must contain columns sheperd_b and sheperd_c.")
-    p2 <- setReproduction(params, srr = "srrRicker")
+    p2 <- setReproduction(params, RDD = "RickerRDD")
     expect_error(getRDD(p2),
                  "The ricker_b column is missing in species_params")
     p2@species_params$ricker_b <- 0
@@ -191,6 +197,8 @@ test_that("Comment works on maturity", {
     comment(params@maturity) <- "test"
     params <- setReproduction(params, maturity = params@maturity)
     expect_identical(comment(params@maturity), "test")
+    expect_message(setReproduction(params), NA)
+    params@species_params$w_mat <- params@species_params$w_mat + 1
     expect_message(setReproduction(params),
                    "maturity ogive has been commented")
 })
@@ -203,27 +211,7 @@ test_that("Comment works on psi", {
                    "has been commented")
 })
 
-## setResourceEncounter ----
-test_that("setResourceEncounter works", {
-    species_params <- NS_species_params
-    species_params$rho_detritus <- 1:no_sp
-    species_params$rho_carrion <- no_sp:1
-    params <- MizerParams(species_params, resource_dynamics = resource_dynamics)
-    expect_equal(params@rho[2, 1, 1], 2 * params@w[1]^params@n)
-    expect_equal(params@rho[2, 2, 1], (no_sp - 1) * params@w[1]^params@n)
-    expect_identical(setResourceEncounter(params, params@rho), params)
-})
-
 ## setParams ----
 test_that("setParams can leave params unchanged", {
-    expect_equal(setParams(params_res), params_res)
-})
-
-## upgradeParams ----
-test_that("upgradeParams leaves new params unchanged", {
-    expect_equal(upgradeParams(params_res), params_res)
-})
-test_that("upgradeParams preserves comment", {
-    comment(params_res) <- "test"
-    expect_equal(comment(upgradeParams(params_res)), "test")
+    expect_equal(setParams(params), params)
 })

@@ -1,7 +1,5 @@
 context("project method")
 
-data(NS_species_params_gears)
-data(inter)
 params <- newMultispeciesParams(NS_species_params_gears, inter)
 
 # time dimension ----
@@ -353,7 +351,7 @@ test_that("Gear checking and sorting is OK", {
 # same numerical results as previously ----
 test_that("Simulation gives same numerical results as previously",{
   params <- newMultispeciesParams(NS_species_params_gears, inter,
-                                  n = 2/3, p = 0.7)
+                                  n = 2/3, p = 0.7, lambda = 2.8 - 2/3)
   sim <- project(params, t_max = 1)
   expect_known_value(sim@n[2, 3, ], "values/projectn")
   expect_known_value(sim@n_pp[2, ], "values/projectp")
@@ -364,32 +362,9 @@ test_that("Final result the same when called with sim or params", {
   sim <- project(params, t_max = 1)
   params@initial_n[] <- sim@n[2, , ]
   params@initial_n_pp[] <- sim@n_pp[2, ]
-  params@initial_B[] <- sim@B[2, ]
+  params@initial_n_other <- sim@n_other[2, ]
   sim1 <- project(params, t_max = 1)
   sim2 <- project(sim, t_max = 1)
   expect_identical(sim1@n[2, 3, ], sim2@n[3, 3, ])
 })
 
-# Example params ####
-test_that("Example params objects are projected correctly", {
-  sim <- project(Baltic_params, t_max = 0.3, t_save = 0.3,
-                 effort = c(small = 0.3, medium = 0.3, large = 0.7))
-  expect_equal(sim@n[2, , ], Baltic_params@initial_n[, ])
-  
-  sim <- project(Barents_params, t_max = 0.3, t_save = 0.3,
-                 effort = c(small = 1.1, medium = 0.5, large = 0.75))
-  expect_equal(sim@n[2, , ], Barents_params@initial_n[, ])
-  
-  sim <- project(Benguela_params, t_max = 0.3, t_save = 0.3,
-                 effort = c(small = 0.13, medium = 0.05, large = 0.45))
-  expect_equal(sim@n[2, , ], Benguela_params@initial_n[, ])
-  
-  sim <- project(NEUSCS_params, t_max = 0.3, t_save = 0.3,
-                 effort = c(small = 0.4, medium = 0.3, large = 0.25))
-  expect_equal(sim@n[2, , ], NEUSCS_params@initial_n[, ])
-  
-  sim <- project(NorthSea_params, t_max = 0.3, t_save = 0.3,
-                 effort = c(small = 0.6, medium = 0.6, large = 1.25))
-  expect_equal(sim@n[2, , ], NorthSea_params@initial_n[, ])
-  
-})

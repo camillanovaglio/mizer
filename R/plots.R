@@ -13,27 +13,27 @@
 #' Mizer provides a range of plotting functions for visualising the results
 #' of running a simulation, stored in a MizerSim object, or the initial state
 #' stored in a MizerParams object. 
-#' Every plotting function exists in two versions, \code{plotSomething} and 
-#' \code{plotlySomething}. The plotly version is more interactive but not
+#' Every plotting function exists in two versions, `plotSomething` and 
+#' `plotlySomething`. The plotly version is more interactive but not
 #' suitable for inclusion in documents.
 #'
 #' This table shows the available plotting functions.
 #' \tabular{ll}{
 #'   Plot \tab Description \cr
-#'   \code{\link{plotBiomass}} \tab Plots the total biomass of each species through time. A time range to be plotted can be specified. The size range of the community can be specified in the same way as for \code{\link{getBiomass}}. \cr
-#'   \code{\link{plotSpectra}} \tab Plots the abundance (biomass or numbers) spectra of each species and the background community. It is possible to specify a minimum size which is useful for truncating the plot. \cr
-#'   \code{\link{plotFeedingLevel}} \tab Plots the feeding level of each species against size. \cr
-#'   \code{\link{plotPredMort}} \tab Plots the predation mortality of each species against size. \cr
-#'   \code{\link{plotFMort}} \tab Plots the total fishing mortality of each species against size. \cr
-#'   \code{\link{plotYield}} \tab Plots the total yield of each species across all fishing gears against time. \cr
-#'   \code{\link{plotYieldGear}} \tab Plots the total yield of each species by gear against time. \cr
-#'   \code{\link{plot}} \tab Produces 5 plots (\code{\link{plotFeedingLevel}}, \code{\link{plotBiomass}}, \code{\link{plotPredMort}}, \code{\link{plotFMort}} and \code{\link{plotSpectra}}) in the same window as a summary. \cr
+#'   [plotBiomass()] \tab Plots the total biomass of each species through time. A time range to be plotted can be specified. The size range of the community can be specified in the same way as for [getBiomass()]. \cr
+#'   [plotSpectra()] \tab Plots the abundance (biomass or numbers) spectra of each species and the background community. It is possible to specify a minimum size which is useful for truncating the plot. \cr
+#'   [plotFeedingLevel()] \tab Plots the feeding level of each species against size. \cr
+#'   [plotPredMort()] \tab Plots the predation mortality of each species against size. \cr
+#'   [plotFMort()] \tab Plots the total fishing mortality of each species against size. \cr
+#'   [plotYield()] \tab Plots the total yield of each species across all fishing gears against time. \cr
+#'   [plotYieldGear()] \tab Plots the total yield of each species by gear against time. \cr
+#'   [plot()] \tab Produces 5 plots ([plotFeedingLevel()], [plotBiomass()], [plotPredMort()], [plotFMort()] and [plotSpectra()]) in the same window as a summary. \cr
 #' }
 #' 
 #' These functions use the ggplot2 package and return the plot as a ggplot
 #' object. This means that you can manipulate the plot further after its 
 #' creation using the ggplot grammar of graphics. The corresponding function
-#' names with \code{plot} replaced by \code{plotly} produce interactive plots
+#' names with `plot` replaced by `plotly` produce interactive plots
 #' with the help of the plotly package.
 #' 
 #' While most plot functions take their data from a MizerSim object, some of
@@ -41,30 +41,25 @@
 #' data from the initial values in a MizerParams object.
 #' 
 #' Where plots show results for species, the line colour and line type for each 
-#' species are specified by the \code{linecolour} and \code{linetype} slots in
+#' species are specified by the `linecolour` and `linetype` slots in
 #' the MizerParams object. These were either taken from a default palette
-#' hard-coded into \code{\link{emptyParams}} or they were specified by the user
+#' hard-coded into [emptyParams()] or they were specified by the user
 #' in the species parameters dataframe used to set up the MizerParams object.
-#' The \code{linecolour} and \code{linetype} slots hold named vectors, named by
+#' The `linecolour` and `linetype` slots hold named vectors, named by
 #' the species. They can be overwritten by the user at any time.
 #' 
 #' Most plots allow the user to select to show only a subset of species,
-#' specified as a vector in the \code{species} argument to the plot function.
+#' specified as a vector in the `species` argument to the plot function.
 #' 
 #' The ordering of the species in the legend is the same as the ordering in
 #' the species parameter data frame.
 #' 
-#' Sometimes one wants to show two plots side-by-side with the same axes and
-#' the same legend. This is made possible for some of the plots via the
-#' \code{\link{displayFrames}} function.
-#' 
-#' @seealso \code{\link{summary_functions}}, \code{\link{indicator_functions}}
+#' @seealso [summary_functions()], [indicator_functions()]
 #' @family plotting functions
 #' @name plotting_functions
 #' @examples
+#' \donttest{
 #' # Set up example MizerParams and MizerSim objects
-#' data(NS_species_params_gears)
-#' data(inter)
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' 
@@ -85,6 +80,7 @@
 #' p <- p + geom_hline(aes(yintercept = 0.7))
 #' p <- p + theme_bw()
 #' p
+#' }
 NULL
 
 # Hackiness to get past the 'no visible binding ... ' warning when running check
@@ -107,7 +103,7 @@ utils::globalVariables(c("time", "value", "Species", "w", "gear", "Age",
 #' @export
 #' @keywords internal
 #' @family helper
-log_breaks <- function(n = 6){
+log_breaks <- function(n = 6) {
     n <- max(1, n)  # Because n=0 could lead to R crash
     function(x) {
         grDevices::axisTicks(log10(range(x, na.rm = TRUE)),
@@ -116,140 +112,11 @@ log_breaks <- function(n = 6){
 }
 
 
-#' Display frames
-#' 
-#' Takes two data frames with plotting data and displays them side-by-side,
-#' using the same axes and legend.
-#' 
-#' The two data frames each need to have the same three variables. The first
-#' variable will go on the x-axis, the third on the y-axis with a logarithmic
-#' scale. The second variable should be the species and will be used to group
-#' the data and display with the linetype and linecolour specified by the
-#' \code{linetype} and \code{linecolour} slots of the \code{params} object.
-#' 
-#' The recommended way is to obtain the data frames using one of the supplied
-#' functions, e.g., \code{\link{getBiomassFrame}}, \code{\link{getSSBFrame}}.
-#' 
-#' @param f1 Data frame for left plot
-#' @param f2 Data frame for right plot
-#' @param params A MizerParams object
-#' @param xlab Label for x-axis. Defaults to first variable name.
-#' @param ylab Label for y-axis. Defaults to third variable name.
-#' @param y_ticks The approximate number of ticks desired on the y axis
-#' 
-#' @return ggplot2 object
-#' @export
-#' @family frame functions
-#' @family plotting functions
-#' @seealso \code{\link{plotting_functions}},
-#'   \code{\link{getBiomassFrame}}, \code{\link{getSSBFrame}}
-#' @examples 
-#' # Set up example MizerParams and MizerSim objects
-#' data(NS_species_params_gears)
-#' data(inter)
-#' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
-#' sim0 <- project(params, effort=0, t_max=20, progress_bar = FALSE)
-#' sim1 <- project(params, effort=1, t_max=20, progress_bar = FALSE)
-#' 
-#' # Display biomass from each simulation next to each other
-#' displayFrames(getBiomassFrame(sim0), getBiomassFrame(sim1), params)
-displayFrames <- function(f1, f2, params, 
-                           xlab = NA, ylab = NA,
-                           y_ticks = 6) {
-    var_names <- names(f1)
-    if (!(length(var_names) == 3)) {
-        stop("A frame needs to have three variables.")
-    }
-    if (!all(names(f2) == var_names)) {
-        stop("Both frames need to have the same variable names.")
-    }
-    f <- rbind(cbind(f1, Simulation = 1), cbind(f2, Simulation = 2))
-    
-    if (is.na(xlab)) {
-        xlab <- var_names[1]
-    }
-    if (is.na(ylab)) {
-        ylab <- var_names[3]
-    }
-    ytrans <- "log10"
-    breaks <- log_breaks(n = y_ticks)
-    
-    p <- ggplot(f, aes_string(x = names(f)[1], y = names(f)[3],
-                              colour = names(f)[2], linetype = names(f)[2])) +
-        scale_y_continuous(trans = ytrans, breaks = breaks,
-                           labels = prettyNum, name = ylab) +
-        scale_x_continuous(name = xlab) +
-        geom_line() +
-        facet_wrap(~ Simulation) +
-        scale_colour_manual(values = params@linecolour) +
-        scale_linetype_manual(values = params@linetype)
-    return(p)
-}
-
-
-#' Get data frame of spawning stock biomass of species through time, 
-#' ready for ggplot2
-#'
-#' After running a projection, the spawning stock biomass of each species can be
-#' plotted against time.
-#' 
-#' @param sim An object of class \linkS4class{MizerSim}
-#' @param species Name or vector of names of the species to be plotted. By
-#'   default all foreground species are plotted.
-#' @param start_time The first time to be plotted. Default is the beginning
-#'   of the time series.
-#' @param end_time The last time to be plotted. Default is the end of the
-#'   time series.
-#' @param ylim A numeric vector of length two providing limits of for the
-#'   y axis. Use NA to refer to the existing minimum or maximum. Any values
-#'   below 1e-20 are always cut off.
-#' @param total A boolean value that determines whether the total SSB from
-#'   all species is plotted as well. Default is FALSE
-#'   
-#' @return A data frame that can be used in \code{\link{displayFrames}}
-#' @export
-#' @family frame functions
-#' @seealso \code{\link{getSSB}}
-getSSBFrame <- function(sim,
-            species = dimnames(sim@n)$sp[!is.na(sim@params@A)],
-            start_time = as.numeric(dimnames(sim@n)[[1]][1]),
-            end_time = as.numeric(dimnames(sim@n)[[1]][dim(sim@n)[1]]),
-            ylim = c(NA, NA), total = FALSE){
-    b <- getSSB(sim)
-    if (start_time >= end_time) {
-        stop("start_time must be less than end_time")
-    }
-    # Select time range
-    b <- b[(as.numeric(dimnames(b)[[1]]) >= start_time) &
-               (as.numeric(dimnames(b)[[1]]) <= end_time), , drop = FALSE]
-    b_total <- rowSums(b)
-    # Include total
-    if (total) {
-        b <- cbind(b, Total = b_total)
-    }
-    bm <- reshape2::melt(b)
-    # Implement ylim and a minimal cutoff
-    min_value <- 1e-20
-    bm <- bm[bm$value >= min_value &
-                 (is.na(ylim[1]) | bm$value >= ylim[1]) &
-                 (is.na(ylim[2]) | bm$value <= ylim[2]), ]
-    names(bm) <- c("Year", "Species", "SSB")
-    # Force Species column to be a factor (otherwise if numeric labels are
-    # used they may be interpreted as integer and hence continuous)
-    bm$Species <- as.factor(bm$Species)
-    # Select species
-    bm <- bm[bm$Species %in% species, ]
-    return(bm)
-}
-
-
 #' Get data frame of biomass of species through time, ready for ggplot2
 #'
 #' After running a projection, the biomass of each species can be plotted
 #' against time. The biomass is calculated within user defined size limits 
-#' (min_w, max_w, min_l, max_l, see \code{\link{getBiomass}}). This function
-#' returns a dataframe that can be displayed with 
-#' \code{\link{displayFrames}}.
+#' (min_w, max_w, min_l, max_l, see [getBiomass()]). 
 #' 
 #' @param sim An object of class \linkS4class{MizerSim}
 #' @param species Name or vector of names of the species to be plotted. By
@@ -265,20 +132,8 @@ getSSBFrame <- function(sim,
 #'   all species is plotted as well. Default is FALSE.
 #' @inheritDotParams get_size_range_array -params
 #'   
-#' @return A data frame that can be used in \code{\link{displayFrames}}
-#' @export
+#' @return A data frame
 #' @family frame functions
-#' @seealso \code{\link{getBiomass}}, \code{\link{displayFrames}}
-#' @examples 
-#' # Set up example MizerParams and MizerSim objects
-#' data(NS_species_params_gears)
-#' data(inter)
-#' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
-#' sim0 <- project(params, effort=0, t_max=20, progress_bar = FALSE)
-#' sim1 <- project(params, effort=1, t_max=20, progress_bar = FALSE)
-#' 
-#' # Display biomass from each simulation next to each other
-#' displayFrames(getBiomassFrame(sim0), getBiomassFrame(sim1), params)
 getBiomassFrame <- function(sim,
             species = dimnames(sim@n)$sp[!is.na(sim@params@A)],
             start_time = as.numeric(dimnames(sim@n)[[1]][1]),
@@ -309,7 +164,7 @@ getBiomassFrame <- function(sim,
     # Force Species column to be a factor (otherwise if numeric labels are
     # used they may be interpreted as integer and hence continuous).
     # Need to keep species in order for legend.
-    species_levels <- c(dimnames(sim@n)$sp, "Background", "Plankton", "Total")
+    species_levels <- c(dimnames(sim@n)$sp, "Background", "Resource", "Total")
     bm$Species <- factor(bm$Species, levels = species_levels)
     
     # Select species
@@ -323,21 +178,20 @@ getBiomassFrame <- function(sim,
 #'
 #' After running a projection, the biomass of each species can be plotted
 #' against time. The biomass is calculated within user defined size limits 
-#' (min_w, max_w, min_l, max_l, see \code{\link{getBiomass}}). 
+#' (min_w, max_w, min_l, max_l, see [getBiomass()]). 
 #' 
 #' @inheritParams getBiomassFrame
 #' @inheritParams plotSpectra
 #' @param y_ticks The approximate number of ticks desired on the y axis
 #' @inheritDotParams get_size_range_array -params
 #'   
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}, \code{\link{getBiomass}}
+#' @seealso [plotting_functions()], [getBiomass()]
 #' @examples
+#' \donttest{
 #' # Set up example MizerParams and MizerSim objects
-#' data(NS_species_params_gears)
-#' data(inter)
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort = 1, t_max = 20, t_save = 0.2, progress_bar = FALSE)
 #' 
@@ -346,14 +200,13 @@ getBiomassFrame <- function(sim,
 #' plotBiomass(sim, min_w = 10, max_w = 1000)
 #' plotBiomass(sim, start_time = 10, end_time = 15)
 #' plotBiomass(sim, y_ticks = 3)
-#' 
-plotBiomass <- function(sim,
-            species = dimnames(sim@n)$sp[!is.na(sim@params@A)],
-            start_time = as.numeric(dimnames(sim@n)[[1]][1]),
-            end_time = as.numeric(dimnames(sim@n)[[1]][dim(sim@n)[1]]),
-            y_ticks = 6,
-            ylim = c(NA, NA),
-            total = FALSE, background = TRUE, highlight = NULL, ...) {
+#' }
+plotBiomass <- function(sim, species, start_time, end_time, y_ticks = 6,
+            ylim = c(NA, NA), total = FALSE, background = TRUE, 
+            highlight = NULL, ...) {
+    if (missing(species)) species <- dimnames(sim@n)$sp[!is.na(sim@params@A)]
+    if (missing(start_time)) start_time <- as.numeric(dimnames(sim@n)[[1]][1])
+    if (missing(end_time)) end_time <- as.numeric(dimnames(sim@n)[[1]][dim(sim@n)[1]])
     # First we get the data frame for all species, including the background
     bm <- getBiomassFrame(sim, species = dimnames(sim@n)$sp,
                           start_time = start_time,
@@ -390,16 +243,12 @@ plotBiomass <- function(sim,
     return(p)
 }
 
-#' Plot the biomass of species against time with plotly
-#' 
-#' @inherit plotBiomass params return description details seealso
-#' @inheritDotParams get_size_range_array -params
+#' @rdname plotBiomass
 #' @export
-#' @family plotting functions
 plotlyBiomass <- function(sim,
-             species = dimnames(sim@n)$sp[!is.na(sim@params@A)],
-             start_time = as.numeric(dimnames(sim@n)[[1]][1]),
-             end_time = as.numeric(dimnames(sim@n)[[1]][dim(sim@n)[1]]),
+             species,
+             start_time,
+             end_time,
              y_ticks = 6,
              ylim = c(NA, NA),
              total = FALSE,
@@ -408,8 +257,6 @@ plotlyBiomass <- function(sim,
              ...) {
     argg <- c(as.list(environment()), list(...))
     ggplotly(do.call("plotBiomass", argg))
-    # ggplotly(do.callplotBiomass(sim, species, start_time, end_time, y_ticks,
-    #                      ylim, total, background, ...))
 }
 
 
@@ -417,7 +264,7 @@ plotlyBiomass <- function(sim,
 #'
 #' After running a projection, the total yield of each species across all 
 #' fishing gears can be plotted against time. The yield is obtained with
-#' \code{\link{getYield}}.
+#' [getYield()].
 #' 
 #' @param sim An object of class \linkS4class{MizerSim}
 #' @param sim2 An optional second object of class \linkS4class{MizerSim}. If
@@ -426,14 +273,12 @@ plotlyBiomass <- function(sim,
 #' @param log Boolean whether yield should be plotted on a logarithmic axis. 
 #'   Defaults to true.
 #'
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}},  \code{\link{getYield}}
+#' @seealso [plotting_functions()],  [getYield()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 0.2, progress_bar = FALSE)
 #' plotYield(sim)
@@ -442,13 +287,14 @@ plotlyBiomass <- function(sim,
 #' # Comparing with yield from twice the effort
 #' sim2 <- project(params, effort=2, t_max=20, t_save = 0.2, progress_bar = FALSE)
 #' plotYield(sim, sim2, species = c("Cod", "Herring"), log = FALSE)
-#' 
+#' }
 plotYield <- function(sim, sim2,
-                      species = dimnames(sim@n)$sp,
+                      species,
                       total = FALSE, log = TRUE,
-                      highlight = NULL, ...){
+                      highlight = NULL, ...) {
+    if (missing(species)) species <- dimnames(sim@n)$sp[!is.na(sim@params@A)]
     # Need to keep species in order for legend
-    species_levels <- c(dimnames(sim@n)$sp, "Background", "Plankton", "Total")
+    species_levels <- c(dimnames(sim@n)$sp, "Background", "Resource", "Total")
     if (missing(sim2)) {
         y <- getYield(sim, ...)
         y_total <- rowSums(y)
@@ -523,12 +369,10 @@ plotYield <- function(sim, sim2,
     }
 }
 
-#' Plot the total yield of species through time with plotly
-#' @inherit plotYield params return description details seealso
+#' @rdname plotYield
 #' @export
-#' @family plotting functions
 plotlyYield <- function(sim, sim2,
-                        species = dimnames(sim@n)$sp,
+                        species,
                         total = FALSE, log = TRUE,
                         highlight = NULL, ...) {
     argg <- as.list(environment())
@@ -542,32 +386,31 @@ plotlyYield <- function(sim, sim2,
 #' can be plotted against time. 
 #' 
 #' This plot is pretty easy to do by hand. It just
-#' gets the biomass using the \code{\link{getYieldGear}} method and plots using
+#' gets the biomass using the [getYieldGear()] method and plots using
 #' the ggplot2 package. You can then fiddle about with colours and linetypes
 #' etc. Just look at the source code for details.
 #' 
 #' @param sim An object of class \linkS4class{MizerSim}
 #' @inheritParams plotSpectra
 #'
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}},  \code{\link{getYieldGear}}
+#' @seealso [plotting_functions()],  [getYieldGear()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 0.2, progress_bar = FALSE)
 #' plotYieldGear(sim)
 #' plotYieldGear(sim, species = c("Cod", "Herring"), total = TRUE)
-#' 
+#' }
 plotYieldGear <- function(sim,
-                          species = dimnames(sim@n)$sp,
+                          species,
                           total = FALSE,
-                          highlight = NULL, ...){
+                          highlight = NULL, ...) {
+    if (missing(species)) species <- dimnames(sim@n)$sp[!is.na(sim@params@A)]
     # Need to keep species in order for legend
-    species_levels <- c(dimnames(sim@n)$sp, "Background", "Plankton", "Total")
+    species_levels <- c(dimnames(sim@n)$sp, "Background", "Resource", "Total")
     
     y <- getYieldGear(sim, ...)
     y_total <- rowSums(y, dims = 2)
@@ -595,12 +438,9 @@ plotYieldGear <- function(sim,
     return(p)
 }
 
-#' Plot the total yield of each species by gear through time with plotly
-#' @inherit plotYieldGear params return description details seealso
+#' @rdname plotYieldGear
 #' @export
-#' @family plotting functions
-plotlyYieldGear <- function(sim,
-                            species = dimnames(sim@n)$sp,
+plotlyYieldGear <- function(sim, species,
                             total = FALSE, highlight = NULL, ...) {
     argg <- as.list(environment())
     ggplotly(do.call("plotYieldGear", argg))
@@ -609,7 +449,7 @@ plotlyYieldGear <- function(sim,
 #' Plot the abundance spectra
 #' 
 #' Plots the number density multiplied by a power of the weight, with the power
-#' specified by the \code{power} argument.
+#' specified by the `power` argument.
 #'
 #' When called with a \linkS4class{MizerSim} object, the abundance is averaged
 #' over the specified time range (a single value for the time range can be used
@@ -629,15 +469,15 @@ plotlyYieldGear <- function(sim,
 #'   for the y axis. Use NA to refer to the existing minimum or maximum. Any
 #'   values below 1e-20 are always cut off.
 #' @param power The abundance is plotted as the number density times the weight
-#' raised to \code{power}. The default \code{power = 1} gives the biomass 
+#' raised to `power`. The default \code{power = 1} gives the biomass 
 #' density, whereas \code{power = 2} gives the biomass density with respect
 #' to logarithmic size bins.
-#' @param biomass Obsolete. Only used if \code{power} argument is missing. Then
+#' @param biomass Obsolete. Only used if `power` argument is missing. Then
 #'   \code{biomass = TRUE} is equivalent to \code{power=1} and 
 #'   \code{biomass = FALSE} is equivalent to \code{power=0}
 #' @param total A boolean value that determines whether the total over all
 #'   species in the system is plotted as well. Default is FALSE
-#' @param plankton A boolean value that determines whether plankton is included.
+#' @param resource A boolean value that determines whether resource is included.
 #'   Default is TRUE.
 #' @param background A boolean value that determines whether background species
 #'   are included. Ignored if the model does not contain background species.
@@ -645,14 +485,12 @@ plotlyYieldGear <- function(sim,
 #' @param highlight Name or vector of names of the species to be highlighted.
 #' @param ... Other arguments (currently unused)
 #'   
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}
+#' @seealso [plotting_functions()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' plotSpectra(sim)
@@ -660,12 +498,12 @@ plotlyYieldGear <- function(sim,
 #' plotSpectra(sim, time_range = 10:20)
 #' plotSpectra(sim, time_range = 10:20, power = 0)
 #' plotSpectra(sim, species = c("Cod", "Herring"), power = 1)
-#' 
+#' }
 plotSpectra <- function(object, species = NULL,
                         time_range,
                         wlim = c(NA, NA), ylim = c(NA, NA),
                         power = 1, biomass = TRUE,
-                        total = FALSE, plankton = TRUE, 
+                        total = FALSE, resource = TRUE, 
                         background = TRUE,
                         highlight = NULL, ...) {
     # to deal with old-type biomass argument
@@ -682,7 +520,7 @@ plotSpectra <- function(object, species = NULL,
         ps <- plot_spectra(object@params, n = n, n_pp = n_pp,
                            species = species, wlim = wlim, ylim = ylim,
                            power = power,
-                           total = total, plankton = plankton,
+                           total = total, resource = resource,
                            background = background, highlight = highlight)
         return(ps)
     } else {
@@ -690,7 +528,7 @@ plotSpectra <- function(object, species = NULL,
                            n_pp = object@initial_n_pp,
                            species = species, wlim = wlim, ylim = ylim,
                            power = power,
-                           total = total, plankton = plankton,
+                           total = total, resource = resource,
                            background = background, highlight = highlight)
         return(ps)
     }
@@ -699,7 +537,7 @@ plotSpectra <- function(object, species = NULL,
 
 plot_spectra <- function(params, n, n_pp,
                          species, wlim, ylim, power,
-                         total, plankton, background, highlight) {
+                         total, resource, background, highlight) {
     if (is.na(wlim[1])) {
         wlim[1] <- min(params@w) / 100
     }
@@ -708,7 +546,7 @@ plot_spectra <- function(params, n, n_pp,
     }
     # Need to keep species in order for legend
     species_levels <- c(dimnames(params@initial_n)$sp,
-                        "Background", "Plankton", "Total")
+                        "Background", "Resource", "Total")
     if (total) {
         # Calculate total community abundance
         fish_idx <- (length(params@w_full) - length(params@w) + 1):length(params@w_full)
@@ -744,17 +582,17 @@ plot_spectra <- function(params, n, n_pp,
                                             levels = species_levels),
                            w = rep(params@w,
                                    each = dim(spec_n)[[1]]))
-    if (plankton) {
-        plankton_sel <- (params@w_full >= wlim[1]) & 
+    if (resource) {
+        resource_sel <- (params@w_full >= wlim[1]) & 
                         (params@w_full <= wlim[2])
-        # Do we have any plankton to plot?
-        if (sum(plankton_sel) > 0) {
-            w_plankton <- params@w_full[plankton_sel]
-            plank_n <- n_pp[plankton_sel] * w_plankton^power
+        # Do we have any resource to plot?
+        if (sum(resource_sel) > 0) {
+            w_resource <- params@w_full[resource_sel]
+            plank_n <- n_pp[resource_sel] * w_resource^power
             plot_dat <- rbind(plot_dat,
                               data.frame(value = c(plank_n),
-                                         Species = "Plankton",
-                                         w = w_plankton))
+                                         Species = "Resource",
+                                         w = w_resource))
         }
     }
     if (total) {
@@ -815,97 +653,17 @@ plot_spectra <- function(params, n, n_pp,
     return(p)
 }
 
-#' Plotly plot of the abundance spectra
-#' @inherit plotSpectra params return description details seealso
+#' @rdname plotSpectra
 #' @export
-#' @family plotting functions
 plotlySpectra <- function(object, species = NULL,
                         time_range,
                         wlim = c(NA, NA), ylim = c(NA, NA),
                         power = 1, biomass = TRUE,
-                        total = FALSE, plankton = TRUE, 
+                        total = FALSE, resource = TRUE, 
                         background = TRUE,
                         highlight = NULL, ...) {
     argg <- as.list(environment())
     ggplotly(do.call("plotSpectra", argg))
-}
-
-
-#' Animation of the abundance spectra
-#' 
-#' @param sim A MizerSim object
-#' @inheritParams plotSpectra
-#' @export
-#' @family plotting functions
-animateSpectra <- function(sim,
-                           species,
-                           wlim = c(NA, NA),
-                           ylim = c(NA, NA),
-                           power = 1,
-                           total = FALSE,
-                           plankton = TRUE) {
-    
-    # Select species ----
-    if (missing(species)) { 
-        # Set species to list of all non-background species
-        species <- dimnames(sim@params@initial_n)$sp[!is.na(sim@params@A)]
-    }
-    species <- as.character(species)
-    invalid_species <- 
-        !(species %in% as.character(dimnames(sim@n)$sp))
-    if (any(invalid_species)) {
-        warning(paste("The following species do not exist in the model and are ignored:",
-                      species[invalid_species]))
-    }
-    nf <- melt(sim@n[, as.character(dimnames(sim@n)$sp) %in% species, , drop = FALSE])
-    
-    # Add plankton ----
-    if (plankton) {
-        nf_pp <- melt(sim@n_pp)
-        nf_pp$sp <- "Plankton"
-        nf <- rbind(nf, nf_pp)
-    }
-     # Add total ----
-    if (total) {
-        # Calculate total community abundance
-        fish_idx <- (length(sim@params@w_full) - 
-                         length(sim@params@w) + 1):length(sim@params@w_full)
-        total_n <- sim@n_pp
-        total_n[, fish_idx] <- total_n[, fish_idx] + 
-            rowSums(aperm(sim@n, c(1, 3, 2)), dims = 2)
-        nf_total <- melt(total_n)
-        nf_total$sp <- "Total"
-        nf <- rbind(nf, nf_total)
-    }
-    
-    # Impose limits ----
-    if (is.na(wlim[1])) wlim[1] <- min(params@w) / 100
-    if (is.na(wlim[2])) wlim[2] <- max(params@w_full)
-    if (is.na(ylim[1])) ylim[1] <- 10^-20
-    if (is.na(ylim[2])) ylim[2] <- 10^20
-    nf <- nf %>% 
-        filter(value >= ylim[1],
-               value <= ylim[2],
-               w >= wlim[1],
-               w <= wlim[2])
-    
-    # Deal with power argument ----
-    if (power %in% c(0, 1, 2)) {
-        y_label <- c("Number density [1/g]", "Biomass density",
-                     "Biomass density [g]")[power + 1]
-    } else {
-        y_label <- paste0("Number density * w^", power)
-    }
-    nf <- mutate(nf, value = value * w^power)
-        
-    nf %>% 
-        plot_ly() %>% 
-        add_lines(x = ~w, y = ~value, 
-                  color = ~sp, colors = sim@params@linecolour,
-                  frame = ~time,
-                  line = list(simplify = FALSE)) %>% 
-        layout(xaxis = list(type = "log", exponentformat = "power"),
-               yaxis = list(type = "log", exponentformat = "power"))
 }
 
 #' Plot the feeding level of species by size
@@ -919,28 +677,35 @@ animateSpectra <- function(sim,
 #' to plot a single time step). When called with a \linkS4class{MizerParams}
 #' object the initial feeding level is plotted.
 #' 
+#' If `include_critical = TRUE` then the critical feeding level (the feeding
+#' level at which the intake just covers the metabolic cost) is also plotted,
+#' with a thinner line. This line should always stay below the line of the
+#' actual feeding level, because the species would stop growing at any point
+#' where the feeding level drops to the critical feeding level.
+#' 
 #' @inheritParams plotSpectra
 #' @param all.sizes If TRUE, then feeding level is plotted also for sizes
 #'   outside a species' size range. Default FALSE.
+#' @param include_critical If TRUE, then the critical feeding level is also
+#'   plotted. Default FALSE.
 #'
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}, \code{\link{getFeedingLevel}}
+#' @seealso [plotting_functions()], [getFeedingLevel()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' plotFeedingLevel(sim)
 #' plotFeedingLevel(sim, time_range = 10:20, species = c("Cod", "Herring"))
-#' 
+#' }
 plotFeedingLevel <- function(object,
             species = NULL,
             time_range,
             highlight = NULL,
-            all.sizes = FALSE, ...) {
+            all.sizes = FALSE,
+            include_critical = FALSE, ...) {
     if (is(object, "MizerSim")) {
         if (missing(time_range)) {
             time_range  <- max(as.numeric(dimnames(object@n)$time))
@@ -981,9 +746,10 @@ plotFeedingLevel <- function(object,
         plot_dat <- plot_dat[complete.cases(plot_dat), ]
     }
     
-    p <- ggplot(plot_dat) +
+    p <- ggplot() +
             geom_line(aes(x = w, y = value, colour = Species, 
-                          linetype = Species, size = Species))
+                          linetype = Species, size = Species),
+                      data = plot_dat)
 
     linesize <- rep(0.8, length(params@linetype))
     names(linesize) <- names(params@linetype)
@@ -994,18 +760,41 @@ plotFeedingLevel <- function(object,
         scale_colour_manual(values = params@linecolour) +
         scale_linetype_manual(values = params@linetype) +
         scale_size_manual(values = linesize)
+    
+    if (include_critical) {
+        feed_crit <- getCriticalFeedingLevel(params)[sel_sp, , drop = FALSE]
+        plot_dat_crit <- data.frame(
+            value = c(feed_crit),
+            Species = factor(dimnames(feed)$sp, 
+                             levels = dimnames(feed)$sp),
+            w = rep(params@w, each = length(species)))
+        
+        if (!all.sizes) {
+            # Remove feeding level for sizes outside a species' size range
+            for (sp in species) {
+                plot_dat_crit$value[
+                    plot_dat_crit$Species == sp &
+                        (plot_dat_crit$w < params@species_params[sp, "w_min"] |
+                             plot_dat_crit$w > params@species_params[sp, "w_inf"])] <- NA
+            }
+            plot_dat_crit <- plot_dat_crit[complete.cases(plot_dat_crit), ]
+        }
+        p <- p +
+            geom_line(aes(x = w, y = value, colour = Species, 
+                          linetype = Species),
+                      data = plot_dat_crit)
+    }
+    
     return(p)
 }
 
-#' Plot the feeding level of species by size with plotly
-#' 
-#' @inherit plotFeedingLevel params return description details seealso
+#' @rdname plotFeedingLevel
 #' @export
-#' @family plotting functions
 plotlyFeedingLevel <- function(object,
                              species = NULL,
                              time_range,
-                             highlight = NULL, ...) {
+                             highlight = NULL, 
+                             include_critical, ...) {
     argg <- as.list(environment())
     ggplotly(do.call("plotFeedingLevel", argg))
 }
@@ -1019,19 +808,17 @@ plotlyFeedingLevel <- function(object,
 #' 
 #' @inheritParams plotSpectra
 #'
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}},  \code{\link{getPredMort}}
+#' @seealso [plotting_functions()],  [getPredMort()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' plotPredMort(sim)
 #' plotPredMort(sim, time_range = 10:20)
-#' 
+#' }
 plotPredMort <- function(object, species = NULL,
                          time_range,
                          highlight = NULL, ...) {
@@ -1044,10 +831,10 @@ plotPredMort <- function(object, species = NULL,
         assert_that(is(object, "MizerParams"))
         params <- object
     }
-    m2 <- getPredMort(object, time_range = time_range, drop = FALSE)
+    pred_mort <- getPredMort(object, time_range = time_range, drop = FALSE)
     # If a time range was returned, average over it
-    if (length(dim(m2)) == 3) {
-        m2 <- apply(m2, c(2, 3), mean)
+    if (length(dim(pred_mort)) == 3) {
+        pred_mort <- apply(pred_mort, c(2, 3), mean)
     }
     
     # selector for desired species
@@ -1057,10 +844,10 @@ plotPredMort <- function(object, species = NULL,
     }
     # Need to keep species in order for legend
     species_levels <- c(as.character(params@species_params$species), 
-                        "Background", "Plankton", "Total")
-    m2 <- m2[as.character(dimnames(m2)[[1]]) %in% species, , drop = FALSE]
-    plot_dat <- data.frame(value = c(m2),
-                           Species = factor(dimnames(m2)[[1]],
+                        "Background", "Resource", "Total")
+    pred_mort <- pred_mort[as.character(dimnames(pred_mort)[[1]]) %in% species, , drop = FALSE]
+    plot_dat <- data.frame(value = c(pred_mort),
+                           Species = factor(dimnames(pred_mort)[[1]],
                                             levels = species_levels),
                            w = rep(params@w, each = length(species)))
     p <- ggplot(plot_dat) +
@@ -1087,10 +874,8 @@ plotPredMort <- function(object, species = NULL,
 #' @export
 plotM2 <- plotPredMort
 
-#' Plot predation mortality rate of each species against size with plotly
-#' @inherit plotPredMort params return description details seealso
+#' @rdname plotPredMort
 #' @export
-#' @family plotting functions
 plotlyPredMort <- function(object, species = NULL,
                            time_range,
                            highlight = NULL, ...) {
@@ -1107,19 +892,17 @@ plotlyPredMort <- function(object, species = NULL,
 #' 
 #' @inheritParams plotSpectra
 #'
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}, \code{\link{getFMort}}
+#' @seealso [plotting_functions()], [getFMort()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' plotFMort(sim)
 #' plotFMort(sim, highlight = c("Cod", "Haddock"))
-#' 
+#' }
 plotFMort <- function(object, species = NULL,
                       time_range,
                       highlight = NULL, ...) {
@@ -1144,7 +927,7 @@ plotFMort <- function(object, species = NULL,
     }
     # Need to keep species in order for legend
     species_levels <- c(as.character(params@species_params$species), 
-                        "Background", "Plankton", "Total")
+                        "Background", "Resource", "Total")
     f <- f[as.character(dimnames(f)[[1]]) %in% species, , drop = FALSE]
     plot_dat <- data.frame(value = c(f),
                            Species = factor(dimnames(f)[[1]],
@@ -1168,10 +951,8 @@ plotFMort <- function(object, species = NULL,
     return(p)
 }
 
-#' Plot total fishing mortality of each species by size with plotly
-#' @inherit plotPredMort params return description details seealso
+#' @rdname plotFMort
 #' @export
-#' @family plotting functions
 plotlyFMort <- function(object, species = NULL,
                         time_range,
                         highlight = NULL, ...) {
@@ -1192,19 +973,17 @@ plotlyFMort <- function(object, species = NULL,
 #' @inheritParams getGrowthCurves
 #' @inheritParams plotSpectra
 #' 
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}
+#' @seealso [plotting_functions()]
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' plotGrowthCurves(sim, percentage = TRUE)
 #' plotGrowthCurves(sim, species = "Cod", max_age = 24)
-#' 
+#' }
 plotGrowthCurves <- function(object, 
                              species,
                              max_age = 20,
@@ -1255,12 +1034,12 @@ plotGrowthCurves <- function(object,
             annotate("text", 0, w_mat, vjust = -1, label = "Maturity")
         if (all(c("a", "b", "k_vb") %in% names(params@species_params))) {
             age <- as.numeric(dimnames(ws)$Age)
-            a <- params@species_params$a[idx]
-            b <- params@species_params$b[idx]
+            a <- params@species_params[["a"]][idx]
+            b <- params@species_params[["b"]][idx]
             k_vb <- params@species_params$k_vb[idx]
             t0 <- params@species_params$t0[idx]
-            if (is.null(t0)) {t0 <- 0}
-            L_inf <- (w_inf/a)^(1/b)
+            if (is.null(t0)) t0 <- 0
+            L_inf <- (w_inf / a) ^ (1 / b)
             vb <- a * (L_inf * (1 - exp(-k_vb * (age - t0))))^b
             dat <- data.frame(x = age, y = vb)
             p <- p + geom_line(data = dat, aes(x = x, y = y))
@@ -1269,10 +1048,8 @@ plotGrowthCurves <- function(object,
     return(p)
 }
 
-#' Plot growth curves giving weight as a function of age with plotly
-#' @inherit plotGrowthCurves params return description details seealso
+#' @rdname plotGrowthCurves
 #' @export
-#' @family plotting functions
 plotlyGrowthCurves <- function(object, species,
                              max_age = 20,
                              percentage = FALSE,
@@ -1286,7 +1063,7 @@ plotlyGrowthCurves <- function(object, species,
 #' 
 #' @inheritParams plotSpectra
 #'
-#' @return A ggplot2 object
+#' @return A plot
 #' @export
 #' @family plotting functions
 plotDiet <- function(object, species) {
@@ -1311,7 +1088,7 @@ plotDiet <- function(object, species) {
 
 
 #### plot ####
-#' Summary plot for \code{MizerSim} objects
+#' Summary plot for `MizerSim` objects
 #' 
 #' After running a projection, produces 5 plots in the same window: feeding
 #' level, abundance spectra, predation mortality and fishing mortality of each
@@ -1321,24 +1098,22 @@ plotDiet <- function(object, species) {
 #' @param x An object of class \linkS4class{MizerSim}
 #' @param y Not used
 #' @param ...  For additional arguments see the documentation for
-#'   \code{\link{plotBiomass}},
-#'   \code{\link{plotFeedingLevel}},\code{\link{plotSpectra}},\code{\link{plotPredMort}}
-#'   and \code{\link{plotFMort}}.
+#'   [plotBiomass()],
+#'   [plotFeedingLevel()],[plotSpectra()],[plotPredMort()]
+#'   and [plotFMort()].
 #' @return A viewport object
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}
+#' @seealso [plotting_functions()]
 #' @rdname plotMizerSim
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 #' plot(sim)
 #' plot(sim, time_range = 10:20) # change time period for size-based plots
 #' plot(sim, min_w = 10, max_w = 1000) # change size range for biomass plot
-#' 
+#' }
 setMethod("plot", signature(x = "MizerSim", y = "missing"),
           function(x, ...) {
               p1 <- plotFeedingLevel(x, ...)
@@ -1362,7 +1137,7 @@ setMethod("plot", signature(x = "MizerSim", y = "missing"),
           }
 )
 
-#' Summary plot for \code{MizerParams} objects
+#' Summary plot for `MizerParams` objects
 #' 
 #' Produces 3 plots in the same window: abundance spectra, feeding
 #' level and predation mortality of each species through time. This method just
@@ -1371,16 +1146,14 @@ setMethod("plot", signature(x = "MizerSim", y = "missing"),
 #' @return A viewport object
 #' @export
 #' @family plotting functions
-#' @seealso \code{\link{plotting_functions}}
+#' @seealso [plotting_functions()]
 #' @rdname plotMizerSim
 #' @examples
-#' 
-#' data(NS_species_params_gears)
-#' data(inter)
+#' \donttest{
 #' params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 #' plot(params)
 #' plot(params, min_w = 10, max_w = 1000) # change size range for biomass plot
-#' 
+#' }
 setMethod("plot", signature(x = "MizerParams", y = "missing"),
           function(x, ...) {
               p11 <- plotFeedingLevel(x, ...)

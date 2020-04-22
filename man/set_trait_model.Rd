@@ -12,7 +12,6 @@ set_trait_model(
   min_w = 0.001,
   max_w = max_w_inf * 1.1,
   min_w_pp = 1e-10,
-  no_w_pp = NA,
   w_pp_cutoff = 1,
   k0 = 50,
   n = 2/3,
@@ -51,14 +50,10 @@ community.}
 \item{max_w}{Obsolete argument because the maximum size of the consumer
 spectrum is set to max_w_inf.}
 
-\item{min_w_pp}{Obsolete argument because the smallest plankton size is set
+\item{min_w_pp}{Obsolete argument because the smallest resource size is set
 to the smallest size at which the consumers feed.}
 
-\item{no_w_pp}{Obsolete argument that is no longer used because the number
-of plankton size bins is determined because all size bins have to
-be logarithmically equally spaced.}
-
-\item{w_pp_cutoff}{The cut off size of the plankton spectrum. Default value
+\item{w_pp_cutoff}{The cut off size of the resource spectrum. Default value
 is 1.}
 
 \item{k0}{Multiplier for the maximum recruitment. Default value is 50.}
@@ -71,7 +66,7 @@ is 1.}
 
 \item{eta}{Factor to calculate \code{w_mat} from asymptotic size.}
 
-\item{r_pp}{Growth rate parameter for the plankton spectrum. Default value is 4.}
+\item{r_pp}{Growth rate parameter for the resource spectrum. Default value is 4.}
 
 \item{kappa}{Coefficient in abundance power law. Default value is
 0.005.}
@@ -111,17 +106,17 @@ An object of type \code{MizerParams}
 }
 \description{
 This function has been deprecated in favour of the function
-\code{\link{newTraitParams}} that sets better default values.
+\code{\link[=newTraitParams]{newTraitParams()}} that sets better default values.
 }
 \details{
-This functions creates a \code{MizerParams} object so that trait-based-type 
+This functions creates a \code{MizerParams} object so that trait-based-type
 models can be easily set up and run. The trait-based size spectrum model can
 be derived as a simplification of the general size-based model used in
-\code{mizer}. The species-specific parameters are the same for all species, 
+\code{mizer}. The species-specific parameters are the same for all species,
 except for
 the asymptotic size, which is considered the most important trait
 characterizing a species. Other parameters are related to the asymptotic
-size. For example, the size at maturity is given by \code{w_inf * eta}, 
+size. For example, the size at maturity is given by \code{w_inf * eta},
 where \code{eta} is
 the same for all species. For the trait-based model the number of species is
 not important. For applications of the trait-based model see Andersen &
@@ -156,8 +151,8 @@ or abundance through time after the projection.
 }
 \references{
 K. H. Andersen and M. Pedersen, 2010, Damped trophic cascades
-  driven by fishing in model marine ecosystems. Proceedings of the Royal
-  Society V, Biological Sciences, 1682, 795-802.
+driven by fishing in model marine ecosystems. Proceedings of the Royal
+Society V, Biological Sciences, 1682, 795-802.
 }
 \seealso{
 Other deprecated functions: 

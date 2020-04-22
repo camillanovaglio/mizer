@@ -6,36 +6,33 @@
 \usage{
 getDiet(
   params,
-  n = params@initial_n,
-  n_pp = params@initial_n_pp,
-  B = params@initial_B,
+  n = initialN(params),
+  n_pp = initialNResource(params),
   proportion = TRUE
 )
 }
 \arguments{
-\item{params}{An \linkS4class{MizerParams} object}
+\item{params}{A MizerParams object}
 
-\item{n}{A matrix of species abundances (species x size)}
+\item{n}{A matrix of species abundances (species x size).}
 
-\item{n_pp}{A vector of the plankton abundance by size}
-
-\item{B}{A vector of biomasses of unstructured resource components}
+\item{n_pp}{A vector of the resource abundance by size}
 
 \item{proportion}{If TRUE (default) the function returns the diet as a
-proportion of the total consumption rate. If FALSE it returns the 
+proportion of the total consumption rate. If FALSE it returns the
 consumption rate in grams.}
 }
 \value{
-An array (predator species  x predator size x 
-  (prey species + plankton + resources) )
+An array (predator species  x predator size x
+(prey species + resource) )
 }
 \description{
 Calculates the rate at which a predator of a particular species and size
-consumes biomass of each prey species, plankton and resources.
+consumes biomass of each prey species and resource.
 }
 \details{
 This function performs the same integration as
-\code{\link{getEncounter}} but does not aggregate over prey species, and
+\code{\link[=getEncounter]{getEncounter()}} but does not aggregate over prey species, and
 multiplies by (1-feeding_level) to get the consumed biomass rather than the
 available biomass. Outside the range of sizes for a predator species the
 returned rate is zero.
@@ -47,6 +44,7 @@ Other summary functions:
 \code{\link{getN}()},
 \code{\link{getSSB}()},
 \code{\link{getYieldGear}()},
+\code{\link{getYieldVsFcurve}()},
 \code{\link{getYield}()}
 }
 \concept{summary functions}

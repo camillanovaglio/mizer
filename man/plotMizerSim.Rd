@@ -15,9 +15,9 @@
 \item{y}{Not used}
 
 \item{...}{For additional arguments see the documentation for
-\code{\link{plotBiomass}},
-\code{\link{plotFeedingLevel}},\code{\link{plotSpectra}},\code{\link{plotPredMort}}
-and \code{\link{plotFMort}}.}
+\code{\link[=plotBiomass]{plotBiomass()}},
+\code{\link[=plotFeedingLevel]{plotFeedingLevel()}},\code{\link[=plotSpectra]{plotSpectra()}},\code{\link[=plotPredMort]{plotPredMort()}}
+and \code{\link[=plotFMort]{plotFMort()}}.}
 }
 \value{
 A viewport object
@@ -35,31 +35,25 @@ level and predation mortality of each species through time. This method just
 uses the other plotting functions and puts them all in one window.
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 plot(sim)
 plot(sim, time_range = 10:20) # change time period for size-based plots
 plot(sim, min_w = 10, max_w = 1000) # change size range for biomass plot
-
-
-data(NS_species_params_gears)
-data(inter)
+}
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 plot(params)
 plot(params, min_w = 10, max_w = 1000) # change size range for biomass plot
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}}
+\code{\link[=plotting_functions]{plotting_functions()}}
 
-\code{\link{plotting_functions}}
+\code{\link[=plotting_functions]{plotting_functions()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
 \code{\link{plotFMort}()},
@@ -69,19 +63,9 @@ Other plotting functions:
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
 \code{\link{plotFMort}()},
@@ -91,14 +75,6 @@ Other plotting functions:
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

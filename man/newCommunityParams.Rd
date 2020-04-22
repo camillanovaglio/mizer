@@ -7,96 +7,97 @@
 newCommunityParams(
   max_w = 1e+06,
   min_w = 0.001,
+  no_w = 100,
+  min_w_pp = 1e-10,
   z0 = 0.1,
   alpha = 0.2,
+  f0 = 0.7,
   h = 10,
+  gamma = NA,
   beta = 100,
   sigma = 2,
-  q = 0.8,
   n = 2/3,
   kappa = 1000,
-  lambda = 2 + q - n,
-  f0 = 0.7,
+  lambda = 2.05,
   r_pp = 10,
-  gamma = NA,
   knife_edge_size = 1000,
-  recruitment,
-  ...
+  reproduction
 )
 }
 \arguments{
-\item{max_w}{The maximum size of the community. The \code{w_inf} of the 
-species used to represent the community is set to this value. The 
-default value is 1e6.}
+\item{max_w}{The maximum size of the community. The \code{w_inf} of the
+species used to represent the community is set to this value.}
 
-\item{min_w}{The minimum size of the community. Default value is 1e-3.}
+\item{min_w}{The minimum size of the community.}
 
-\item{z0}{The background mortality of the community. Default value is 0.1.}
+\item{no_w}{The number of size bins in the consumer spectrum.}
 
-\item{alpha}{The assimilation efficiency of the community. Default value 0.2}
+\item{min_w_pp}{The smallest size of the resource spectrum. By default this
+is set to the smallest value at which any of the consumers can feed.}
 
-\item{h}{The maximum food intake rate. Default value is 10.}
+\item{z0}{The background mortality of the community.}
 
-\item{beta}{The preferred predator prey mass ratio. Default value is 100.}
+\item{alpha}{The assimilation efficiency of the community.}
 
-\item{sigma}{The width of the prey preference. Default value is 2.0.}
+\item{f0}{The average feeding level of individuals who feed on a power-law
+spectrum. This value is used to calculate the search rate parameter
+\code{gamma}.}
 
-\item{q}{The search volume exponent. Default value is 0.8.}
+\item{h}{The coefficient of the maximum food intake rate.}
 
-\item{n}{The scaling exponent of the maximum intake rate. Default value is 2/3.}
-
-\item{kappa}{The carrying capacity of the plankton spectrum. Default value
-is 1000.}
-
-\item{lambda}{The exponent of the plankton spectrum. Default value is 2 + q
-- n.}
-
-\item{f0}{The average feeding level of individuals who feed on a power-law 
-spectrum. This value is used to calculate the search rate parameter 
-\code{gamma} (see the package vignette). Default value is 0.7.}
-
-\item{r_pp}{Growth rate parameter for the plankton spectrum. Default value is 10.}
-
-\item{gamma}{Volumetric search rate. Estimated using \code{h}, \code{f0} and 
+\item{gamma}{Volumetric search rate. Estimated using \code{h}, \code{f0} and
 \code{kappa} if not supplied.}
 
-\item{knife_edge_size}{The size at the edge of the knife-selectivity 
-function. Default value is 1000.}
+\item{beta}{The preferred predator prey mass ratio.}
 
-\item{recruitment}{The constant recruitment in the smallest size class of the
-community spectrum. By default this is set so that the community spectrum 
-continues the plankton spectrum.}
+\item{sigma}{The width of the prey preference.}
 
-\item{...}{Other arguments to pass to the \code{MizerParams} constructor.}
+\item{n}{The allometric growth exponent. Used as allometric exponent for
+the maximum intake rate of the community as well as the intrinsic growth
+rate of the resource.}
+
+\item{kappa}{Coefficient of the intrinsic resource carrying capacity}
+
+\item{lambda}{Scaling exponent of the intrinsic resource carrying capacity}
+
+\item{r_pp}{Coefficient of the intrinsic resource birth rate}
+
+\item{knife_edge_size}{The size at the edge of the knife-edge-selectivity
+function.}
+
+\item{reproduction}{The constant reproduction in the smallest size class of the
+community spectrum. By default this is set so that the community spectrum
+is continuous with the resource spectrum.}
 }
 \value{
 An object of type \code{\linkS4class{MizerParams}}
 }
 \description{
-This functions creates a \code{\linkS4class{MizerParams}} object so that
-community-type models can be easily set up and run.
+This functions creates a \code{\linkS4class{MizerParams}} object describing a
+community-type model.
 }
 \details{
-A community model has
-several features that distinguish it from the food-web type models. Only one
-'species' is resolved, i.e. one 'species' is used to represent the whole
-community. The plankton spectrum only extends to the start of the community
-spectrum. Recruitment to the smallest size in the community spectrum is
-constant and set by the user. As recruitment is constant, the proportion of
-energy invested in reproduction (the slot \code{psi} of the returned 
-\code{MizerParams} object) is set to 0. Standard metabolism has been turned 
-off (the parameter \code{ks} is set to 0). Consequently, the growth rate is 
-now determined solely by the assimilated food (see the package vignette for 
-more details).
+A community model has several features that distinguish it from a multi-species
+model:
+\itemize{
+\item Species identities of individuals are ignored. All are aggregated into a
+single community.
+\item The resource spectrum only extends to the start of the community spectrum.
+\item Reproductive rate is constant, independent of the energy invested in
+reproduction, which is set to 0.
+\item Standard metabolism is turned off (the parameter \code{ks} is set to 0).
+Consequently, the growth rate is now determined solely by the assimilated
+food
+}
 
 The function has many arguments, all of which have default values.
 
-Fishing selectivity is modelled as a knife-edge function with one parameter, 
-\code{knife_edge_size}, which determines the size at which species are 
+Fishing selectivity is modelled as a knife-edge function with one parameter,
+\code{knife_edge_size}, which determines the size at which species are
 selected.
 
-The resulting \code{MizerParams} object can be projected forward using 
-\code{project()} like any other \code{MizerParams} object. When projecting 
+The resulting \code{MizerParams} object can be projected forward using
+\code{project()} like any other \code{MizerParams} object. When projecting
 the community model it may be necessary to keep a small time step size
 \code{dt} of around 0.1 to avoid any instabilities with the solver. You can
 check for these numerical instabilities by plotting the biomass or abundance
@@ -104,21 +105,20 @@ through time after the projection.
 }
 \examples{
 \dontrun{
-params <- newCommunityParams(f0=0.7, z0=0.2, recruitment=3e7)
+params <- newCommunityParams(f0=0.7, z0=0.2, reproduction=3e7)
 sim <- project(params, effort = 0, t_max = 100, dt=0.1)
 plotBiomass(sim)
 plotSpectra(sim)
 }
 }
 \references{
-K. H. Andersen,J. E. Beyer and P. Lundberg, 2009, Trophic and 
-  individual efficiencies of size-structured communities, Proceedings of the 
-  Royal Society, 276, 109-114
+K. H. Andersen,J. E. Beyer and P. Lundberg, 2009, Trophic and
+individual efficiencies of size-structured communities, Proceedings of the
+Royal Society, 276, 109-114
 }
 \seealso{
 Other functions for setting up models: 
 \code{\link{newMultispeciesParams}()},
-\code{\link{newSheldonParams}()},
 \code{\link{newTraitParams}()}
 }
 \concept{functions for setting up models}

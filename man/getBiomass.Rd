@@ -2,7 +2,7 @@
 % Please edit documentation in R/summary_methods.R
 \name{getBiomass}
 \alias{getBiomass}
-\title{Calculate the total biomass of each species within a size range at each time 
+\title{Calculate the total biomass of each species within a size range at each time
 step.}
 \usage{
 getBiomass(sim, ...)
@@ -35,8 +35,6 @@ both min_l and min_w are supplied, only min_l will be used).
 }
 \examples{
 \dontrun{
-data(NS_species_params_gears)
-data(inter)
 params <- newMultispeciesParams(NS_species_params_gears, inter)
 # With constant fishing effort for all gears for 20 time steps
 sim <- project(params, t_max = 20, effort = 0.5)
@@ -51,6 +49,7 @@ Other summary functions:
 \code{\link{getN}()},
 \code{\link{getSSB}()},
 \code{\link{getYieldGear}()},
+\code{\link{getYieldVsFcurve}()},
 \code{\link{getYield}()}
 }
 \concept{summary functions}

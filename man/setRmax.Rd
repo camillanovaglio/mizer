@@ -2,21 +2,24 @@
 % Please edit documentation in R/wrapper_functions.R
 \name{setRmax}
 \alias{setRmax}
-\title{Set maximum recruitment}
+\title{Set maximum reproduction rate}
 \usage{
-setRmax(params, rfac)
+setRmax(params, R_factor)
 }
 \arguments{
 \item{params}{A MizerParams object}
 
-\item{rfac}{The factor by which the maximum recruitment should be higher than
-the initial-state recruitment}
+\item{R_factor}{The factor by which the maximum reproduction rate should be higher than
+the initial-state reproduction rate}
 }
 \value{
 A MizerParams object
 }
 \description{
-Takes a MizerParams object with trivial stock recruitment function and sets 
-Beverton-Holt stock recruitment with a maximum recruitment that is a chosen
-factor \code{rfac} higher than the initial-state recruitment.
+Takes a MizerParams object with density-independent reproduction rate and
+sets a Beverton-Holt density-dependence with a maximum reproduction rate that
+is a chosen factor \code{R_factor} higher than the initial-state reproduction
+rate. At the same time it adjust the reproductive efficiency \code{erepro}
+(see \code{\link[=setReproduction]{setReproduction()}}) to keep the same density-dependent reproduction at
+the initial state.
 }

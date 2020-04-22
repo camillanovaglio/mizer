@@ -10,23 +10,27 @@
 
 
 <!-- jquery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
 <!-- Bootstrap -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.3.7/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/3.4.0/cerulean/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous" />
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha256-U5ZEeKfGNOja007MMD3YBI0A3OSZOQbeG6z2f2Y0hu8=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script>
+
+<!-- bootstrap-toc -->
+<link rel="stylesheet" href="../bootstrap-toc.css">
+<script src="../bootstrap-toc.js"></script>
 
 <!-- Font Awesome icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/all.min.css" integrity="sha256-PbSmjxuVAzJ6FPvNYsrXygfGhNJYyZ2GktDbkMBqQZg=" crossorigin="anonymous" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.1/css/v4-shims.min.css" integrity="sha256-A6jcAdwFD48VMjlI3GDxUd+eCQa7/KWy6G9oe/ovaPA=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous" />
 
 <!-- clipboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.4/clipboard.min.js" integrity="sha256-FiZwavyI2V6+EXO1U+xzLG3IKldpiTFf3153ea9zikQ=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
 
 <!-- headroom.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/headroom.min.js" integrity="sha256-DJFC1kqIhelURkuza0AvYal5RxMtpzLjFhsnVIeuk+U=" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.9.4/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script>
 
 <!-- pkgdown -->
 <link href="../pkgdown.css" rel="stylesheet">
@@ -39,7 +43,6 @@
 <meta property="og:description" content="Sets the proportion of the total energy available for reproduction and growth
 that is invested into reproduction as a function of the size of the
 individual and sets the reproductive efficiency." />
-<meta name="twitter:card" content="summary" />
 
 
 <meta name="robots" content="noindex">
@@ -57,7 +60,7 @@ individual and sets the reproductive efficiency." />
 
   </head>
 
-  <body>
+  <body data-spy="scroll" data-target="#toc">
     <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -71,7 +74,7 @@ individual and sets the reproductive efficiency." />
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">mizer</a>
-        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">1.0.1.9000</span>
+        <span class="version label label-danger" data-toggle="tooltip" data-placement="bottom" title="In-development version">2.0.0.9000</span>
       </span>
     </div>
 
@@ -101,7 +104,7 @@ individual and sets the reproductive efficiency." />
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="https://github.com/sizespectrum/mizer">
+  <a href="https://github.com/sizespectrum/mizer/">
     <span class="fab fa fab fa-github fa-lg"></span>
      
   </a>
@@ -120,7 +123,7 @@ individual and sets the reproductive efficiency." />
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Set reproduction parameters</h1>
-    <small class="dont-index"><a href='https://github.com/sizespectrum/mizer/edit/master/R/MizerParams-class.R'>Edit this page. &nbsp;</a> Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/MizerParams-class.R'><code>R/MizerParams-class.R</code></a></small>
+    <small class="dont-index">Source: <a href='https://github.com/sizespectrum/mizer/blob/master/R/setReproduction.R'><code>R/setReproduction.R</code></a></small>
     <div class="hidden name"><code>setReproduction.Rd</code></div>
     </div>
 
@@ -130,7 +133,11 @@ that is invested into reproduction as a function of the size of the
 individual and sets the reproductive efficiency.</p>
     </div>
 
-    <pre class="usage"><span class='fu'>setReproduction</span>(<span class='no'>params</span>, <span class='kw'>maturity</span> <span class='kw'>=</span> <span class='kw'>NULL</span>, <span class='kw'>repro_prop</span> <span class='kw'>=</span> <span class='kw'>NULL</span>, <span class='kw'>srr</span> <span class='kw'>=</span> <span class='no'>params</span>@<span class='kw'>srr</span>)</pre>
+    <pre class="usage"><span class='fu'>setReproduction</span>(<span class='no'>params</span>, <span class='kw'>maturity</span> <span class='kw'>=</span> <span class='kw'>NULL</span>, <span class='kw'>repro_prop</span> <span class='kw'>=</span> <span class='kw'>NULL</span>, <span class='kw'>RDD</span> <span class='kw'>=</span> <span class='kw'>NULL</span>, <span class='no'>...</span>)
+
+<span class='fu'>getMaturityProportion</span>(<span class='no'>params</span>)
+
+<span class='fu'>getReproductionProportion</span>(<span class='no'>params</span>)</pre>
 
     <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
     <table class="ref-arguments">
@@ -153,31 +160,40 @@ reproduction for each species at size. If not supplied, a default is set as
 described in the section "Setting reproduction".</p></td>
     </tr>
     <tr>
-      <th>srr</th>
-      <td><p>The name of the stock recruitment function. Defaults to 
-<code><a href='srrBevertonHolt.html'>srrBevertonHolt</a></code>.</p></td>
+      <th>RDD</th>
+      <td><p>The name of the function calculating the density-dependent
+reproduction rate from the density-independent rate. Defaults to
+"<code><a href='BevertonHoltRDD.html'>BevertonHoltRDD()</a></code>".</p></td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td><p>Unused</p></td>
     </tr>
     </table>
 
     <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
-    <p>The MizerParams object.</p>
+    <p>The updated MizerParams object. Because of the way the R language
+works, <code>setReproduction()</code> does not make the changes to the params object
+that you pass to it but instead returns a new params object. So to affect
+the change you call the function in the form
+<code>params &lt;- setReproduction(params, ...)</code>.</p>
     <h2 class="hasAnchor" id="setting-reproduction"><a class="anchor" href="#setting-reproduction"></a>Setting reproduction</h2>
 
     
 
 
 <h3>Investment</h3>
-<p>For each species and at each size, the proportion of the available energy 
+<p>For each species and at each size, the proportion of the available energy
 that is invested into reproduction is the product of two factors: the
 proportion <code>maturity</code> of individuals that are mature and the proportion
-<code>repro_prop</code> of the energy available to a mature individual that is 
+<code>repro_prop</code> of the energy available to a mature individual that is
 invested into reproduction.</p>
-<p>If the <code>maturity</code> argument is not supplied, then it is set to a sigmoidal 
+<p>If the <code>maturity</code> argument is not supplied, then it is set to a sigmoidal
 maturity ogive that changes from 0 to 1 at around the maturity size:
 $${\tt maturity}(w) = \left[1+\left(\frac{w}{w_{mat}}\right)^{-U}\right]^{-1}.$$
 (To avoid clutter, we are not showing the species index in the equations.)
-The maturity weights are taken from the <code>w_mat</code> column of the 
+The maturity weights are taken from the <code>w_mat</code> column of the
 species_params data frame. Any missing maturity weights are set to 1/4 of the
 asymptotic weight in the <code>w_inf</code> column.
 The exponent \(U\) determines the steepness of the maturity ogive. By
@@ -186,7 +202,7 @@ including a column <code>w_mat25</code> in the species parameter dataframe that
 specifies the weight at which 25% of individuals are mature, which sets
 \(U = \log(3) / \log(w_{mat} / w_{25}).\)</p>
 <p>The sigmoidal function given above would strictly reach 1 only asymptotically.
-Mizer instead sets the function equal to 1 already at the species' 
+Mizer instead sets the function equal to 1 already at the species'
 maximum size, taken from the compulsory <code>w_inf</code> column in the
 <code>species_params</code> data frame.</p>
 <p>If the <code>repro_prop</code> argument is not supplied, it is set to the
@@ -194,9 +210,9 @@ allometric form
 $${\tt repro\_prop}(w) = \left(\frac{w}{w_{inf}}\right)^{m-n}.$$
 Here \(n\) is the scaling exponent of the energy income rate. Hence
 the exponent \(m\) determines the scaling of the investment into
-reproduction for mature individuals. By default it is chosen to be 
-\(m = 1\) so that the rate at which energy is invested into reproduction 
-scales linearly with the size. This default can be overridden by including a 
+reproduction for mature individuals. By default it is chosen to be
+\(m = 1\) so that the rate at which energy is invested into reproduction
+scales linearly with the size. This default can be overridden by including a
 column <code>m</code> in the species parameter dataframe. The asymptotic sizes
 are taken from the compulsory <code>w_inf</code> column in the species_params
 data frame.</p>
@@ -207,7 +223,7 @@ reproduction that results in egg biomass, is set from the <code>erepro</code>
 column in the species_params data frame. If that is not provided, the default
 is set to 1 (which you will want to override). The offspring biomass divided
 by the egg biomass gives the rate of egg production, returned by
-<code><a href='getRDI.html'>getRDI</a></code>.</p>
+<code><a href='getRDI.html'>getRDI()</a></code>.</p>
 
 <h3>Density dependence</h3>
 <p>The stock-recruitment relationship is an emergent phenomenon in mizer, with
@@ -217,41 +233,32 @@ density-dependent due to competition for prey. Secondly, the proportion of
 larvae that grow up to recruitment size depends on the larval mortality,
 which depends on the density of predators, and on larval growth rate, which
 depends on density of prey.</p>
-<p>Finally, the proportion of eggs that are viable and hatch to larvae can be
-density dependent. Somewhat misleadingly, mizer refers to this relationship
-between the number of eggs and the number of hatched larvae as the
-stock-recruitment relationship, even though it is only one part of the full
-stock-recruitment relationship. However it is the only part that can be set
-independently, while the other parts are already determined by the predation
-parameters and other model parameters. Thus in practice this part of the
-density dependence is used to encode all the density dependence that is not
-already included in the other two sources of density dependence.</p>
-<p>To calculate the density-dependent rate of larvae production, mizer puts the
-the density-independent rate of egg production through a "stock-recruitment"
-function. The result is returned by <code><a href='getRDD.html'>getRDD</a></code>. The name of the
-stock-recruitment function is specified by the <code>srr</code> argument. The
-default is the Beverton-Holt function <code><a href='srrBevertonHolt.html'>srrBevertonHolt</a></code>, which
-requires an <code>R_max</code> column in the species_params data frame giving the
-maximum egg production rate. If this column does not exist, it is initialised
-to <code>Inf</code>, leading to no density-dependence. Other functions provided by
-mizer are <code><a href='srrRicker.html'>srrRicker</a></code> and <code><a href='srrSheperd.html'>srrSheperd</a></code> and you can
-easily use these as models for writing your own functions.</p>
+<p>Finally, to encode all the density dependence in the stock-recruitment
+relationship that is not already included in the other two sources of density
+dependence, mizer puts the the density-independent rate of egg production
+through a density-dependence function. The result is returned by
+<code><a href='getRDD.html'>getRDD()</a></code>. The name of the density-dependence function is
+specified by the <code>RDD</code> argument. The default is the Beverton-Holt
+function <code><a href='BevertonHoltRDD.html'>BevertonHoltRDD()</a></code>, which requires an <code>R_max</code> column
+in the species_params data frame giving the maximum egg production rate. If
+this column does not exist, it is initialised to <code>Inf</code>, leading to no
+density-dependence. Other functions provided by mizer are
+<code><a href='RickerRDD.html'>RickerRDD()</a></code> and <code><a href='SheperdRDD.html'>SheperdRDD()</a></code> and you can easily use
+these as models for writing your own functions.</p>
 
     <h2 class="hasAnchor" id="see-also"><a class="anchor" href="#see-also"></a>See also</h2>
 
     <div class='dont-index'><p>Other functions for setting parameters: 
-<code><a href='setBMort.html'>setBMort</a>()</code>,
+<code><a href='setExtMort.html'>setExtMort</a>()</code>,
 <code><a href='setFishing.html'>setFishing</a>()</code>,
-<code><a href='setInitial.html'>setInitial</a>()</code>,
-<code><a href='setIntakeMax.html'>setIntakeMax</a>()</code>,
+<code><a href='setInitialValues.html'>setInitialValues</a>()</code>,
 <code><a href='setInteraction.html'>setInteraction</a>()</code>,
-<code><a href='setMetab.html'>setMetab</a>()</code>,
-<code><a href='setParams.html'>setParams</a>()</code>,
-<code><a href='setPlankton.html'>setPlankton</a>()</code>,
+<code><a href='setMaxIntakeRate.html'>setMaxIntakeRate</a>()</code>,
+<code><a href='setMetabolicRate.html'>setMetabolicRate</a>()</code>,
 <code><a href='setPredKernel.html'>setPredKernel</a>()</code>,
-<code><a href='setResourceDynamics.html'>setResourceDynamics</a>()</code>,
-<code><a href='setResourceEncounter.html'>setResourceEncounter</a>()</code>,
-<code><a href='setSearchVolume.html'>setSearchVolume</a>()</code></p></div>
+<code><a href='setResource.html'>setResource</a>()</code>,
+<code><a href='setSearchVolume.html'>setSearchVolume</a>()</code>,
+<code><a href='setParams.html'>species_params</a>()</code></p></div>
 
     <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
     <pre class="examples"><div class='input'><span class='kw'>if</span> (<span class='fl'>FALSE</span>) {
@@ -261,27 +268,21 @@ easily use these as models for writing your own functions.</p>
 <span class='no'>params</span> <span class='kw'>&lt;-</span> <span class='fu'>setReproduction</span>(<span class='no'>params</span>)
 }</div></pre>
   </div>
-  <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
-    <h2>Contents</h2>
-    <ul class="nav nav-pills nav-stacked">
-      <li><a href="#arguments">Arguments</a></li>
-      <li><a href="#value">Value</a></li>
-      <li><a href="#setting-reproduction">Setting reproduction</a></li>
-      <li><a href="#see-also">See also</a></li>
-      <li><a href="#examples">Examples</a></li>
-    </ul>
-
+  <div class="col-md-3 hidden-xs" id="pkgdown-sidebar">
+    <nav id="toc" data-toggle="toc" class="sticky-top">
+      <h2 data-toc-skip>Contents</h2>
+    </nav>
   </div>
 </div>
 
 
       <footer>
       <div class="copyright">
-  <p>Developed by Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>, <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>.</p>
+  <p>Developed by <a href='https://www.york.ac.uk/maths/staff/gustav-delius/'>Gustav Delius</a>, Finlay Scott, <a href='http://www.utas.edu.au/profiles/staff/imas/julia-blanchard'>Julia Blanchard</a>, <a href='https://ken.haste.dk/'>Ken Andersen</a>.</p>
 </div>
 
 <div class="pkgdown">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.4.1.9000.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/">pkgdown</a> 1.5.0.9000.</p>
 </div>
 
       </footer>

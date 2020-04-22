@@ -2,9 +2,12 @@
 % Please edit documentation in R/plots.R
 \name{plotFMort}
 \alias{plotFMort}
+\alias{plotlyFMort}
 \title{Plot total fishing mortality of each species by size}
 \usage{
 plotFMort(object, species = NULL, time_range, highlight = NULL, ...)
+
+plotlyFMort(object, species = NULL, time_range, highlight = NULL, ...)
 }
 \arguments{
 \item{object}{An object of class \linkS4class{MizerSim} or \linkS4class{MizerParams}.}
@@ -22,7 +25,7 @@ object.}
 \item{...}{Other arguments (currently unused)}
 }
 \value{
-A ggplot2 object
+A plot
 }
 \description{
 After running a projection, plot the total fishing mortality of each species
@@ -31,21 +34,17 @@ range (a single value for the time range can be used to plot a single time
 step).
 }
 \examples{
-
-data(NS_species_params_gears)
-data(inter)
+\donttest{
 params <- suppressMessages(newMultispeciesParams(NS_species_params_gears, inter))
 sim <- project(params, effort=1, t_max=20, t_save = 2, progress_bar = FALSE)
 plotFMort(sim)
 plotFMort(sim, highlight = c("Cod", "Haddock"))
-
+}
 }
 \seealso{
-\code{\link{plotting_functions}}, \code{\link{getFMort}}
+\code{\link[=plotting_functions]{plotting_functions()}}, \code{\link[=getFMort]{getFMort()}}
 
 Other plotting functions: 
-\code{\link{animateSpectra}()},
-\code{\link{displayFrames}()},
 \code{\link{plot,MizerSim,missing-method}},
 \code{\link{plotBiomass}()},
 \code{\link{plotDiet}()},
@@ -55,14 +54,6 @@ Other plotting functions:
 \code{\link{plotSpectra}()},
 \code{\link{plotYieldGear}()},
 \code{\link{plotYield}()},
-\code{\link{plotlyBiomass}()},
-\code{\link{plotlyFMort}()},
-\code{\link{plotlyFeedingLevel}()},
-\code{\link{plotlyGrowthCurves}()},
-\code{\link{plotlyPredMort}()},
-\code{\link{plotlySpectra}()},
-\code{\link{plotlyYieldGear}()},
-\code{\link{plotlyYield}()},
 \code{\link{plotting_functions}}
 }
 \concept{plotting functions}

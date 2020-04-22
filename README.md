@@ -26,26 +26,42 @@ slope of the size spectrum. Size-based models can be complicated so
 mizer contains many default options that can be easily changed by the
 user.
 
-Mizer can also be used to create web apps that allow users to explore
-models without the need to install R. An [example of such an
-app](https://mizer.shinyapps.io/selectivity/) investigates the effect of
-switching to a gear with a T90 extension net to reduce the catches of
-undersize hake and red mullet
+<!-- Mizer can also be used to create web apps that allow users to explore models -->
 
-Mizer is still under active development, currently funded by the
-European Commission Horizon 2020 Research and Innovation Programme under
-Grant Agreement No. 634495 for the project MINOUW
-(<http://minouw-project.eu/>) and the Australian Research Council
-Discovery Project (“Rewiring Marine Food Webs”).
+<!-- without the need to install R. An [example of such an -->
 
-Does your project or publication use mizer? If so, we’d love to know.
-You can also join our Google Discussion group here:
+<!-- app](https://mizer.shinyapps.io/selectivity/) investigates the effect of -->
+
+<!-- switching to a gear with a T90 extension net to reduce the catches of undersize -->
+
+<!-- hake and red mullet -->
+
+Mizer has been supporting research in marine ecology and fisheries
+science since 2014 ([see
+publications](https://sizespectrum.org/mizer/articles/publications.html).
+It is still under active development. The new version 2.0 has increased
+the user-friendliness and the flexibility of the framework.
+Contributions from the user community are very welcome. There is a
+sister package called
+[mizerExperimental](https://sizespectrum.org/mizerExperimental) where
+user contributions can be checked out and receive feedback from the
+community. Example mizer models can be contributed to
+[mizerExamples](https://sizespectrum.org/mizerExamples).
+
+Does your project or publication use mizer? If so, we would love to
+know. You can also join our Google Discussion group here:
 <https://groups.google.com/forum/#!forum/size-spectrum-models>
+
+Recent work on mizer was funded by the European Commission Horizon 2020
+Research and Innovation Programme under Grant Agreement No 634495 for
+the project MINOUW (<http://minouw-project.eu/>) and the Australian
+Research Council Discovery Project [Rewiring Marine Food
+Webs](http://marinesocioecology.org/rewiring-marine-food-webs/).
 
 ## Installation
 
 The package is on [CRAN](https://cran.r-project.org/package=mizer) and
-therefore available from R’s build-it package manager.
+therefore available from R’s built-in package manager.
 
 ``` r
 # Install release version from CRAN
@@ -64,8 +80,6 @@ years.
 
 ``` r
 library(mizer)
-data(NS_species_params)
-data(inter)
 params <- newMultispeciesParams(NS_species_params, inter)
 sim <- project(params, t_max = 10, effort = 0)
 ```
@@ -77,9 +91,8 @@ plots:
 plot(sim)
 ```
 
-![](docs/dev/reference/figures/unnamed-chunk-4-1.png)<!-- -->
+![](man/figures/unnamed-chunk-4-1.png)<!-- -->
 
 See the accompanying [Get
-started](https://sizespectrum.org/mizer/dev/articles/mizer.html)
-page for more details on how the package works, including detailed
-examples.
+started](https://sizespectrum.org/mizer/articles/mizer.html) page for
+more details on how the package works, including detailed examples.

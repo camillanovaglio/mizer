@@ -6,7 +6,7 @@
 \usage{
 getMeanMaxWeight(
   sim,
-  species = 1:nrow(sim@params@species_params),
+  species = seq_len(nrow(species_params(params(sim)))),
   measure = "both",
   ...
 )
@@ -35,9 +35,9 @@ over \code{max_w}.}
 \value{
 Depends on the \code{measure} argument. If \code{measure = “both”}
   then you get a matrix with two columns, one with values by numbers, the
-  other with values by biomass at each saved time step. If \code{measure =
+other with values by biomass at each saved time step. If \code{measure =
   “numbers”} or \code{“biomass”} you get a vector of the respective values at
-  each saved time step.
+each saved time step.
 }
 \description{
 Calculates the mean maximum weight of the community through time. This can be
@@ -50,8 +50,6 @@ You can also specify the species to be used in the calculation.
 }
 \examples{
 \dontrun{
-data(NS_species_params_gears)
-data(inter)
 params <- newMultispeciesParams(NS_species_params_gears, inter)
 sim <- project(params, effort=1, t_max=10)
 getMeanMaxWeight(sim)

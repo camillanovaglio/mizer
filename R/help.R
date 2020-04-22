@@ -12,25 +12,28 @@
 #' There are several setup functions that help to create a MizerParams objects
 #' for particular types of models:
 #' \itemize{
-#'   \item \code{\link{newCommunityParams}}
-#'   \item \code{\link{newTraitParams}}
-#'   \item \code{\link{newMultispeciesParams}}
+#'   \item [newCommunityParams()]
+#'   \item [newTraitParams()]
+#'   \item [newMultispeciesParams()]
 #' }
 #' \item Running a simulation. This is done by calling the
-#' \code{\link{project}} function with the model parameters. This produces an
+#' [project()] function with the model parameters. This produces an
 #' object of \linkS4class{MizerSim} that contains the results of the simulation.
 #'
 #' \item Exploring results. After a simulation has been run, the results can be
-#' explored using a range of \code{\link{plotting_functions}} and
-#' \code{\link{summary_functions}}.
+#' explored using a range of [plotting_functions()] and
+#' [summary_functions()].
 #' }
 #'
-#' See the mizer website and vignettes for full details of the principles behind
-#' mizer and how the package can be used to perform size-based modelling.
+#' See the [mizer website](https://sizespectrum.org/mizer) for full details of
+#' the principles behind mizer and how the package can be used to perform
+#' size-based modelling.
 #'
-#' @import ggplot2 methods assertthat shiny dplyr
+#' @import ggplot2 methods assertthat dplyr
 #' @importFrom plotly ggplotly plotlyOutput renderPlotly
 #' @importFrom stats fft mvfft lm pnorm runif complete.cases
+#' @importFrom grDevices col2rgb
+#' @importFrom utils modifyList
 #' @docType package
 #' @name mizer
 #' @aliases mizer-package

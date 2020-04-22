@@ -1,7 +1,4 @@
 context("MizerParams constructor dimension checks")
-data(NS_species_params_gears)
-data(NS_species_params)
-data(inter)
 no_sp <- nrow(NS_species_params)
 params <- newMultispeciesParams(NS_species_params, inter)
 
@@ -34,7 +31,7 @@ test_that("basic constructor sets dimensions properly", {
     expect_equal(test_params@w[no_w], max_w)
     expect_equal(test_params@dw[1], test_params@w[2] - test_params@w[1])
     expect_equal(test_params@w_full[1], min_w_pp)
-    # Test that first weight entry after plankton spectrum equals smallest 
+    # Test that first weight entry after resource spectrum equals smallest 
     # fish weight 
     expect_equal(test_params@w_full[1 + no_w_full - no_w], test_params@w[1])
     # Dimensions of array slots
@@ -104,39 +101,6 @@ test_that("w_min_idx is being set correctly", {
                  check.names = FALSE)
 })
 
-# min_w_pp is correct ----
-test_that("min_w_pp is being set correctly", {
-    sp <- params@species_params
-    sp$pred_kernel_type = "box"
-    sp$ppmr_min <- 2
-    sp$ppmr_max <- 4
-    params <- newMultispeciesParams(sp)
-    min_w_feeding <- min(params@species_params$w_min / 4)
-    expect_gte(min_w_feeding, params@w_full[1])
-    expect_lte(min_w_feeding, params@w_full[3])
-    # A single species can make a difference
-    sp$ppmr_max[1] <- 100
-    params <- newMultispeciesParams(sp)
-    expect_gte(params@species_params$w_min[1] / 100, params@w_full[1])
-    expect_lte(params@species_params$w_min[1] / 100, params@w_full[2])
-    # but only if it feeds on plankton
-    sp$interaction_p <- 1
-    sp$interaction_p[1] <- 0
-    params <- newMultispeciesParams(sp)
-    expect_lte(min_w_feeding, params@w_full[3])
-    # respect explicitly set min_w_pp
-    expect_error(newMultispeciesParams(sp, min_w_pp = 1),
-                 "min_w_pp not less than or equal to min_w")
-    expect_message(newMultispeciesParams(sp, min_w_pp = 0.001),
-                   "feeding kernels that extend below")
-    params <- newMultispeciesParams(sp, min_w_pp = 0.001)
-    expect_identical(params@w_full[1], 0.001)
-    # if none of the species feed on plankton, min_w_pp = min_w
-    sp$interaction_p <- 0
-    params <- newMultispeciesParams(sp)
-    expect_identical(params@w[1], params@w_full[1])
-})
-
 # Test default values ----
 test_that("default for gamma is correct", {
     params <- NS_params
@@ -144,7 +108,7 @@ test_that("default for gamma is correct", {
     species_params <- params@species_params
     gamma_default <- get_gamma_default(params)
     # Compare to the analytic result
-    lm2 <- params@lambda - 2
+    lm2 <- params@resource_params$lambda - 2
     ae <- sqrt(2 * pi) * species_params$sigma * species_params$beta^lm2 *
         exp(lm2^2 * species_params$sigma^2 / 2) *
         # The factor on the following lines takes into account the cutoff
@@ -156,10 +120,20 @@ test_that("default for gamma is correct", {
         any(is.na(species_params$h))) {
         species_params$h <- get_h_default(params)
     }
-    gamma_analytic <- (species_params$h / (params@kappa * ae)) * 
-        (params@f0 / (1 - params@f0))
+    gamma_analytic <- (species_params$h / (params@resource_params$kappa * ae)) * 
+        (species_params$f0 / (1 - species_params$f0))
     # TODO: reduce the tolerance below
     expect_equal(gamma_default/ gamma_analytic, 
                  rep(1, length(gamma_default)),
                  tolerance = 0.1)
+})
+
+test_that("Slots are allowed to have comments", {
+    params <- NS_params
+    comment(params) <- "All slots are given comments"
+    for (slot in (slotNames(params))) {
+        comment(slot(params, slot)) <- slot
+    }
+    expect_error(validObject(params), NA)
+    expect_error(project(params, t_max = 0.1), NA)
 })
