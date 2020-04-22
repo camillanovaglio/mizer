@@ -6,3 +6,4 @@ src/*.o
 src/*.so
 src/*.dll
 optim_SEA.RData
+fsv086.pdf
