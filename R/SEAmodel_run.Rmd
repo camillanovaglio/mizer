@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # key folders: 
-
+# trial
 1. /Users/nov017/Dropbox/Mizer-fleet/R. My Mizer codes, linked to my GitHub account (use the fleet branch). Here you can modify codes and commit/push changes 
 2. /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/R. r codes to prepare input parameters and data (e.g. SEA_EcolParam.Rmd and SEA_FleetParam.Rmd calling the GET functions)
 3. /Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia. input, output and docs folders -> these should be moved to the dropbox folder where Mizer-fllet.Rproj linked to the github account is! 
