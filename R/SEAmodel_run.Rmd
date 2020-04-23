@@ -40,9 +40,12 @@ library(reshape2)
 library(inline)
 library(ggplot2)
 library(vegan)
-library(mizer) # if inner_loop error, you need to upload mizer
+library(mizer) # if inner_loop error, you need to upload mizer: 
+# Error in .Call("_mizer_inner_project_loop", PACKAGE = "mizer", no_sp,  : 
+  # "_mizer_inner_project_loop" not available for .Call() for package "mizer"
+# but if you do: 'more than one object in chache...'
 
-setwd("/Users/nov017/Dropbox/Mizer-fleet/R")
+setwd("/Users/nov017/R-projects/Mizer-fleet/R")
 source("data.R") 
 source("help.R") 
 source("MizerParams-class.R") 
@@ -240,7 +243,7 @@ params <- MizerParams(df_param, no_w = no_w, interaction = theta, kappa = kappa,
 # no fishing then fishing
 sim <- project(params, t_max= t_max, effort = matrix_effort, multiFleet= FALSE, dt = dt, fleetDynamics = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
 
-# plot(sim)
+plot(sim)
 
 # modelled vs observed plot before calibration
 compareEql_outputs<-compareEql(areaEco, df_param, sim, matrix_effort, df_log_spp, calibration = TRUE)
@@ -807,7 +810,7 @@ Abudnances increase if effort decreases in time from 1995, reference value - i.e
 
 ```{r}
 
-plotYield<-compareTrends(sim_fitted,sim_FD = NA, fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
+plotYield<-compareTrends(sim_fitted,sim_FD = NA, fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 
 plotSSB<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
 
@@ -1013,13 +1016,13 @@ params_calibrated3 <- MizerParams(df_param3, no_w = no_w, interaction = theta3, 
 
 sim_calibrated3 <- project(params_calibrated3, effort = constant_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2)  
 
-# plot(sim_calibrated3)
+plot(sim_calibrated3)
 # plotFeedingLevel(sim_calibrated3) + facet_wrap(~Species) 
 # plotDietComp(sim_calibrated3)$p
 
 # compare fit before with fit now
-# compareEql(areaEco, df_param2, sim_calibrated2, constant_effort, df_log_spp, calibration = FALSE)$plotYield_sp
-# compareEql(areaEco, df_param3, sim_calibrated3, constant_effort3, df_log_spp, calibration = FALSE)$plotYield_sp
+compareEql(areaEco, df_param2, sim_calibrated2, constant_effort, df_log_spp, calibration = FALSE)$plotYield_sp
+compareEql(areaEco, df_param3, sim_calibrated3, constant_effort3, df_log_spp, calibration = FALSE)$plotYield_sp
 
 ```
 
@@ -1027,7 +1030,7 @@ sim_calibrated3 <- project(params_calibrated3, effort = constant_effort3, dt = d
 # re-calibrate *option available - need to try*
 #----------------------------------------------
 
-# optimisation criteria *skip if no calibration*  
+# optimisation criteria *always need to run*  
 
 ```{r}
 
@@ -1081,33 +1084,34 @@ diet_steps = 0
 
 ```{r}
 
-# upload calibration function
-source("/Users/nov017/Dropbox/Mizer-fleet/R/Calibration_function.R")
-
-# optim function
-optimizer_count=0 # Initialize count of function evaluations
-
-# debug(calibrate)
-# undebug(calibrate)
-
-optim_SEA   <- optim(par = logParams,
-                     lower=lower,
-                     upper=upper,
-                     method ="L-BFGS-B",
-                     fn = calibrate,
-                     SSBcali = TRUE,
-                     rankCali = FALSE,
-                     Q = FALSE,
-                     K = TRUE,
-                     R = TRUE)
-
-# save calibrated param
-setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_local")
-save(optim_SEA, file = "optim_SEA_kappa_SSB_K_R_opn3.Rdata")
-
-# attempt 1 - OK but much higher kappas, and abundances. thus much higher cacthes for some spp so that observed vs modelled catches is not looking great. better agreeement between observed adn modelled SSB adn worst agreement between observed adn modelled cacthes. As expected 
-
-# attempt 2 - calibrate only with catches? or change Fmort. also squalus was left out of calibration but it might not be needed.  
+# # upload calibration function
+# source("/Users/nov017/R-projects/Mizer-fleet/R/Calibration_function.R")
+# 
+# # optim function
+# optimizer_count=0 # Initialize count of function evaluations
+# 
+# # debug(calibrate)
+# # undebug(calibrate)
+# 
+# optim_SEA   <- optim(par = logParams,
+#                      lower=lower,
+#                      upper=upper,
+#                      method ="L-BFGS-B",
+#                      fn = calibrate,
+#                      SSBcali = FALSE,
+#                      rankCali = FALSE,
+#                      Q = FALSE,
+#                      K = TRUE,
+#                      R = TRUE)
+# 
+# # save calibrated param
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_local")
+# 
+# # save(optim_SEA, file = "optim_SEA_kappa_SSB_K_R_opn3.Rdata")
+# # attempt 1 - OK but much higher kappas, and abundances. thus much higher cacthes for some spp so that observed vs modelled catches is not looking great. better agreeement between observed adn modelled SSB adn worst agreement between observed adn modelled cacthes. Also squalus was left out of the calibration 
+# 
+# # attempt 2 - calibrate only with catches. reintroduce squalus in the calibration. OK perfect match at eql.  
+# save(optim_SEA, file = "optim_SEA_kappa_K_R_opn3.Rdata")
 
 ```
 
@@ -1115,7 +1119,7 @@ save(optim_SEA, file = "optim_SEA_kappa_SSB_K_R_opn3.Rdata")
 
 ```{r}
 
-load("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_local/optim_SEA_opn3.Rdata")
+load("/Users/nov017/Dropbox/Mizer-fleet_extension/calibration_local/optim_SEA_kappa_K_R_opn3.Rdata")
 
 kappa<-10^optim_SEA$par[length(optim_SEA$par)-1]
 kappa_ben<-10^optim_SEA$par[length(optim_SEA$par)]
@@ -1132,8 +1136,8 @@ sim_calibrated3 <- project(params_calibrated3, effort = constant_effort, dt = dt
 plot(sim_calibrated3)
 
 # compare with calibrated community opn1 
-compareEql_outputs # calcualted before df_param etc. was overwtirren by df_param3 etc. 
-compareEql_outputs_opn3<-compareEql(areaEco, df_param, sim_calibrated3, constant_effort, df_log_spp, calibration = FALSE)
+# compareEql_outputs # calcualted before df_param etc. was overwtirren by df_param3 etc. 
+compareEql_outputs_opn3<-compareEql(areaEco, df_param, sim_calibrated3, constant_effort, df_log_spp, calibration = FALSE)$plot
 
 ```
 
@@ -1145,7 +1149,7 @@ spp = as.character(df_param3[19,1])
 # plotGrowthCurves(sim_calibrated3, species = spp) # 4 HELY,7 SQ,12 OR,17,18,19
 
 # community time varinat 
-# apply same changes to effort as per constant
+# apply same changes to effort as per constant effort used above
 relative_effort3<-relative_effort
 relative_effort3[,7]<-relative_effort3[,7]*0.5
 relative_effort3[,7]<-relative_effort3[,7]*0.1 # bycatch... this is perfect 
@@ -1154,7 +1158,7 @@ relative_effort3[,7]<-relative_effort3[,7]*0.1 # bycatch... this is perfect
 sim_fitted3 <- project(params_calibrated3, effort = relative_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
 
 plot(sim_fitted3)
-# plotDietComp(sim_fitted3)
+plotDietComp(sim_fitted3)
 # plotBiomass(sim_fitted3)$plot + facet_wrap(~Species)
 
 # compare fit before with fit now 
@@ -1162,15 +1166,22 @@ plotYield<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "yi
 plotYield2<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 plotYield3<-compareTrends(sim_fitted3,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 
+# problems: 1) arrow squid has high modelled catches; 2) pink ling, blue w and tiger have higher catches in recent years when Fmort for those missing years is calculated given observed cacthes then when Fmore for those years is kept at 0. See options in DataFunction, createFmort() line 182. this only effects the time variant version as the eql and calibration uses 1995-2005 mean values and the FD starts from the time varinat community in 2006. Adjust manually?!  
+
 plotSSB<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
 plotSSB2<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
 plotSSB3<-compareTrends(sim_fitted3,sim_FD = NA,fleetDynamics = FALSE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp
 
 # stop fishing 
-sim_calibrated_unfished3<- project(params_calibrated3, effort= matrix_effort_nofishing, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
+no_effort<-rbind(constant_effort3,constant_effort3) # 400 time steps
+no_effort[]<-0
+matrix_effort_nofishing3<-rbind(constant_effort3, no_effort) # 600 time steps
+rownames(matrix_effort_nofishing3)<-seq(1,nrow(matrix_effort_nofishing3))
 
-# plot(sim_calibrated_unfished3)
-# plotBiomass(sim_calibrated_unfished3)$plot + facet_wrap(~Species)
+sim_calibrated_unfished3<- project(params_calibrated3, effort= matrix_effort_nofishing3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
+
+plot(sim_calibrated_unfished3)
+plotBiomass(sim_calibrated_unfished3)$plot + facet_wrap(~Species)
 
 ```
 
@@ -1222,7 +1233,6 @@ diet_comp <- diet %>%
  
 ```
 
-
 #-----------------------------------------
 # save temporary data from steps above *option 3*
 #----------------------------------------------
@@ -1231,7 +1241,7 @@ diet_comp <- diet %>%
 
 df_param<-df_param3 # already in calibration section, but can repeat here  
 theta<-theta3 # already in calibration section, but can repeat here 
-relative_effort<-relative_effort3
+relative_effort3[200:223,]
 constant_effort<-constant_effort3 # already in calibration section, but can repeat here
 w_pp_cutoff<-w_pp_cutoff3 # already in calibration section, but can repeat here
 min_w_bb<-min_w_bb3 # already in calibration section, but can repeat here

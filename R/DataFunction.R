@@ -120,6 +120,72 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   
   # write.csv(Fmort, file = "/Users/nov017/Desktop/Fmort.csv",row.names=FALSE)
   
+  
+  
+  # CAN DELETE depending on trials in SEAmodel_run.Rmd
+
+  # add missing Fmort values for recent years based on catches as above
+  trial<-acast(datValidationYieldSpp, year ~ species)
+  trial<-trial[-nrow(trial),]
+  trial<-trial[,df_param$species]
+  trial[is.na(trial)]<-0
+  # dim(trial)
+
+  Fmort2<-Fmort
+
+  # seriorella
+  ref<-trial[14,] # per seriorella b
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[14:23,"seriolella brama"]<-Fmort2[14,"seriolella brama"]*trial_s[14:23,"seriolella brama"]
+
+  # sillago
+  ref<-trial[22,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[22:23,"sillago flindersi"]<-Fmort2[22,"sillago flindersi"]*trial_s[22:23,"sillago flindersi"]
+
+  # centroberyx affinis
+  ref<-trial[22,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[22:23,"centroberyx affinis"]<-Fmort2[22,"centroberyx affinis"]*trial_s[22:23,"centroberyx affinis"]
+
+  # nemadactylus macropterus
+  ref<-trial[20,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[20:23,"nemadactylus macropterus"]<-Fmort2[20,"nemadactylus macropterus"]*trial_s[20:23,"nemadactylus macropterus"]
+
+  # platycephalus richardsoni
+  ref<-trial[21,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[21:23,"platycephalus richardsoni"]<-Fmort2[21,"platycephalus richardsoni"]*trial_s[21:23,"platycephalus richardsoni"]
+
+  # macruronus novaezelandiae
+  ref<-trial[18,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[18:23,"macruronus novaezelandiae"]<-Fmort2[18,"macruronus novaezelandiae"]*trial_s[18:23,"macruronus novaezelandiae"]
+
+  # seriolella punctata
+  ref<-trial[20,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[20:23,"seriolella punctata"]<-Fmort2[20,"seriolella punctata"]*trial_s[20:23,"seriolella punctata"]
+
+  # rexea solandri
+  ref<-trial[21,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[21:23,"rexea solandri"]<-Fmort2[21,"rexea solandri"]*trial_s[21:23,"rexea solandri"]
+
+  # genypterus blacodes
+  ref<-trial[19,]
+  trial_s<-sweep(trial,2,ref,"/")
+  Fmort2[19:23,"genypterus blacodes"]<-Fmort2[19,"genypterus blacodes"]*trial_s[19:23,"genypterus blacodes"]
+
+  Fmort<-Fmort2
+
+  # end CAN DELETE
+  
+  
+  
+  
+  
   # calculate mean Fmort constant across years 
   Fmort_mean<-Fmort[as.character(1995:2005),] 
   Fmort_mean<-colMeans(Fmort_mean, na.rm=TRUE)

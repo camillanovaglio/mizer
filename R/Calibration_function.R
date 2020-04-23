@@ -131,7 +131,7 @@ Yielderror <- function(Newcomm,
   
   # do not compare yield from mycto - not there - and perch - there but not to be considered 
   toDelete<-c("myctophids","helicolenus barathri")
-  toDelete<-c(toDelete, "squalus spp.") # added this when running calibration for opn3 (local) as squalus catches are too low nand result in unrealistic abundances
+  # toDelete<-c(toDelete, "squalus spp.") # added this when running calibration for opn3 (local) as squalus catches are too low nand result in unrealistic abundances
   temp<-Newcomm@params@species_params
   temp<-temp[-which(temp$species %in% toDelete),]
   Yieldobs <- temp$catchComm_t
