@@ -23,7 +23,7 @@ rm(list=ls())
 
 # 3 options according to the SEAmodel_run.Rmd
 # load("/Users/nov017/Dropbox/Mizer-fleet/R/model/tempData.RData") # now SEAmodel_opn1.RData.
-# load("/Users/nov017/Dropbox/Mizer-fleet/R/model/tempData_Oct.RData") # now SEAmodel_opn2.RData
+# load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/tempData_Oct.RData") # now SEAmodel_opn2.RData
 # load("/Users/nov017/Dropbox/Mizer-fleet/R/model/SEAmodel_opn3.RData") # before tempData_Nov.RData
 
 # now changed folder 
@@ -41,7 +41,7 @@ library(vegan)
 library(mizer) # if inner_loop error, you need to upload mizer
 library(shiny)
 
-setwd("/Users/nov017/Dropbox/Mizer-fleet/R")
+setwd("/Users/nov017/R-projects/Mizer-fleet/R")
 source("data.R") 
 source("help.R") 
 source("MizerParams-class.R") 
@@ -213,20 +213,33 @@ df_cost2<-rbind(df_cost2,addCost2015,addCost2016, addCost2017)
 df_cost2<-acast(df_cost2, formula = year ~ subfleet ~ cost_type, value.var = "cost") 
 df_cost2<-df_cost2[,rownames(df_target),] # order cost by fleet
 
-# OPTION 1 use costs in g or use costs in g rescaled as per Beth's data - NO CHANGE from above
+# OPTION 1 use costs in g or use costs per opn rescaled as per Beth's data
 # Beth's adjustment on costs - see email 'price' and file 'costs_from_SESSF_2005'
 
+# ref<- df_cost2[,3,1] # trawlers on the shelf
+# df_cost2[,1,1]<-ref*1.5 # Danish seiners - see agenda, could be *0.6 or *1.5?
+# df_cost2[,2,1]<-ref*0.67 # deep slope
+# df_cost2[,4,1]<-ref*0.67 # upper slope - these is the fishery using the biggers adn more expensive boats, so if you are using the costs per operation unit, this should be highest
+# df_cost2[,5,1]<-ref*0.94 # gillnet
+# 
+# ref<- df_cost2[,3,2] # trawlers on the shelf
+# df_cost2[,1,2]<-ref*1.5 # Danish seiners
+# df_cost2[,2,2]<-ref*0.67 # deep slope
+# df_cost2[,4,2]<-ref*0.67 # upper slope
+# df_cost2[,5,2]<-ref*0.94 # gillnet
+
+# according to 'prices' email from Beth
 ref<- df_cost2[,3,1] # trawlers on the shelf
-df_cost2[,1,1]<-ref*1.5 # Danish seiners - see agenda, could be *0.6 or *1.5?
-df_cost2[,2,1]<-ref*0.67 # deep slope
-df_cost2[,4,1]<-ref*0.67 # upper slope - these is the fishery using the biggers adn more expensive boats, so if you are using the costs per operation unit, this should be highest
-df_cost2[,5,1]<-ref*0.94 # gillnet
+df_cost2[,1,1]<-ref*0.6 # Danish seiners - see agenda, could be *0.6 or *1.5? - not sure about this but usually smaller boat?
+df_cost2[,2,1]<-ref*3.3 # deep slope
+df_cost2[,4,1]<-ref*3.3 # upper slope - these is the fishery using the biggers adn more expensive boats, so if you are using the costs per operation unit, this should be highest
+df_cost2[,5,1]<-ref*0.14 # gillnet
 
 ref<- df_cost2[,3,2] # trawlers on the shelf
-df_cost2[,1,2]<-ref*1.5 # Danish seiners
-df_cost2[,2,2]<-ref*0.67 # deep slope
-df_cost2[,4,2]<-ref*0.67 # upper slope
-df_cost2[,5,2]<-ref*0.94 # gillnet
+df_cost2[,1,2]<-ref*0.6 # Danish seiners
+df_cost2[,2,2]<-ref*2.36 # deep slope
+df_cost2[,4,2]<-ref*2.36 # upper slope
+df_cost2[,5,2]<-ref*0.04 # gillnet
 
 ```
 
@@ -267,10 +280,11 @@ no_w = 100 # def
 ```{R}
 
 # Calculate biomass reference levels (Bref, Bmsy, Bhist) 
+source("DataFunction.R") 
 Blevel<-getBlevel(sim_calibrated_unfished,matrix_effort_nofishing,constant_effort,sim_calibrated,df_param,sim_fitted)
 bioUnfished = Blevel$bioUnfished 
 msy = Blevel$msy
-p = Blevel$p
+plot = Blevel$p
 Bhist = Blevel$Bhist
 
 # add bioUnfished, Bmsy and Bhist, B0 as per SA to df_param 
@@ -303,6 +317,7 @@ p<-ggplot(bio_plot, aes(x = variable, y = value))+
 3. add compliance term in effort equation? 
 
 
+
 #-----------------------------------------
 # Calculate scaling costs and price  
 #---------------------------------------------- 
@@ -313,13 +328,14 @@ p<-ggplot(bio_plot, aes(x = variable, y = value))+
 # from costs in $ g-1 opn-1 to costs in $ g-1 m-3
 # m3 fished in a tralwing operation:
 scaling_cost_area = 14000*10*20 # SESSFdataCleaning (trawling+gillnet opn) m trawled*net opening: 20m *10m
-scaling_cost_area = scaling_cost_area*5000 # interpretation: soak time for a net (Beth)
+scaling_cost_area = scaling_cost_area*5000 # interpretation: soak time for a net (Beth) - this determines cost but also initial effort!- can we used it only for effort and not costs - as now justification it fishes some individuals but not the ones sold? 
 df_cost3<-df_cost2
-df_cost3[]<-df_cost3/scaling_cost_area 
+df_cost3[]<-df_cost3/scaling_cost_area # if costs  are $ *g, than this is not needed
 
-# scaling costs 
-scaling_costs<-1 # interpretation: subsidies? 
-scaling_costs<-c(0.000001,1,1,1,1) # making SED very cheap to run -> positive profits -> increase in effort if no spp < 40%
+# scaling costs - MAKE + PROFITS to start with 
+scaling_costs<-c(0.05,0.03,0.2,0.1,1) # interpretation: subsidies?
+# scaling_costs<-rep(1,5) #
+# scaling_costs<-c(0.000001,1,1,1,1) # making SED very cheap to run -> positive profits -> increase in effort if no spp < 40%
 df_cost3[,1,] = df_cost3[,1,]*scaling_costs[1] 
 df_cost3[,2,] = df_cost3[,2,]*scaling_costs[2]
 df_cost3[,3,] = df_cost3[,3,]*scaling_costs[3]
@@ -338,9 +354,10 @@ df_price_new[]<-df_price_new*scaling_price
 
 ```{r}
 
-# ke_fleet is effective only if no spp below 40 or if decreases in profit would result in higher decreases than those due to management. The lower ke, the lower the rate of change
+# ke_fleet is effective only if no spp below 40 or if decreases in profit would result in higher decreases than those due to management. The lower ke, the lower the rate of change - ke increases or decreases profits more thus exhacerbate whicever trend happening  
 ke_fleet = data.frame(fleet= rownames(df_target), ke = rep(1, 5)) 
-ke_fleet = data.frame(fleet= rownames(df_target), ke = c(500000,70000,250000,500000,10))
+ke_fleet = data.frame(fleet= rownames(df_target), ke = rep(100000, 5)) 
+ke_fleet = data.frame(fleet= rownames(df_target), ke = c(100000,100000,100000,100000,100000))
 
 # initial effort (from data)
 # see campareTrends for more info on how effort data is treated and plotted.
@@ -354,7 +371,7 @@ initial_effort = trial$opn
 
 # scaling effort
 scaling_effort<-rep(1,5)
-initial_effort = initial_effort*scaling_effort
+initial_effort = initial_effort*scaling_effort 
 
 ```
 
@@ -364,31 +381,31 @@ initial_effort = initial_effort*scaling_effort
 
 ```{r}
 
-# initial_effort*df_target needs to be on the scale of relative_effort 
+# initial_effort*df_target needs to be on the scale of relative_effort
 colSums(df_target*initial_effort) # this is based on catch and effort data
-relative_effort[212,] # this is Fmort from SA (or catches) 
+relative_effort[212,] # this is Fmort from SA (or catches)
 
 # df_target is not real Q as the one incorporated in Fmort, it sums to 1 and is a proportion of how much each fleet cacthes the whole papolation available.
 df_target_bmsy <- df_target
 
-# for squid and tracurus, df_target assumes these spp are fished by the fleets indicated here. but they are not and their catchability is usiually quite low - here represented as food 
-df_target_bmsy[, "nototodarus gouldi"]<- df_target_bmsy[, "nototodarus gouldi"]/25 
+# for squid and tracurus, df_target assumes these spp are fished by the fleets indicated here. but they are not and their catchability is usiually quite low - here represented as food
+df_target_bmsy[, "nototodarus gouldi"]<- df_target_bmsy[, "nototodarus gouldi"]/25
 df_target_bmsy[, "trachurus declivis"]<- df_target_bmsy[, "trachurus declivis"]/40
 
-# OPTION 1 fix upper slope 
-df_target_bmsy[4, "seriolella punctata"]<- df_target_bmsy[4, "seriolella punctata"]/2 
+# OPTION 1 fix upper slope
+df_target_bmsy[4, "seriolella punctata"]<- df_target_bmsy[4, "seriolella punctata"]/2
 
-# OPTION 2 fix shelf - move target from shelf to sed 
+# OPTION 2 fix shelf - move target from shelf to sed
 df_target_bmsy[3, "centroberyx affinis"]<- df_target_bmsy[3, "centroberyx affinis"]/2
 df_target_bmsy[3, "nemadactylus macropterus"]<- df_target_bmsy[3, "nemadactylus macropterus"]/2
-df_target_bmsy[3, "seriolella brama"]<- df_target_bmsy[3, "seriolella brama"]/2 
+df_target_bmsy[3, "seriolella brama"]<- df_target_bmsy[3, "seriolella brama"]/2
 
-# OPTION 4 fix sed increase catch by moving some spp from shelf to sed 
+# OPTION 4 fix sed increase catch by moving some spp from shelf to sed
 df_target_bmsy[1, "centroberyx affinis"]<- df_target_bmsy[1, "centroberyx affinis"]*500
 df_target_bmsy[1, "nemadactylus macropterus"]<- df_target_bmsy[1, "nemadactylus macropterus"]*10
 df_target_bmsy[1, "seriolella brama"]<- df_target_bmsy[1, "seriolella brama"]*50
 
-# OPTION 5 increase sed effort by removing some declning spp - need to reduce these as much as possible 
+# OPTION 5 increase sed effort by removing some declning spp - need to reduce these as much as possible
 df_target_bmsy[1, "helicolenus barathri"]<- 0
 df_target_bmsy[1, "seriolella punctata"]<- 0
 df_target_bmsy[1, "galeorhinus galeus"]<- 0
@@ -397,25 +414,25 @@ df_target_bmsy[1, "centroberyx affinis"]<- 0
 
 # OPTION 6 decrease catches in US
 # df_target_bmsy[4, "macruronus novaezelandiae"]<- df_target_bmsy[4, "macruronus novaezelandiae"]/1.5
-df_target_bmsy[4, "helicolenus barathri"]<- df_target_bmsy[4, "helicolenus barathri"]/2 # could increase this to 8 as this spp is not an important one? but need to think mode of this 
+df_target_bmsy[4, "helicolenus barathri"]<- df_target_bmsy[4, "helicolenus barathri"]/2 # could increase this to 8 as this spp is not an important one? but need to think mode of this
 df_target_bmsy[4, "galeorhinus galeus"]<- 0
 df_target_bmsy[4, "centroberyx affinis"]<- df_target_bmsy[4, "centroberyx affinis"]/2
 
-# OPTION 7 - decrease shelf catch 
+# OPTION 7 - decrease shelf catch
 df_target_bmsy[3,]<-df_target_bmsy[3,]*0.8
 
-# OPTION 8 - decrease blue w 
+# OPTION 8 - decrease blue w
 # df_target_bmsy[1, "seriolella brama"]<- df_target_bmsy[1, "seriolella brama"]*0.1
 # df_target_bmsy[3, "seriolella brama"]<- df_target_bmsy[3, "seriolella brama"]*0.1
 # df_target_bmsy[4, "seriolella brama"]<- df_target_bmsy[4, "seriolella brama"]*4
 # df_target_bmsy[5, "seriolella brama"]<- df_target_bmsy[5, "seriolella brama"]*0.1
 
-# BETH: 
+# BETH:
 # need to fix blue wharehow (seriorelle b.) -> reduce bycatch from other fisheries
-# need to fix flathead -> catch are increasing 
-# check increasing abundances - if not realistic you need to change growth parameters and/or recruitment param - see sharks as they all recover to 1995 (modelled) values - though 1995 is a 'depleted' year/abundance 
+# need to fix flathead -> catch are increasing
+# check increasing abundances - if not realistic you need to change growth parameters and/or recruitment param - see sharks as they all recover to 1995 (modelled) values - though 1995 is a 'depleted' year/abundance
 
-# 2 problems with flathead: 1) Fmort in 2006 is much lower than for the Fmort model:  
+# 2 problems with flathead: 1) Fmort in 2006 is much lower than for the Fmort model:
 colSums(df_target_bmsy*initial_effort)
 relative_effort[212,]
 
@@ -427,15 +444,15 @@ relative_effort[212,]
 # df_target_bmsy[1,"platycephalus richardsoni"]<-df_target_bmsy[1,"platycephalus richardsoni"]*8
 # b) increase effort for e.g. SED (or SET) and decrease Q for all spp but flathed. BUT the effort plots won't look as good and initial effort is not based on data any longer
 
-# 2 predation release from squid, which declines (larvae predation as squid eats fish individuals that are ~12 g not sharks as they enter the community at a much higher weight) 
-theta2<-theta
-# theta2["nototodarus gouldi",] 
+# 2 predation release from squid, which declines (larvae predation as squid eats fish individuals that are ~12 g not sharks as they enter the community at a much higher weight)
+# theta2<-theta
+# theta2["nototodarus gouldi",]
 # theta2["nototodarus gouldi","platycephalus richardsoni"]<-3
-# I can 
-# a) increase predation from other small fish. but this is very slightly effective 
+# I can
+# a) increase predation from other small fish. but this is very slightly effective
 # theta2["sillago flindersi","platycephalus richardsoni"]<-1
 
-# to conclude: the problem is a combination of fishing mortality being low and predation being low so that the population increases. An important problem with both model is that flathead abundance is well underestimated (~ 5000t in model and 20000 t in SA - I remember the problem with flathead in the Fmort model being tat increases in this spp lead to decreases/collapses/increases of squalus).  
+# to conclude: the problem is a combination of fishing mortality being low and predation being low so that the population increases. An important problem with both model is that flathead abundance is well underestimated (~ 5000t in model and 20000 t in SA - I remember the problem with flathead in the Fmort model being tat increases in this spp lead to decreases/collapses/increases of squalus).
 
 ```
 
@@ -443,54 +460,30 @@ theta2<-theta
 # tune Q *opn3 - better*
 #----------------------------------------------
 
-
 ```{r}
 
+# compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+
 # initial_effort*df_target = relative_effort as they both determine catches by spp 
-colSums(df_target*initial_effort) # based on catch and effort data and used in FD
-relative_effort[212,] # Fmort from SA (or catches) and used in previous model 
+# colSums(df_target*initial_effort) # based on catch and effort data and used in FD
+# relative_effort[212,] # Fmort from SA (or catches) and used in previous model
+
+# values decrease a lot but they reflet cathcability - need to include in paper? 
 
 # rescale df_target*initial_effort using catchability
 # calculate catchability
 div<-relative_effort[212,]/colSums(df_target*initial_effort)
 # what to do with values >1 ? can these be transfered to other param - e.g. initial effort? 
-div[div>1]<-1
+# div[div>1]<-1 # JUST TRIAL to understand the recoveries
 
 df_target_bmsy<-df_target
 df_target_bmsy<-sweep(df_target_bmsy, 2, div, FUN = '*')
 df_target_bmsy[,1]<-0 # mycto
-df_target_bmsy[,11]<-df_target_bmsy[,11]*0.8 # seriorela 
+# df_target_bmsy[,11]<-df_target_bmsy[,11]*0.8 # seriorela 
 
-colSums(df_target_bmsy*initial_effort)
-relative_effort[212,]
-
-# Arrivata qui - need to check the calibration below 
-
-# further calibration - try options above  
-# fix upper slope 
-df_target_bmsy[4, "seriolella punctata"]<- df_target_bmsy[4, "seriolella punctata"]/2 
-# move target from shelf to sed 
-df_target_bmsy[3, "centroberyx affinis"]<- df_target_bmsy[3, "centroberyx affinis"]/2
-df_target_bmsy[3, "nemadactylus macropterus"]<- df_target_bmsy[3, "nemadactylus macropterus"]/2
-df_target_bmsy[3, "seriolella brama"]<- df_target_bmsy[3, "seriolella brama"]/2 
-df_target_bmsy[1, "centroberyx affinis"]<- df_target_bmsy[1, "centroberyx affinis"]*500
-df_target_bmsy[1, "nemadactylus macropterus"]<- df_target_bmsy[1, "nemadactylus macropterus"]*10
-df_target_bmsy[1, "seriolella brama"]<- df_target_bmsy[1, "seriolella brama"]*50
-
-# increase sed effort by removing some declning spp 
-df_target_bmsy[1, "helicolenus barathri"]<- 0
-df_target_bmsy[1, "seriolella punctata"]<- 0
-df_target_bmsy[1, "galeorhinus galeus"]<- 0
-df_target_bmsy[1, "squalus spp."]<- 0
-df_target_bmsy[1, "centroberyx affinis"]<- 0
-
-# decrease catches in US
-df_target_bmsy[4, "helicolenus barathri"]<- df_target_bmsy[4, "helicolenus barathri"]/2 
-df_target_bmsy[4, "galeorhinus galeus"]<- 0
-df_target_bmsy[4, "centroberyx affinis"]<- df_target_bmsy[4, "centroberyx affinis"]/2
-
-# decrease shelf catch 
-df_target_bmsy[3,]<-df_target_bmsy[3,]*0.8
+# colSums(df_target_bmsy*initial_effort)
+# relative_effort[212,]
+# colSums(df_target_bmsy)
 
 ```
 
@@ -505,31 +498,153 @@ initial_n = sim_fitted@n[212,,]
 initial_n_pp = sim_fitted@n_pp[212,]
 initial_n_bb = sim_fitted@n_bb[212,]
 
-params_FD <- MizerParams(df_param, interaction = theta2, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy, target = df_target_bmsy)
+# fix recoveries by changing erepro - see reasoning in next section  
+# high erepro and high contribution to increasing fleets' catch 
+df_param2<-df_param
+df_param2[6, "erepro"]<-0.0001 # centroberix # SH 
+df_param2[7, "erepro"]<-0.15 # squalus # general (?)
+df_param2[9, "erepro"]<-0.0005 # platy # SH
+df_param2[10, "erepro"]<-0.00005 # zuus # DS
+df_param2[3, "erepro"]<-0.0001 # squid - DS, SH and  US - but this is playing with food...
+df_param2[12, "erepro"]<-0.0000001 # OR (although not high erepro) # DS  
 
-# params_FD@psi
-# params_FD@intake_max
-# params_FD@search_vol
-# params_FD@metab
-# params_FD@mu_b
-# params_FD@selectivity
-# params_FD@catchability
-# params_FD@interaction
+# second round - they all recover as effort declines 
+df_param2[13, "erepro"]<-0.00001 # macrurus for US
+df_param2[14, "erepro"]<-0.000001 # serio p for US (silver)
+df_param2[16, "erepro"]<-0.00001 # genipt for US
+df_param2[15, "erepro"]<-0.00001 # rexea for US
 
-sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 2, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort, scaling_price = scaling_price, Blevel_management = "Bmsy")
+df_param2[11, "erepro"]<-0.00001 # seio b (blue) - for SH and US but just to fix the species 
+
+df_param2[8, "erepro"]<-0.0001 # to fix the spp 
+
+# fix Bmsy - need to lower Bmsy so that platy and genypt are above 20 and below 40? not NECESSARY as 20 or 40 have the same effect on managemtn unless n20>5 
+# df_param2[9, "Bmsy"]<-df_param2[9, "Bmsy"]*0.3 # platy
+# df_param2[16, "Bmsy"]<-df_param2[16, "Bmsy"]*0.7 # genypt
+
+# fix catches distribution 
+df_target_bmsy2<-df_target_bmsy
+colSums(df_target_bmsy2*initial_effort)
+relative_effort[212,]
+
+# less catch in SH - might be better to remove these spp from the catches instead of dropping them into a fleet? 
+df_target_bmsy2[3,"trachurus declivis"]<-(sum(df_target_bmsy2[c(1,3),"trachurus declivis"])/10)*1 # moved from SH to SED
+df_target_bmsy2[1,"trachurus declivis"]<-((sum(df_target_bmsy2[c(1,3),"trachurus declivis"])/10)*9)*7 # increased until it reached relative effort values 
+df_target_bmsy2[3,"nototodarus gouldi"]<-(sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)
+df_target_bmsy2[1,"nototodarus gouldi"]<-((sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)*9)*18
+
+# arrivata qui.... details ...
+# fixing SED nad Sh given cacth contribution plots 
+# df_target_bmsy2[3,"nototodarus gouldi"]<-(sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)
+# df_target_bmsy2[1,"nototodarus gouldi"]<-((sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)*7)*5 
+
+
+# less in SH and US and fix seriorella b plot
+df_target_bmsy2[c(3,4),"seriolella brama"]<-df_target_bmsy2[c(3,4),"seriolella brama"]*0.3
+
+# platy - still a mistery... erepro and Fmort?!
+# increase platy effort in SSG to redirect catches - not working  
+# df_target_bmsy2[5,"platycephalus richardsoni"]<-df_target_bmsy2[1,"platycephalus richardsoni"]*0.5
+# increse in SH to fix species plot - still recovering
+# df_target_bmsy2[3,"platycephalus richardsoni"]<-df_target_bmsy2[3,"platycephalus richardsoni"]*1.3
+# colSums(df_target_bmsy2*initial_effort)
+
+# less catch in US
+# df_target_bmsy2[4,"macruronus novaezelandiae"]<-df_target_bmsy2[4,"macruronus novaezelandiae"]*0.9 # very sensitive to this!!!
+
+# decrease Fmort for some spp to fix sp plots. 
+df_target_bmsy2[3,"centroberyx affinis"]<-df_target_bmsy2[3,"centroberyx affinis"]*0.3
+df_target_bmsy2[3,"seriolella punctata"]<-df_target_bmsy2[3,"seriolella punctata"]*0.3
+df_target_bmsy2[4,"galeorhinus galeus"]<-df_target_bmsy2[4,"galeorhinus galeus"]*0.3
+
+# decrease DS
+# df_target_bmsy2[2,"hoplostethus atlanticus"]<-df_target_bmsy2[2,"hoplostethus atlanticus"]*0.8 # already very low... and very senitive!!!
+
+# more catch in SED - not doing much 
+initial_effort2<-initial_effort
+# initial_effort2[1]<-initial_effort2[1]*1.2
+# initial_effort2[2]<-initial_effort2[2]*0.8 # very sensitive as above!!!
+
+# ke ininfluential when managemetn kicks in ... 
+
+# SSG declining too much - changed managemtn, where effort now decreases in proportion to the declining spp contribution to the community and the catch 
+
+#### run model ---
+
+params_FD <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy2, target = df_target_bmsy2)
+
+sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
+
+# plot_CN(sim_FD_bmsy)
+# plotBiomass(sim_FD_bmsy)$plot+facet_wrap(~Species)
 
 # fast compare catches 
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_fl
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotEffort_fl
 
+# notes and checks 
+# if using Bref: 
+# genipterus, platy and serior b below 20 - only seriorelle is below 20 in reality 
+# galoe below 40 
+# none else below 48
+
+# if using Bmsy : 
+# platy, genypt, serior b (overfished) rexea (overfished) below 20
+# centrob (overfished), galeo (overfished), macrurus, must, nemad, pristo, serio p, zeus below 40 
+# OR (not overfished but below 40 for sure) below 48
+
+# problems: 
+# squalus (uncertain but likely overfished)
+
+# depleted or under management in 2006? 
+pr<-sim_FD_bmsy@BioOut[[4]] %>% 
+  filter(bioLim == "bio20check")
+unique(pr$species)
+
+# catch composition by fleet
+fleetn = 5
+yield<-rowSums(aperm(sim_FD_bmsy@yield,c(1,2,4,3)),dims=3)
+sort(-df_target_bmsy[fleetn,])
+
+# cacth composition through time SEE PLOTS BELOW
+trial<-yield[,,fleetn]
+trial<-as.data.frame(trial) %>% 
+  mutate(time = as.numeric(rownames(trial))) %>% 
+  gather(species, yield, -time) %>% 
+  filter(yield>0)
+
+ggplot(trial, aes(x = time, y = yield, fill = species)) +
+    geom_bar(position = "stack", stat = "identity") +
+    scale_y_continuous()
+
+main<-trial[which(trial$time == 2007),]
+main[order(-main$yield),]
+
+pr<-sim_FD_bmsy@BioOut[[4]] %>% 
+  filter(bioLim == "bio40check", fleet =="SSG")
+unique(pr$species)
+
+# Economy 
 # compare profit and effort (to figure out ke)
+sim_FD_bmsy@effortOut*areaEco/scaling_cost_area # operations in SESSF 
+sim_FD_bmsy@profit*areaEco #/scaling_cost_area # $ in SESSF
+
+yield<-rowSums(aperm(sim_FD_bmsy@yield,c(1,2,4,3)),dims=3) # sum over size
+yield<-rowSums(aperm(yield,c(1,2,3)),dims=2) # sum over fleets
+(yield/1000000)*areaEco
+
+yield2<-rowSums(aperm(sim_FD_bmsy@yield,c(1,2,4,3)),dims=3) # sum over size
+yield2<-rowSums(aperm(yield2,c(1,3,2)),dims=2) # sum over fleets
+(yield2/1000000)*areaEco
+
+bio<-getBiomass(sim_FD_bmsy)
+(bio/1000000)*areaEco
+
+# raw values 
 sim_FD_bmsy@effortOut
+yield2
 sim_FD_bmsy@profit
-sim_FD_bmsy@BioOut[[22]]
-
-# see catch by species and fleet to adjust Q can calibrate df_target better? 
-
 
 # # compared with other communities
 # plot(sim_calibrated)
@@ -552,12 +667,165 @@ sim_FD_bmsy@BioOut[[22]]
 ```
 
 #-----------------------------------------
+# recoveries 
+#----------------------------------------------
+
+this was initially done with erepro as per def (df_param) and  target matrix as per def or similar (df_target_bmsy) then used the version '2' to check results  
+
+```{r}
+
+# using pre recovery-fix model (calibrated cost scalar and ke, managemtn = TRUE): 
+# which fleet shows higher catches at decrease effort due to recoveries? 
+yield<-rowSums(aperm(sim_FD_bmsy@yield,c(1,2,4,3)),dims=3)
+sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[2,]) # DS
+sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[3,]) # SH
+sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[4,]) # US
+plotBiomass(sim_FD_bmsy)$plot +facet_wrap(~Species)
+
+# plot yeld vs effort by spp 
+yield_sp<-rowSums(aperm(yield,c(1,2,3)),dims=2) # sum over fleets
+yield_sp<-as.data.frame(yield_sp) %>% 
+  mutate(time = rownames(yield_sp)) %>% 
+  gather(species, yield, -time)
+
+effort_sp<-as.data.frame(sim_FD_bmsy@effortOut) %>% 
+  mutate(time = rownames(sim_FD_bmsy@effortOut)) %>% 
+  gather(fleet, effort, -time)
+effort_sp_q<-as.data.frame(df_target_bmsy) %>% 
+  mutate(fleet = rownames(df_target_bmsy)) %>% 
+  gather(species, q, -fleet) 
+
+all1<-effort_sp_q %>% 
+  left_join(effort_sp) %>% 
+  mutate(effort = effort*q) %>% 
+  select(-c(q)) %>% 
+  group_by(species, time) %>% 
+  dplyr::summarise(effort = sum(effort))
+all2<-all1 %>% 
+  left_join(yield_sp) %>% 
+  select(-c(time)) %>% 
+  filter(species != "myctophids")
+
+# plot: strange trends due to a combination of dynamics. A confusing one is that effort decreases in time (here effort increases) while abundance increases. I tried 1 sp and main fleet at the time; I get the same output so the methods is OK.
+ggplot(all2, aes(x = effort, y = yield))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~species, scales = "free")
+
+# to make this plot meaningful you need to simplify dynamics: 
+# 1 effort increases in time - i.e. no management 
+# 2 all spp are targeted by 1 fleet (SH) with q=1 for better comparisons 
+# 3 ke is lowered otherwise effort changes too fast and become too high at the  end of the run.  
+
+trail_q<-df_target_bmsy2
+trail_q[3,]<-1
+trail_q[c(1,2,4,5),]<-0
+
+trial <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = trail_q, target = trail_q)
+
+sim_trial <- project(trial, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = FALSE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = data.frame(fleet= rownames(df_target), ke = rep(100000, 5)) , initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy")
+
+# plot yeld vs effort by spp 
+yield<-rowSums(aperm(sim_trial@yield,c(1,2,4,3)),dims=3)
+yield_sp<-rowSums(aperm(yield,c(1,2,3)),dims=2) # sum over fleets
+
+yield_sp<-as.data.frame(yield_sp) %>% 
+  mutate(time = rownames(yield_sp)) %>% 
+  gather(species, yield, -time)
+effort_sp<-as.data.frame(sim_trial@effortOut) %>% 
+  mutate(time = rownames(sim_trial@effortOut)) %>% 
+  gather(fleet, effort, -time) %>% 
+  filter(fleet == "SET-SH") %>% 
+  select(-fleet)
+all2<- effort_sp %>% 
+  left_join(yield_sp) %>% 
+  select(-c(time)) %>% 
+  filter(species != "myctophids")
+
+ggplot(all2, aes(x = effort, y = yield))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~species, scales = "free")
+
+plot_CN(sim_trial)
+plotFleet(sim_trial)
+
+# high erepro (but depends on the changed param above - so used higher ke): 
+# centroberix - fix
+# helicolenus - still high after fix 
+# macrurus - still high after fix
+# nemadactylus - still high after fix  
+# squid - fix
+# platy - fixed!
+# sillago - fix 
+# squalus - fixed 
+# tracurus - still high after fix
+# zeus - still high  after fix
+
+# increased abundance - of these spp, which recover between 2007 and 2017? 
+a<-plotBiomass(sim_trial)$BioData
+ggplot(a, aes(x = time, y = value))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Species, scales = "free")
+
+# centroberix - si
+# helicolenus - si but food
+# macrurus - si 
+# nemadactylus - si 
+# squid - no but food
+# platy - si
+# sillago - no  
+# squalus  - si
+# tracurus - si but food
+# zeus - si
+
+# and if using the real model - all but the 'food' 
+b<-plotBiomass(sim_FD_bmsy)$BioData
+ggplot(b, aes(x = time, y = value))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Species, scales = "free")
+
+# if using the real model- which spp recover most? 
+plotBiomass(sim_FD_bmsy)$plot + facet_wrap(~Species)
+
+# centrob (?)
+# squalus 
+# platy 
+# zeus 
+
+# which contribute to the increasing catch  of fleets
+yield<-rowSums(aperm(sim_FD_bmsy@yield,c(1,2,4,3)),dims=3)
+sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[2,]) # DS
+sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[3,]) # SH
+sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[4,]) # US
+
+# zeus - DS 
+# platy - SH
+# centrob - SH
+
+# squalus - because increasing too fast 
+
+# also: 
+# macrurus - DS 
+# OR - DS (although not high erepro)  
+
+# nemadact - SH 
+# seriorella B (although not high erepro)
+
+```
+
+#-----------------------------------------
 # save data
 #----------------------------------------------
 
 ```{r}
 
 # save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input and Tune Q opn2 
+
+save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input and Tune Q opn2
+
 
 ```
 
@@ -596,11 +864,17 @@ yieldData_sp_fl<-yieldData_sp_fl%>%
   filter(year >= 2006) %>% 
   left_join(df_param[,c(1,2)])
 
+yieldData_sp_fl %>% 
+  filter(yield_tonnes>50, fleet =="SSG", year == 2006) %>% 
+  arrange(-yield_tonnes)
+
 # plot modelled vs observed
-p <- ggplot(yieldData_sp_fl) + 
-  geom_line(aes(x=year, y = yield_tonnes, colour=spCommon), size=1) +
+p <- ggplot(filter(yieldData_sp_fl, fleet =="SED")) + # fleet =="SET-US"
+  geom_bar(aes(x=year, y = yield_tonnes, fill=spCommon), position = "stack", stat = "identity") +
+  # geom_line(aes(x=year, y = yield_tonnes, colour=spCommon), size=1) +
   theme_bw() +
   facet_grid(fleet~color, scale ="free")
+p
 
 ```
 
