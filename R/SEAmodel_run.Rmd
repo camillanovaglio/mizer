@@ -1115,7 +1115,7 @@ diet_steps = 0
 
 ```
 
-# final calibrated community *skip if no calibration*
+# final calibrated community *run*
 
 ```{r}
 
@@ -1154,11 +1154,23 @@ relative_effort3<-relative_effort
 relative_effort3[,7]<-relative_effort3[,7]*0.5
 relative_effort3[,7]<-relative_effort3[,7]*0.1 # bycatch... this is perfect 
 
-# replacing sim_fitted
-sim_fitted3 <- project(params_calibrated3, effort = relative_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
+# fix squid and others
+relative_effort3[,3]<-relative_effort3[,3]*0.5 # squid
+df_param[8, "r_max"]<-df_param[8, "r_max"]*0.8 # jackass
+df_param[9, "r_max"]<-df_param[9, "r_max"]*0.9 # flathead
+df_param[16, "r_max"]<-df_param[16, "r_max"]*0.9 # ling
+df_param[17, "r_max"]<-df_param[17, "r_max"]*0.8 # sawshark
+
+# checking mortalities for flathead 
+# ft<-all_mortality[which(all_mortality$spe == "platycephalus richardsoni"),]
+# view(ft)
+
+params_calibrated4 <- MizerParams(df_param, no_w = no_w, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = fleetDynamics, selectivity_params = NA, catchability = NA, target = NA)
+
+sim_fitted3 <- project(params_calibrated4, effort = relative_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
 
 plot(sim_fitted3)
-plotDietComp(sim_fitted3)
+# plotDietComp(sim_fitted3)
 # plotBiomass(sim_fitted3)$plot + facet_wrap(~Species)
 
 # compare fit before with fit now 
@@ -1192,8 +1204,7 @@ plotBiomass(sim_calibrated_unfished3)$plot + facet_wrap(~Species)
 ```{r}
 
 # abundances - tonnes in the ecosystem 
-e<-getBiomass(sim_fitted3) 
-dim(e)
+e<-getBiomass(sim_fitted) 
 e<-e[223,] # in 1995 (200) or in 2017 (223)  
 (e*areaEco)/1000000
 
@@ -1241,7 +1252,8 @@ diet_comp <- diet %>%
 
 df_param<-df_param3 # already in calibration section, but can repeat here  
 theta<-theta3 # already in calibration section, but can repeat here 
-relative_effort3[200:223,]
+relative_effort<-relative_effort3
+# relative_effort3[200:223,]
 constant_effort<-constant_effort3 # already in calibration section, but can repeat here
 w_pp_cutoff<-w_pp_cutoff3 # already in calibration section, but can repeat here
 min_w_bb<-min_w_bb3 # already in calibration section, but can repeat here
