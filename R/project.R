@@ -118,29 +118,30 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                     # AA
                     diet_steps=10, ...) {  
 
-  # # # # trial
-  # params = params_baserun
-  # effort = effort_temp
+  # # trial
+  # params = params_FD
+  # effort = 0
   # dt = dt
-  # fleetDynamics = FALSE
+  # fleetDynamics = TRUE
   # management = FALSE
   # multiFleet = FALSE
-  # price = NA
-  # cost = NA
-  # diet_steps = diet_steps
-  # ke = NA
-  # initial_effort = NA
-  # scaling_price = NA
-  # Blevel_management = NA
-  # initial_n = params@initial_n
-  # initial_n_pp = params@initial_n_pp
-  # initial_n_bb = params@initial_n_bb
+  # price = df_price_new
+  # cost = df_cost3
+  # diet_steps = 0
+  # ke = ke_fleet
+  # initial_effort = initial_effort
+  # scaling_price = scaling_price
+  # Blevel_management = "Bmsy"
+  # # initial_n = params@initial_n
+  # # initial_n_pp = params@initial_n_pp
+  # # initial_n_bb = params@initial_n_bb
   # 
   # t_save=1
-  # t_max = t_max
-  # temperature = temperature
+  # t_max = nrow(df_price_new)
+  # temperature = rep(params@t_ref, times = t_max)
   # shiny_progress = NULL
-
+  
+  
     validObject(params)
 
     # Do we need to create an effort array?
@@ -582,7 +583,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # yield (spp X w X fleet) yield by fleet and total
           yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
           # dim(yield_itime)
-          # colSums(rowSums(aperm(yield_itime,c(1,3,2)),dims=2))
+          colSums(rowSums(aperm(yield_itime,c(1,3,2)),dims=2))
 
           # price
           price_itime<-price_dt[i_time,]*scaling_price 
@@ -688,7 +689,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
               # contribution to the community
               Perc40$contribution<-Perc40$bioLevel*Perc40$Perc40 
               # contribution to the catch # this can be added to slow decreases 
-              # Perc40$contribution<-Perc40$contribution*Perc40$target # to comment 
+              Perc40$contribution<-Perc40$contribution*Perc40$target # to comment
 
               # MeanPerc40A<-sum(Perc40$contribution)/sum(Perc40$bioLevel) # problem: less species below target result in lower biolevel (less spp = less abundance) and higher decrease in effort. # to comment 
               
@@ -699,7 +700,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
               ref<-Bio2[[i]] %>% filter(target>0.005) # consider only target and bycatch # to uncomment
               # # ref$bioLevel<-ref$bioLevel*ref$target # wait for their importance as target spp
               MeanPerc40A<-sum(Perc40$contribution)/sum(ref$bioLevel)
-              # MeanPerc40A<-MeanPerc40A*2.5 # this is to speed decreases in effort up instead of using a cut bigger than 0 on ref. 
+              # MeanPerc40A<-MeanPerc40A*0.05 # this is to speed/slow decreases in effort up instead of using a cut bigger than 0 on ref.
 
               # option B - cube root of (a * b * c) 
               # MeanPerc40B<-prod(Perc40$Perc40)^(1/3)
@@ -726,7 +727,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                   }
 
                 }else if(n40!=0 & n20<5){
-                  # if some speceis is below 40 but more then 5 spp are below 20 descrease effort 
+                  # if some speceis is below 40 and less then 5 spp are below 20 descrease effort 
                   
                   # new effort according to profits 
                   test = effortOut_dt[i_time,][i] + (ke[i,"ke"]*(profit_itime[[i]]) * dt) 
@@ -760,6 +761,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
             }else{ # start of management = FALSE
 
             for(i in 1:length(fleet)){
+              
+              # i = 2
+              # profit_itime[[i]]
+              # effortOut_dt[i_time,][i]
+              # profit_itime[[i]]*areaEco
+              # effortOut_dt[i_time,][i]*areaEco
               
               Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
               Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
@@ -825,11 +832,13 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
             sim@profit[which(store), ] <- profit_itime
             sim@F[which(store),,,] <- F_itime
             
-            # info on declining spp
-            # stop for calibration
-            sim@BioOut[[i_time]]<-BioOut
-            # info on Biological limits for each species
-            sim@BioLimits[[i_time]]<-Bio2
+            if (management == TRUE){
+              # info on declining spp
+              # stop for calibration
+              sim@BioOut[[i_time]]<-BioOut
+              # info on Biological limits for each species
+              sim@BioLimits[[i_time]]<-Bio2 
+            }
             
             # add values for time step 1. this is because n, n_pp etc and effort are initialised above (before the loop) while these parameters at time step = 1 are calcualted withing the loop. The loop saves from time step 2 leaving 1 at initial values.  
             sim@yield[1,,,]<-yield_dt[1,,,]
@@ -844,11 +853,15 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
         }
         
-        if(fleetDynamics == TRUE & management == TRUE){
-          # info on declining spp - could be moved in if above 
-          # stop for calibration
-          sim@BioOut[[i_time]]<-BioOut
-        }
+        # if(fleetDynamics == TRUE){
+        #   if(management == TRUE){
+        #     sim@BioOut[[i_time]]<-BioOut
+        #   }
+        # } 
+        #   # info on declining spp - could be moved in if above 
+        #   # stop for calibration
+        #   # sim@BioOut[[i_time]]<-BioOut
+        # # }
 
     } # end of for loop
 
