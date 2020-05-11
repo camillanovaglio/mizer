@@ -700,6 +700,16 @@ compareEql<-function(areaEco, df_param, sim, matrix_effort, df_log_spp, calibrat
 
 compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbObs,rescale,areaEco){
   
+  # # trial 
+  # sim = sim_fitted
+  # sim_FD = sim_FD_bmsy
+  # fleetDynamics = TRUE
+  # type = "yield"
+  # yieldObs_timeVariant = yieldObs_timeVariant
+  # ssbObs = ssbObs
+  # rescale = 0
+  # areaEco = areaEco
+  
   # need to fix for the FD part: 
   # other inputs 
   # sim_FD = sim_fitted_FD
@@ -1039,7 +1049,6 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
       mutate(opn = opn/areaEco) %>% # divided by the m3 of the system -> becomes area trawled in 1m3  
       mutate(opn = ifelse(metier == "SED", opn*scaling_effort[1], ifelse(metier == "SET-DS", opn*scaling_effort[2], ifelse(metier == "SET-SH",opn*scaling_effort[3], ifelse(metier == "SET-US", opn*scaling_effort[4], opn*scaling_effort[5])))))
     
-    
     colnames(e_temp)<-c("fleet","year", "effort")
     e_temp<-e_temp[,c(2,1,3)]
     
@@ -1061,7 +1070,7 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
       mutate(year = as.numeric(year)) %>% 
       mutate(color = "observed") %>% 
       `colnames<-`(c("year", "fleet", "effort", "color")) 
-
+    
     plot_e_FD_fl<-rbind(effort_sim_FD_fl, plot_observed)
     plot_e_FD_fl$color<-as.factor(plot_e_FD_fl$color)
     plot_e_FD_fl$color<-ordered(plot_e_FD_fl$color, levels = c("observed","modelled_FD"))
@@ -1081,6 +1090,9 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
     if(rescale == 0){
       plot_e_FD_fl$yield<-plot_e_FD_fl$yield/scaling_cost_area # from area trawled to opn  
       plot_e_FD_fl$yield<-plot_e_FD_fl$yield*areaEco # in ecosystem modelled 
+      
+      # change the scale of effort # now km3 trawled in SESSF - it does not change trends... 
+      # plot_e_FD_fl$yield<-(plot_e_FD_fl$yield*scaling_cost_area)/1000000000
     }
     
     # call the plotting function 
@@ -1194,7 +1206,9 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   BrefFished$species<-rownames(BrefFished) 
   
   # calculate *Bmsy*
-  effort_y<-constant_effort[1:20,]
+  effort_y<-constant_effort[1:100,] # original was 20
+  # effort_y<-rbind(constant_effort[1:200,], constant_effort[1:200,]) 
+  # rownames(effort_y)<-seq(1:dim(effort_y)[1])
   out_y<-data.frame()
   out_e<-data.frame()
   out_b<-data.frame()
@@ -1202,12 +1216,22 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   # start from community at equilibrium (sim_calibrated) and fish each spp for 10 time steps effort (as in sim_calibrated). BUT change effort for each spp one at the time
   for(i in 1:ncol(effort_y)){
     
-    prova <- effort_y
-    # prova[,i]<-seq(from = 0.01, to = 0.5, length.out = dim(effort_y)[1])
-    prova[,i]<-seq(from = 0.001, to = 1, length.out = dim(effort_y)[1])
+    # # other option
+    # comb<-seq(from = 0.001, to = 1, length.out = 10)
+    # for(j in comb){
+    #   prova <- effort_y
+    #   prova[,i]<-j # effort 
+    #   # sim chec....
+    #   
+    # }
+    # 
+    # # end other option 
     
-    # NOTE here whether this is sim_calibrated@params or params changes a lot.... 
-    sim_check <- project(sim_calibrated@params, effort = prova, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0, initial_n = sim_calibrated@n[dim(sim_calibrated@n)[1],,], initial_n_pp = sim_calibrated@n_pp[dim(sim_calibrated@n_pp)[1],], initial_n_bb = sim_calibrated@n_bb[dim(sim_calibrated@n_bb)[1],]) 
+    # i = 9
+    prova <- effort_y
+    prova[,i]<-seq(from = 0.01, to = 1, length.out = dim(effort_y)[1])
+
+    sim_check <- project(sim_calibrated@params, effort = prova, dt = 0.25, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0, initial_n = sim_calibrated@n[dim(sim_calibrated@n)[1],,], initial_n_pp = sim_calibrated@n_pp[dim(sim_calibrated@n_pp)[1],], initial_n_bb = sim_calibrated@n_bb[dim(sim_calibrated@n_bb)[1],]) 
     
     check_y<-getYield(sim_check)
     check_b<-getBiomass(sim_check)
@@ -1252,14 +1276,29 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
     `colnames<-`(c("species","Fmort","yiled","Bmsy")) 
   rownames(msy) <- NULL
   
+  # constsnt effort at eql for each spp 
+  eql_effort<-effort_y[1,]
+  eql_effort<-as.data.frame(eql_effort)
+  eql_effort$species<-rownames(eql_effort)
+  
   # for plotting 
   check_yield_plot<- check_yield %>% 
-    gather(variable, value, -c(species,effort,time))
+    gather(variable, value, -c(species,effort,time)) %>% 
+    filter(species != "myctophids")
+  
+  msy<-msy %>% 
+    filter(species != "myctophids")
+  
+  eql_effort<-eql_effort %>% 
+    filter(species != "myctophids")
   
   # plot 
   p<-ggplot()+ 
-    geom_smooth(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable))+
+    geom_line(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable), size =1)+
+    # geom_smooth(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable))+
+    # geom_point(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable))+
     geom_vline(data = msy, mapping = aes(xintercept = Fmort))+
+    geom_vline(data = eql_effort, mapping = aes(xintercept = eql_effort), color = "red")+
     scale_y_continuous(name = "Yield") +
     scale_x_continuous(name = "Effort") +
     scale_color_manual(values = c("blue"))+
