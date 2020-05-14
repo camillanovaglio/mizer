@@ -519,8 +519,8 @@ df_param2[11, "erepro"]<-0.00001 # seio b (blue) - for SH and US but just to fix
 df_param2[8, "erepro"]<-0.0001 # to fix the spp 
 
 # fix Bmsy - need to lower Bmsy so that platy and genypt are above 20 and below 40? not NECESSARY as 20 or 40 have the same effect on managemtn unless n20>5 
-# df_param2[9, "Bmsy"]<-df_param2[9, "Bmsy"]*0.3 # platy
-# df_param2[16, "Bmsy"]<-df_param2[16, "Bmsy"]*0.7 # genypt
+df_param2[9, "Bmsy"]<-df_param2[9, "Bmsy"]*0.0001 # platy - should not be under management....
+df_param2[16, "Bmsy"]<-df_param2[16, "Bmsy"]*0.0001 # genypt
 
 # fix catches distribution 
 df_target_bmsy2<-df_target_bmsy
@@ -582,6 +582,81 @@ sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, mul
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_fl
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotEffort_fl
+
+# super strange - when I do this run inside project results are differnt because biolevel calculated on B_itime and hence n is different...... 
+sim_FD_bmsy@BioLimits[[4]]$SED 
+sim@BioLimits[[4]]$SED
+
+# 1 - no changes to Bmsy - 4 spp below 20 is OK, we do not have collapses - we start the simulations with 4 adn end up with 2 due to recoveries 
+# [1] genypterus blacodes       platycephalus richardsoni rexea solandri           
+# [4] seriolella brama     
+# warning = effort SET decreases less because platy is less depleted 
+
+# 2 - lower Bmsy for platy - 4 spp below 20 is OK 
+# [1] genypterus blacodes      nemadactylus macropterus rexea solandri          
+# [4] seriolella brama   
+
+# 2 - lower Bmsy for platy and genypt - 3 spp below 20 and it is still OK
+# [1] nemadactylus macropterus rexea solandri           seriolella brama
+
+pr<-sim_FD_bmsy@BioOut[[20]] %>% 
+  filter(bioLim == "bio20check", fleet == "SED")
+unique(pr$species)
+
+a<-lapply(sim_FD_bmsy@BioOut, function(x) x[which(x$fleet == "SED" & x$bioLim == "bio20check"),])
+b<-lapply(a, function(x) nrow(x))
+b
+
+
+
+
+
+# scenarios check 
+# problems - fleet collapse because more then 5 spp below 20 at some stage, but not in status quo anyway....  
+# try df_target_MoreUnderQuota
+
+####### forward price and costs - same as in scenario
+t_max = 13 # till 2030? if you run it for too long it's going to collaps... 
+price_forward = t(replicate(t_max, df_price_new[nrow(df_price_new),]))
+rownames(price_forward)<-seq(2018,(2018+t_max-1))
+# price_trialscenario<-rbind(df_price_new, price_forward)
+
+cost_forward1 <- t(replicate(t_max, df_cost3[nrow(df_cost3),,1]))
+rownames(cost_forward1)<-seq(2018,(2018+t_max-1))
+# cost_forward1<-rbind(df_cost3[,,1], cost_forward1)
+
+cost_forward2 <- t(replicate(t_max, df_cost3[nrow(df_cost3),,2]))
+rownames(cost_forward2)<-seq(2018,(2018+t_max-1))
+# cost_forward2<-rbind(df_cost3[,,2], cost_forward2)
+cost_forward <-array(c(cost_forward1,cost_forward2), dim = c(t_max,dim(cost)[2],dim(cost)[3]))
+
+# cost_trialscenario <-array(c(cost_forward1,cost_forward2),dim = c(dim(cost_forward1)[1],dim(df_cost3)[2],dim(df_cost3)[3]), dimnames = c(dimnames(cost_forward1)[1],dimnames(df_cost3)[2],dimnames(df_cost3)[3]))
+
+trial_params_FD <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_MoreUnderQuota, target = df_target_MoreUnderQuota)
+
+trial_scenarios <- project(trial_params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = price_forward, cost = cost_forward, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
+
+plotFleet(trial_scenarios)
+pr<-trial_scenarios@BioOut[[4]] %>% 
+  filter(bioLim == "bio20check", fleet == "SED")
+unique(pr$species)
+
+# spp below 20
+# [1] macruronus novaezelandiae nemadactylus macropterus  pristiophorus cirratus   
+# [4] rexea solandri            seriolella brama
+
+a<-lapply(trial_scenarios@BioOut, function(x) x[which(x$fleet == "SED" & x$bioLim == "bio20check"),])
+b<-lapply(a, function(x) nrow(x))
+b
+
+# t = 1 (BioOut = 0; 2018): effort = initial effort; Blim < 5
+# t = 2 (BioOut = 4; 2019), effort = initial effort - changes; Blim > 5 (with consequence on effort next t)
+# t = 3 (BioOut = 8; 2020), effort = 0
+trial_scenarios@effortOut
+
+
+
+
 
 # notes and checks 
 # if using Bref: 
@@ -835,46 +910,52 @@ save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_
 
 ```{r}
 
-# modelled catch by species AND fleet
-trial<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$trial
-trial<-as.data.frame.table(trial, responseName = "yield")
-colnames(trial)<-c("year", "species","fleet", "yield_tonnes")
+catchComp<-function(sim_FD, df_log_spp){
 
-# observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which theh bocame yieldObs_timeVariant in createFmort() in DataFunction.r - thus follwong same protocoll as per all observed data for validation 
-datValidationYieldSppFl<-df_log_spp %>%
-  filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
-  group_by(SPC_NAME, metier, YEAR) %>% 
-  dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)/1e3) %>% 
-  `colnames<-`(c("species","fleet","year","yield_tonnes")) %>% 
-  mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+  # modelled catch by species AND fleet
+  trial<-compareTrends(sim_fitted,sim_FD,fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$trial
+  trial<-as.data.frame.table(trial, responseName = "yield")
+  colnames(trial)<-c("year", "species","fleet", "yield_tonnes")
+
+  # observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which theh bocame yieldObs_timeVariant in createFmort() in DataFunction.r - thus follwong same protocoll as per all observed data for validation 
+  datValidationYieldSppFl<-df_log_spp %>%
+    filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
+    group_by(SPC_NAME, metier, YEAR) %>% 
+    dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)/1e3) %>% 
+    `colnames<-`(c("species","fleet","year","yield_tonnes")) %>% 
+    mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
                            fleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
                            fleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
                            fleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
                            fleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) 
 
-# modelled and observed together
-# NOTE: you added catches and calcualted Fmort according to these catches for trachurus. Here they are missing but Q=1 for tracurus and these fleets.  
-datValidationYieldSppFl$color<-"observed"
-trial$color <- "modelled_FD"
-trial$year<-as.numeric(as.character(trial$year))
-trial$species<-as.character(trial$species)
-trial$fleet<-as.character(trial$fleet)
-yieldData_sp_fl<-merge(trial,datValidationYieldSppFl, all =TRUE ) 
-yieldData_sp_fl<-yieldData_sp_fl%>% 
-  filter(year >= 2006) %>% 
-  left_join(df_param[,c(1,2)])
+  # modelled and observed together
+  # NOTE: you added catches and calcualted Fmort according to these catches for trachurus. Here they are missing but Q=1 for tracurus and these fleets.  
+  datValidationYieldSppFl$color<-"observed"
+  trial$color <- "modelled_FD"
+  trial$year<-as.numeric(as.character(trial$year))
+  trial$species<-as.character(trial$species)
+  trial$fleet<-as.character(trial$fleet)
+  yieldData_sp_fl<-merge(trial,datValidationYieldSppFl, all =TRUE ) 
+  yieldData_sp_fl<-yieldData_sp_fl%>% 
+    filter(year >= 2006) %>% 
+    left_join(df_param[,c(1,2)])
 
-yieldData_sp_fl %>% 
-  filter(yield_tonnes>50, fleet =="SSG", year == 2006) %>% 
-  arrange(-yield_tonnes)
+  yieldData_sp_fl %>% 
+    filter(yield_tonnes>50, fleet =="SSG", year == 2006) %>% 
+    arrange(-yield_tonnes)
 
 # plot modelled vs observed
-p <- ggplot(filter(yieldData_sp_fl, fleet =="SED")) + # fleet =="SET-US"
-  geom_bar(aes(x=year, y = yield_tonnes, fill=spCommon), position = "stack", stat = "identity") +
-  # geom_line(aes(x=year, y = yield_tonnes, colour=spCommon), size=1) +
-  theme_bw() +
-  facet_grid(fleet~color, scale ="free")
-p
+  p <- ggplot(filter(yieldData_sp_fl)) + # fleet =="SET-US"
+    geom_bar(aes(x=year, y = yield_tonnes, fill=spCommon), position = "stack", stat = "identity") +
+    # geom_line(aes(x=year, y = yield_tonnes, colour=spCommon), size=1) +
+    theme_bw() +
+    facet_grid(fleet~color, scale ="free")
+
+  return(p = p)
+}
+
+catchComp(sim_FD = sim_FD_bmsy, df_log_spp)
 
 ```
 
