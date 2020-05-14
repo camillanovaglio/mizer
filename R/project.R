@@ -118,30 +118,50 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                     # AA
                     diet_steps=10, ...) {  
 
-  # # trial
-  # params = params_FD
+  # # trial FD
+  # params = params_trial
   # effort = 0
   # dt = dt
   # fleetDynamics = TRUE
-  # management = FALSE
+  # management = TRUE
   # multiFleet = FALSE
-  # price = df_price_new
-  # cost = df_cost3
+  # price = price_forward
+  # cost = cost_forward
   # diet_steps = 0
-  # ke = ke_fleet
-  # initial_effort = initial_effort
+  # ke = ke
+  # initial_effort = initial_effort_scenario
   # scaling_price = scaling_price
-  # Blevel_management = "Bmsy"
-  # # initial_n = params@initial_n
-  # # initial_n_pp = params@initial_n_pp
-  # # initial_n_bb = params@initial_n_bb
+  # Blevel_management = Blevel_management
+  # initial_n = initial_n_scenario
+  # initial_n_pp = initial_n_pp_scenario
+  # initial_n_bb = initial_n_bb_scenario
+  # initial_n_aa = params@initial_n_aa
   # 
-  # t_save=1
-  # t_max = nrow(df_price_new)
+  # t_save = 1
+  # t_max = nrow(price_forward)
   # temperature = rep(params@t_ref, times = t_max)
   # shiny_progress = NULL
   
-  
+  # # trial no FD
+  # params = params
+  # effort = matrix_effort
+  # dt = dt
+  # fleetDynamics = FALSE
+  # management = FALSE
+  # multiFleet = FALSE
+  # price = NA
+  # cost = NA
+  # diet_steps = 0
+  # initial_n = params@initial_n
+  # initial_n_pp = params@initial_n_pp 
+  # initial_n_bb = params@initial_n_bb
+  # initial_n_aa = params@initial_n_aa
+  # t_save = 1
+  # t_max = 100
+  # temperature = rep(params@t_ref, times = t_max)
+  # shiny_progress = NULL
+
+
     validObject(params)
 
     # Do we need to create an effort array?
@@ -445,9 +465,9 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
     }
     
     for (i_time in 1:t_steps) {
-      # for (i_time in 1:5) {
-      # i_time = 1
-        
+      # for (i_time in 27:40) {
+      # i_time = 22
+      
         # Calculate amount E_{a,i}(w) of available food
         avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)
         # to fix: Error in mu_S[mu_S < 0] <- x[x < 0]
@@ -583,7 +603,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # yield (spp X w X fleet) yield by fleet and total
           yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
           # dim(yield_itime)
-          colSums(rowSums(aperm(yield_itime,c(1,3,2)),dims=2))
+          # colSums(rowSums(aperm(yield_itime,c(1,3,2)),dims=2))
 
           # price
           price_itime<-price_dt[i_time,]*scaling_price 
@@ -743,8 +763,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
                   }else{ 
                     Effort_itime_change[i]<-NA
                     Effort_itime_next[i]<-effortOut_dt[i_time,][i] * (1 - MeanPerc40A*dt)
-                    # should we add ke[i,"ke"] here as this determined the fleet adjustmetn time?
-                    # Effort_itime_next[i]<-ke[i,"ke"]*(effortOut_dt[i_time,][i] * (1 - MeanPerc40A*dt))
                   }
                   
                 }else{
@@ -762,7 +780,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
 
             for(i in 1:length(fleet)){
               
-              # i = 2
+              # i = 3
               # profit_itime[[i]]
               # effortOut_dt[i_time,][i]
               # profit_itime[[i]]*areaEco
@@ -775,7 +793,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
               names(Effort_itime_next)[i]<-fleet[i]
               Effort_itime_next[[i]]<-ifelse(is.na(Effort_itime_next[[i]]) | Effort_itime_next[[i]]<0 | is.infinite(Effort_itime_next[[i]]),0, Effort_itime_next[[i]])
 
-            } # end of fo loop
+            } # end of for loop
 
           } # end of managemetn = FALSE
 
@@ -786,14 +804,21 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           # update effort for next time step
           effortOut_dt[i_time+1, ]<-Effort_itime_next
           
-          # # but if the fishery has been inactive for the previous e.g. 4 runs, and effort is sill negative or zero, then set effort for next time step to a minimum value to allow for a fleet to start fishing again.
-          # OR if the conditions above are met: no species below biomass etc.... 
-          if(i_time>5){
-          for(i in 1:length(fleet)){
-            effortOut_dt[i_time+1, i]<- ifelse(sum(effortOut_dt[i_time-5,i],effortOut_dt[i_time-4,i],effortOut_dt[i_time-3,i],effortOut_dt[i_time-2,i],effortOut_dt[i_time-1,i],effortOut_dt[i_time,i],Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
-            
-          }}
-          
+          # # but if the fishery has been inactive for the previous e.g. 4 runs, and effort is sill negative or zero, then set effort for next time step to a minimum value to allow for a fleet to start fishing again. this time depends on dt (if dt=0.25 fishing restarts every 2 years)
+          # 
+          # if(i_time>5){
+          # for(i in 1:length(fleet)){
+          #   effortOut_dt[i_time+1, i]<- ifelse(sum(effortOut_dt[i_time-5,i],effortOut_dt[i_time-4,i],effortOut_dt[i_time-3,i],effortOut_dt[i_time-2,i],effortOut_dt[i_time-1,i],effortOut_dt[i_time,i],Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
+          # }}
+
+          # # need to test this...
+          nYear = 4
+          back <- seq(i_time, i_time-(nYear/dt)) # from i_time to 4 years back
+          if(i_time > (nYear/dt)){
+            for(i in 1:length(fleet)){
+              effortOut_dt[i_time+1, i]<- ifelse(sum(sum(effortOut_dt[back[1]:back[length(back)],i]),Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
+              }}
+
           # yield, revenue and profits in df format - important when saving these data below 
           yield_dt[i_time,,,]<-yield_itime
           revenue_dt[i_time,]<-revenue_itime_tot
@@ -852,16 +877,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           }
 
         }
-        
-        # if(fleetDynamics == TRUE){
-        #   if(management == TRUE){
-        #     sim@BioOut[[i_time]]<-BioOut
-        #   }
-        # } 
-        #   # info on declining spp - could be moved in if above 
-        #   # stop for calibration
-        #   # sim@BioOut[[i_time]]<-BioOut
-        # # }
 
     } # end of for loop
 
