@@ -40,7 +40,7 @@ library(reshape2)
 library(inline)
 library(ggplot2)
 library(vegan)
-library(mizer) # if inner_loop error, you need to upload mizer: 
+# library(mizer) # if inner_loop error, you need to upload mizer: 
 # Error in .Call("_mizer_inner_project_loop", PACKAGE = "mizer", no_sp,  : 
   # "_mizer_inner_project_loop" not available for .Call() for package "mizer"
 # but if you do: 'more than one object in chache...'
