@@ -1173,19 +1173,6 @@ plotBiomass_CN <- function(sim, sim_FD ,df_param, rescale){
   return(list(p = p, BioData = spec_bm))
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 ########### get msy ----
 
 getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_effort,sim_calibrated,df_param,sim_fitted){
@@ -1338,3 +1325,447 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   # results 
   return(list(bioUnfished = bioUnfished, msy=msy, p = p, Bhist = Bhist))
 }
+
+########### final plot - species-fleet interaction matrix ----
+
+plotFleetMatrix<-function(a,b,target_scenario,col_values){
+  
+  # all target matrix for all scenarios together and in dataframe format to be plotted
+  
+  target_scenario$unfished<-NULL
+  
+  trial1<-lapply(target_scenario, function(x) as.data.frame(x))
+  trial1<-do.call("rbind", trial1)
+  trial1$scenario<-gsub("\\..*","",rownames(trial1))
+  trial1$fleet<-gsub(".*\\.","",rownames(trial1))
+  trial1<-trial1 %>%
+    gather(key = "species",value = "target", -fleet, -scenario) %>%
+    right_join(df_param[c(1,2)])
+  
+  # order adn rename scenarios as above for bar plot
+  trial1 <- trial1 %>%
+    mutate(scenario = factor(scenario, level = a))
+  levels(trial1$scenario)<-b
+  trial1$scenario<-droplevels(trial1$scenario)
+  
+  trial1$spCommon<-as.factor(trial1$spCommon)
+  trial1$spCommon<-ordered(trial1$spCommon, levels = c(rev(df_param$spCommon)))
+  
+  spNames<-c("Lanternfish","Whiting","Squid","Perch","Mackerel","Redfish","Deep shark","Morwong","Flathead","Dories","Blue warehou","Orange roughy","Blue granadier","Silver warehou","Gemfish","Pink ling","Sawshark","Gummy shark","School shark")
+  
+  plot_matrix <- ggplot(trial1,aes(x = fleet, y = spCommon)) +
+    geom_tile(aes(fill = target)) +
+    scale_fill_gradient(name ="Intensity" ,low = "white",high = col_values)+ # "#756bb1" 
+    theme_bw()+
+    ylab ("Species")+
+    xlab("Fishing fleets")+
+    scale_y_discrete(labels = rev(spNames))+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))+
+    facet_wrap(~scenario, nrow=1)
+  
+  # version 2
+  trial2<-split(trial1, trial1$scenario)
+  
+  list_plot_matrix<-list()
+  for (i in 1:length(trial2)){
+    list_plot_matrix[[i]] <- ggplot(trial2[[i]],aes(x = fleet, y = spCommon))+
+      geom_tile(aes(fill = target)) +
+      scale_fill_gradient(name ="Intensity" ,low = "white",high = "#756bb1")+ 
+      theme_bw()+
+      ylab ("Species")+
+      xlab("Fishing fleets")+
+      scale_y_discrete(labels = rev(spNames))+
+      theme(text = element_text(size=18),
+            axis.title.y = element_text(vjust=0.4, size = 16),
+            axis.title.x = element_text(vjust=0.3, size = 16),
+            axis.text.x = element_text(angle=90, hjust=0.5),
+            panel.grid.major = element_blank(),
+            strip.background = element_blank(),
+            panel.border = element_rect(colour = "black"),
+            strip.text.x = element_text(face = "bold"))
+    
+    names(list_plot_matrix)[i]<-names(trial2)[i]
+  }
+  
+  return(list(plot_matrix = plot_matrix, list_plot_matrix = list_plot_matrix))
+  
+}
+
+########### final plot - fleets trends in effort ----
+
+plotFleetEffort<-function(a,b, sim_scenario, sim_FD_bmsy,col_values){
+  
+  # plotEffort_CN(sim_scenario)$plot # in plots.R but full code below
+  
+  sim_scenario2 <- sim_scenario[a]
+  
+  e<-lapply(sim_scenario2, function(x) x@effortOut)
+  e<-melt(e) %>% 
+    mutate(L1 = factor(L1, level = a)) %>% 
+    mutate(value = (value/scaling_cost_area)*areaEco) # plot real numbers 
+  levels(e$L1) <- b
+  colnames(e)<-c("Year","Fleet","Effort","Scenario")
+  
+  # effort before simulations 
+  e_before<-sim_FD_bmsy@effortOut
+  e_before<-melt(e_before) %>% 
+    mutate(value = (value/scaling_cost_area)*areaEco) 
+  colnames(e_before)<-c("Year","Fleet","Effort")
+  e_before_add<-expand.grid(unique(e_before$Fleet), unique(e$Scenario))
+  colnames(e_before_add)<-c("Fleet", "Scenario")
+  e_before<-e_before %>% 
+    left_join(e_before_add, all=TRUE)
+  
+  e<-rbind(e, e_before)
+
+  e_mean<-e %>% 
+    group_by(Scenario, Year) %>% 
+    dplyr::summarise(Effort = mean(Effort))
+  
+  # plot only simulations? 
+  e<-e %>% 
+    filter(Year>2017)
+  e_mean<-e_mean %>% 
+    filter(Year>2017)
+  
+  # version 1 
+  plot_effort <- ggplot(e) + 
+    geom_line(aes(x = Year, y = Effort, group = Fleet, color = Fleet), size = 1.2) +
+    # geom_point(aes(x = Year, y = Effort, group = Fleet, color = Fleet, shape = Fleet), size = 2)+
+    # geom_line(data = e_mean, aes(x = Year, y = Effort), color = "black", size = 1.2)+
+    scale_y_continuous(name = "Effort [opn]") +
+    scale_x_continuous(name = "Year")+
+    scale_color_manual(values = col_values)+
+    # scale_color_brewer(type='div', palette=2)+ # palette="Set1" or "Spectral"
+    facet_wrap(~Scenario, nrow =1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  # version 2 - list of plots 
+  plot_effort_list<-list()
+  for (i in 1:length(sim_scenario2)){
+    
+    e<-sim_scenario2[[i]]@effortOut
+    e<-as.data.frame.table(e) %>% 
+      mutate(time = as.numeric(as.character(time)))
+    
+    plot_effort_list[[i]] <- ggplot(e, aes(x = time, y = Freq, group = gear, color = gear)) + 
+      geom_line() +
+      scale_y_continuous(name = "Effort [m]") +
+      scale_x_continuous(name = "Year")+
+      # facet_wrap(~gear,ncol = length(unique(e$gear)))+  
+      theme_bw()+
+      theme(text = element_text(size=18),
+            axis.title.y = element_text(vjust=0.4, size = 16),
+            axis.title.x = element_text(vjust=0.3, size = 16),
+            panel.grid.major = element_blank(), 
+            strip.background =element_rect(fill="white"))
+    # legend.position = "none")
+    
+    names(plot_effort_list)[i]<-names(sim_scenario2)[i]
+  }
+  
+  return(list(plot_effort = plot_effort, plot_effort_list = plot_effort_list))
+  
+}
+
+########### final plot - calcualte indicators ----
+
+indicators<-function(sim_scenario){
+  
+  # BOIMASS recoveries 
+  
+  biomass_scenario <- sim_scenario %>%
+    map(~getBiomass(.)) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~slice(., n())) %>% # Here you decide which value to consider, either the last one or a sum over the hole runs 
+    map(~select(., c("squalus spp.","seriolella brama","rexea solandri", "galeorhinus galeus"))) %>% # biomass of sensitive (squalus) + recovery species  
+    map(~sum(.)) 
+  
+  # BOIMASS target
+  
+  biomass_scenario_B <- sim_scenario %>%
+    map(~getBiomass(.)) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~slice(., n())) %>% 
+    # map(~select(., -c("myctophids","nototodarus gouldi","helicolenus barathri","trachurus declivis","squalus spp.","pristiophorus cirratus"))) %>% 
+    map(~sum(.))
+  
+  # N spp below Bmsy - i.e. driving management  (this does not account for depletion during the time of simulations)
+  
+  Nref_scenario<-sim_scenario %>% 
+    map(~do.call("rbind", .@BioOut)) %>% 
+    map(~filter(., bioLim == "bio40check", timestep == t_max)) %>% 
+    map(~length(unique(.$species)))
+  
+  # number of spp below 20% thus stopping fishing from happening (as above)
+  
+  Nref20_scenario<-sim_scenario %>% 
+    map(~do.call("rbind", .@BioOut)) %>% 
+    map(~filter(., bioLim == "bio20check", timestep == t_max)) %>% 
+    map(~length(unique(.$species)))
+  
+  # N active fleets (as above - better shown as effort dynamics)
+  
+  Fref_scenario<-sim_scenario %>% 
+    map(~.@effortOut) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~filter(., row_number() == n())) %>% 
+    map(~length(which(.>0)))
+  
+  # SLOPE SIZE-SPECTRUM
+  
+  slope_scenario <- sim_scenario %>%
+    map(~getCommunitySlope(.)) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~slice(., n())) %>% 
+    map(~select(., slope))
+  
+  # MTL 
+  
+  # # as specified in doyen et al. 2017 ecovariability paper 
+  # # from fishbase quick search 
+  # df_param$MTL<-c(3.1, 3.3, 4.07, 4, 3.9, 3.8, 4.3, 3.4, 3.9, 4.5, 3.7, 4.3, 4.5, 3.5, 4.3, 4.2, 4.2, 4.5, 4.3)
+  # 
+  # MTL_scenario <- sim_scenario_list %>%
+  #   map(~t(getBiomass(.))) %>% 
+  #   map(~as.data.frame(.)) %>%
+  #   map(~mutate(., species = rownames(.))) %>% 
+  #   map(~select(., c(t_max, "species"))) %>% 
+  #   map(~`colnames<-`(., c("biomass","species"))) %>% 
+  #   map(~right_join(., df_param[,c("species","MTL")])) %>% 
+  #   map(~mutate(., meanMTL = biomass*MTL)) %>% 
+  #   map(~sum(.$meanMTL)/sum(.$biomass))
+  
+  # YIELD
+  
+  yield_scenario <- sim_scenario %>%
+    map(~getYield_CN(.)) %>% 
+    map(~slice(., n())) %>% 
+    map(~sum(.))
+  
+  # PROFIT
+  
+  profit_scenario<-sim_scenario %>% 
+    map(~.@profit) %>% 
+    map(~as.data.frame(.)) %>%
+    map(~slice(., n())) %>% 
+    map(~sum(.))
+  
+  # EFFORT
+  
+  effort_scenario<-sim_scenario %>% 
+    map(~.@effortOut) %>% 
+    map(~as.data.frame(.)) %>%
+    map(~slice(., n())) %>% 
+    map(~sum(.))
+  
+  df_plot<-do.call("rbind", biomass_scenario) %>%
+    cbind(do.call("rbind", biomass_scenario_B)) %>%
+    cbind(do.call("rbind", Nref_scenario)) %>%
+    cbind(do.call("rbind", Nref20_scenario)) %>%
+    cbind(do.call("rbind", Fref_scenario)) %>%
+    cbind(do.call("rbind", slope_scenario)) %>%
+    cbind(do.call("rbind", yield_scenario)) %>% 
+    cbind(do.call("rbind", effort_scenario)) %>% 
+    cbind(do.call("rbind", profit_scenario)) %>% 
+    `colnames<-`(c("biomassA","biomassB","Nref","Nref20","Fref","slope","yield","effort","profit")) %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column(var = "scenario") 
+  
+  return(list(df_plot = df_plot))
+  
+}
+
+########### final plot - bar plot of trade-offs ----
+
+plotIndicators<-function(a,b,df_plot, col_values){
+  
+  # rescale indicators 
+  ref<-df_plot[which(df_plot$scenario == "statusQuo"),]  
+  
+  df_plot2<-df_plot %>% 
+    mutate(biomassA = biomassA-ref$biomassA) %>% 
+    mutate(biomassA = (biomassA-min(abs(biomassA)))/(max(abs(biomassA))-min(abs(biomassA)))) %>% 
+    mutate(biomassB = biomassB-ref$biomassB) %>% 
+    mutate(biomassB = (biomassB-min(abs(biomassB)))/(max(abs(biomassB))-min(abs(biomassB)))) %>% 
+    mutate(slope = slope-ref$slope) %>% 
+    mutate(slope = (slope-min(abs(slope)))/(max(abs(slope))-min(abs(slope)))) %>% 
+    mutate(yield = yield-ref$yield) %>% 
+    mutate(yield = (yield-min(abs(yield)))/(max(abs(yield))-min(abs(yield)))) %>% 
+    mutate(effort = effort-ref$effort) %>% 
+    mutate(effort = (effort-min(abs(effort)))/(max(abs(effort))-min(abs(effort)))) %>% 
+    mutate(profit = profit-ref$profit) %>% 
+    mutate(profit = (profit-min(abs(profit)))/(max(abs(profit))-min(abs(profit))))
+  
+  # calculate sp below re limits adn N of active vessels for each scenario
+  Ntext<-df_plot2 %>% 
+    select(c(scenario, Nref)) #%>%
+  Ntext$Nref<-paste("Below Bmsy = ", Ntext$Nref)
+  
+  N20text<-df_plot2 %>% 
+    select(c(scenario, Nref20)) #%>%
+  N20text$Nref20<-paste("Below 20% = ", N20text$Nref20)
+  
+  Ftext<-df_plot2 %>% 
+    select(c(scenario, Fref)) #%>%
+  Ftext$Fref<-paste("Active = ", Ftext$Fref)
+  
+  # color, order and rename indicators and scenarios
+  c = c("Nref","Nref20","Fref","biomassB","biomassA","slope","effort","yield","profit")
+  d = c("Nref","Nref20","Fref","Biomass","Bio recovery", "Slope", "Effort", "Yield", "Profit")
+  
+  df_plot3<- df_plot2 %>% 
+    gather(indicator, value, -scenario) %>% 
+    mutate(type = ifelse(indicator %in% c("biomassA","biomassB","slope"),"ecological","socio-economic")) %>% 
+    mutate(scenario = factor(scenario, level = a)) %>% 
+    mutate(indicator = factor(indicator, level = c)) 
+  levels(df_plot3$scenario) <- b
+  levels(df_plot3$indicator) <- d
+  df_plot3$scenario<-droplevels(df_plot3$scenario)
+  df_plot3$indicator<-droplevels(df_plot3$indicator)
+  
+  Ntext2 <- Ntext %>%
+    mutate(scenario = factor(scenario, level = a))
+  levels(Ntext2$scenario)<-b
+  Ntext2$scenario<-droplevels(Ntext2$scenario)
+  
+  N20text2 <- N20text %>%
+    mutate(scenario = factor(scenario, level = a))
+  levels(N20text2$scenario)<-b
+  N20text2$scenario<-droplevels(N20text2$scenario)
+  
+  Ftext2 <- Ftext %>%
+    mutate(scenario = factor(scenario, level = a))
+  levels(Ftext2$scenario)<-b
+  Ftext2$scenario<-droplevels(Ftext2$scenario)
+  
+  FtextAll<-merge(Ftext2, N20text2)
+  FtextAll<-merge(FtextAll, Ntext2)
+  FtextAll$all<-paste(FtextAll$Fref, FtextAll$Nref20, FtextAll$Nref)
+  
+  # version 1 - all info
+  plot_bar<-ggplot()+ 
+    geom_bar(data = filter(df_plot3, !indicator %in% c("Nref","Nref20","Fref", "effort", "slope")), aes(x = indicator, y = value, color = type, fill = type), stat='identity', width=0.8)+
+    scale_color_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
+    scale_fill_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
+    geom_text(data = Ftext2, aes(x = 2, y = 1.4, label = Fref), color = "black", size = 4)+
+    geom_text(data = N20text2, aes(x = 2.6, y = 1.25, label = Nref20), color = "black", size = 4)+
+    geom_text(data = Ntext2, aes(x = 2.7, y = 1.1, label = Nref), color = "black", size = 4)+
+    facet_wrap(~scenario, nrow = 1)+
+    theme_bw()+
+    geom_hline(yintercept = 1, linetype = "dashed")+
+    geom_hline(yintercept = -1, linetype = "dashed")+
+    ylab ("Changes relative to Status Quo")+
+    xlab("Indicators")+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(), 
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  # version 2 - reduced
+  df_plot4<-df_plot3 %>% 
+    filter(indicator %in% c("Bio recovery","Biomass","Yield","Profit"))
+  
+  plot_bar_reduced<-ggplot()+ 
+    geom_bar(data = df_plot4, aes(x = indicator, y = value, color = type, fill = type), stat='identity', width=0.8)+
+    scale_color_manual(values = col_values, name = "Indicator type")+ 
+    scale_fill_manual(values = col_values, name = "Indicator type")+ 
+    facet_wrap(~scenario, nrow = 1)+
+    theme_bw()+
+    # geom_hline(yintercept = 0, linetype = "dashed")+
+    ylab ("Changes relative to Status Quo")+
+    xlab ("Indicators")+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(), 
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold")) # strip.text.x = element_blank())
+
+  # version 3 - reduced and list 
+  df_plot5<-split(df_plot4, df_plot4$scenario)
+  
+  list_plot_bar<-list()
+  for (i in 1:length(df_plot5)){
+    
+    list_plot_bar[[i]] <-ggplot()+ 
+      geom_bar(data = df_plot5[[i]], aes(x = indicator, y = value), stat='identity', width=0.8)+
+      scale_color_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
+      scale_fill_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
+      theme_bw()+
+      geom_hline(yintercept = 0, linetype = "dashed")+
+      ylab ("Changes relative to Status Quo")+
+      xlab ("Indicators")+
+      theme(text = element_text(size=18),
+            axis.title.y = element_text(vjust=0.4, size = 16),
+            axis.title.x = element_text(vjust=0.3, size = 16),
+            axis.text.x = element_text(angle=90, hjust=0.5),
+            panel.grid.major = element_blank(), 
+            strip.background = element_blank(),
+            panel.border = element_rect(colour = "black"),
+            strip.text.x = element_text(face = "bold"))
+    
+    names(list_plot_bar)[i]<-names(df_plot5)[i]
+  }
+  
+  return(list(plot_bar = plot_bar, plot_bar_reduced = plot_bar_reduced, list_plot_bar = list_plot_bar))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
