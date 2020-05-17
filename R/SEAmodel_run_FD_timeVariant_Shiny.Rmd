@@ -280,7 +280,7 @@ no_w = 100 # def
 ```{R}
 
 # Calculate biomass reference levels (Bref, Bmsy, Bhist) 
-source("DataFunction.R") 
+source("/Users/nov017/R-projects/Mizer-fleet/R/DataFunction.R") 
 Blevel<-getBlevel(sim_calibrated_unfished,matrix_effort_nofishing,constant_effort,sim_calibrated,df_param,sim_fitted)
 bioUnfished = Blevel$bioUnfished 
 msy = Blevel$msy
@@ -308,6 +308,12 @@ p<-ggplot(bio_plot, aes(x = variable, y = value))+
 
 # check reference levels. using Bmsy and Bhist, fishing is more likely to happen
 # bio$fishing<-ifelse(bio$bioMod<bio$Bmsy*0.5, "no fishing", "")
+
+#### FIG S1
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+tiff("FigS1_May2020.tiff", height=6, width=10, units ='in', res=300)
+plot
+dev.off()
 
 ```
 
@@ -519,8 +525,8 @@ df_param2[11, "erepro"]<-0.00001 # seio b (blue) - for SH and US but just to fix
 df_param2[8, "erepro"]<-0.0001 # to fix the spp 
 
 # fix Bmsy - need to lower Bmsy so that platy and genypt are above 20 and below 40? not NECESSARY as 20 or 40 have the same effect on managemtn unless n20>5 
-df_param2[9, "Bmsy"]<-df_param2[9, "Bmsy"]*0.0001 # platy - should not be under management....
-df_param2[16, "Bmsy"]<-df_param2[16, "Bmsy"]*0.0001 # genypt
+# df_param2[9, "Bmsy"]<-df_param2[9, "Bmsy"]*0.0001 # platy - should not be under management....
+# df_param2[16, "Bmsy"]<-df_param2[16, "Bmsy"]*0.0001 # genypt
 
 # fix catches distribution 
 df_target_bmsy2<-df_target_bmsy
@@ -583,9 +589,7 @@ compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yiel
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_fl
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotEffort_fl
 
-# super strange - when I do this run inside project results are differnt because biolevel calculated on B_itime and hence n is different...... 
-sim_FD_bmsy@BioLimits[[4]]$SED 
-sim@BioLimits[[4]]$SED
+# check managemtn and declines in effort: 
 
 # 1 - no changes to Bmsy - 4 spp below 20 is OK, we do not have collapses - we start the simulations with 4 adn end up with 2 due to recoveries 
 # [1] genypterus blacodes       platycephalus richardsoni rexea solandri           
@@ -599,23 +603,17 @@ sim@BioLimits[[4]]$SED
 # 2 - lower Bmsy for platy and genypt - 3 spp below 20 and it is still OK
 # [1] nemadactylus macropterus rexea solandri           seriolella brama
 
-pr<-sim_FD_bmsy@BioOut[[20]] %>% 
-  filter(bioLim == "bio20check", fleet == "SED")
-unique(pr$species)
-
-a<-lapply(sim_FD_bmsy@BioOut, function(x) x[which(x$fleet == "SED" & x$bioLim == "bio20check"),])
-b<-lapply(a, function(x) nrow(x))
-b
-
-
+# pr<-sim_FD_bmsy@BioOut[[20]] %>% 
+#   filter(bioLim == "bio20check", fleet == "SED")
+# unique(pr$species)
+# 
+# a<-lapply(sim_FD_bmsy@BioOut, function(x) x[which(x$fleet == "SED" & x$bioLim == "bio20check"),])
+# b<-lapply(a, function(x) nrow(x))
+# b
 
 
+####### forward price and costs - same as in scenario but handy here for checking
 
-# scenarios check 
-# problems - fleet collapse because more then 5 spp below 20 at some stage, but not in status quo anyway....  
-# try df_target_MoreUnderQuota
-
-####### forward price and costs - same as in scenario
 t_max = 13 # till 2030? if you run it for too long it's going to collaps... 
 price_forward = t(replicate(t_max, df_price_new[nrow(df_price_new),]))
 rownames(price_forward)<-seq(2018,(2018+t_max-1))
@@ -652,8 +650,9 @@ b
 # t = 1 (BioOut = 0; 2018): effort = initial effort; Blim < 5
 # t = 2 (BioOut = 4; 2019), effort = initial effort - changes; Blim > 5 (with consequence on effort next t)
 # t = 3 (BioOut = 8; 2020), effort = 0
-trial_scenarios@effortOut
+# trial_scenarios@effortOut
 
+#### end checking 
 
 
 
@@ -742,7 +741,7 @@ sim_FD_bmsy@profit
 ```
 
 #-----------------------------------------
-# recoveries 
+# recoveries *can skyp*
 #----------------------------------------------
 
 this was initially done with erepro as per def (df_param) and  target matrix as per def or similar (df_target_bmsy) then used the version '2' to check results  
@@ -796,6 +795,8 @@ trail_q<-df_target_bmsy2
 trail_q[3,]<-1
 trail_q[c(1,2,4,5),]<-0
 
+# try df_param foirs as the one with no erepro modified
+
 trial <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = trail_q, target = trail_q)
 
 sim_trial <- project(trial, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = FALSE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = data.frame(fleet= rownames(df_target), ke = rep(100000, 5)) , initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy")
@@ -817,13 +818,20 @@ all2<- effort_sp %>%
   select(-c(time)) %>% 
   filter(species != "myctophids")
 
-ggplot(all2, aes(x = effort, y = yield))+
+erep<-ggplot(all2, aes(x = effort, y = yield))+
   geom_point()+
   geom_line()+
   facet_wrap(~species, scales = "free")
 
-plot_CN(sim_trial)
-plotFleet(sim_trial)
+# plot_CN(sim_trial)
+# plotFleet(sim_trial)
+
+#### FIG S2 
+# to do : lots change colors and do point for modelled
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+tiff("FigS2B_May2020.tiff", height=6, width=10, units ='in', res=300)
+erep
+dev.off()
 
 # high erepro (but depends on the changed param above - so used higher ke): 
 # centroberix - fix
@@ -910,10 +918,10 @@ save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_
 
 ```{r}
 
-catchComp<-function(sim_FD, df_log_spp){
+catchComp<-function(sim_FD_bmsy, df_log_spp){
 
   # modelled catch by species AND fleet
-  trial<-compareTrends(sim_fitted,sim_FD,fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$trial
+  trial<-compareTrends(sim_fitted,sim_FD_bmsy,fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$trial
   trial<-as.data.frame.table(trial, responseName = "yield")
   colnames(trial)<-c("year", "species","fleet", "yield_tonnes")
 
@@ -946,16 +954,50 @@ catchComp<-function(sim_FD, df_log_spp){
     arrange(-yield_tonnes)
 
 # plot modelled vs observed
-  p <- ggplot(filter(yieldData_sp_fl)) + # fleet =="SET-US"
-    geom_bar(aes(x=year, y = yield_tonnes, fill=spCommon), position = "stack", stat = "identity") +
-    # geom_line(aes(x=year, y = yield_tonnes, colour=spCommon), size=1) +
-    theme_bw() +
-    facet_grid(fleet~color, scale ="free")
+  
+  # choose color
+  library(RColorBrewer)
+  colourCount = length(unique(yieldData_sp_fl$spCommon))
+  getPalette = colorRampPalette(brewer.pal(12, "Set2"))
+  
+  # order factors 
+  a = c("SET-SH","SET-US","SSG","SET-DS","SED")
+  b = c("modelled_FD", "observed")
+  c = df_param[,2]
+  yieldData_sp_fl<-yieldData_sp_fl %>% 
+    mutate(fleet = factor(fleet, level = a)) %>% 
+    mutate(color = factor(color, level = b)) %>% 
+    mutate(yera = factor(year)) %>% 
+    mutate(spCommon = factor(spCommon, level = c)) %>% 
+    filter(spCommon != "lanternfish")
 
+  p <- ggplot(yieldData_sp_fl, aes(x=year, y = yield_tonnes, fill=spCommon)) + 
+    geom_bar(position = "stack", stat = "identity") +
+    scale_fill_manual(values=getPalette(colourCount), name= "Species")+
+    facet_grid(fleet~color, scale ="free")+
+    scale_y_continuous(name = "Yield [tonnes]") +
+    scale_x_continuous(name = "Year", labels = scales::number_format(accuracy = 1))+
+    theme_bw()+
+    theme(text = element_text(size=16),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_rect(fill="white"))
+          # panel.border = element_rect(colour = "black"),
+          # strip.text.x = element_text(face = "bold"))+
+
+  p
+  
   return(p = p)
 }
 
-catchComp(sim_FD = sim_FD_bmsy, df_log_spp)
+#### FIG S5 
+# to do : change color and deside on bar plot or lines 
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+tiff("Fig5_May2020.tiff", height=8, width=9, units ='in', res=300)
+catchComp(sim_FD_bmsy, df_log_spp)
+dev.off()
 
 ```
 
@@ -1080,6 +1122,14 @@ library(patchwork)
 # tiff("plotEffort_fl.tiff", height=4, width=9, units ='in', res=300)
 # plotEffort_fl
 # dev.off()
+
+#### FIG 4 
+# to do : change colors and do point for modelled change legend
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+tiff("Fig4_May2020.tiff", height=4, width=8, units ='in', res=300)
+plotEffortCatch_fl
+dev.off()
+
 
 # tiff("/Users/nov017/Desktop/plot_fleet.tiff", height=4, width=9, units ='in', res=300)
 # plotEffortCatch_fl
