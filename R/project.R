@@ -100,28 +100,28 @@ NULL
 #' sim <- project(params, effort = effort_array)
 #' }
 #' 
-project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
-                    temperature = rep(params@t_ref, times = t_max), 
+project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
+                    temperature = rep(params@t_ref, times = t_max),
                     initial_n = params@initial_n,
 
                     # AA
-                    initial_n_pp = params@initial_n_pp, 
+                    initial_n_pp = params@initial_n_pp,
                     initial_n_bb = params@initial_n_bb,
                     initial_n_aa = params@initial_n_aa,
                     # CN
-                    fleetDynamics, management, multiFleet, price = price, 
+                    fleetDynamics, management, multiFleet, price = price,
                     cost = cost, scaling_price = scaling_price, ke = ke,
                     initial_effort = initial_effort,
                     Blevel_management = Blevel_management,
-                    
-                    shiny_progress = NULL, 
+
+                    shiny_progress = NULL,
                     # AA
-                    diet_steps=10, ...) {  
+                    diet_steps=10, ...) {
 
   # # trial FD
   # params = params_trial
   # effort = 0
-  # dt = dt
+  # dt = 0.25
   # fleetDynamics = TRUE
   # management = TRUE
   # multiFleet = FALSE
@@ -138,7 +138,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
   # initial_n_aa = params@initial_n_aa
   # 
   # t_save = 1
-  # t_max = nrow(price_forward)
+  # t_max = 13
   # temperature = rep(params@t_ref, times = t_max)
   # shiny_progress = NULL
   
@@ -160,7 +160,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
   # t_max = 100
   # temperature = rep(params@t_ref, times = t_max)
   # shiny_progress = NULL
-
 
     validObject(params)
 
@@ -805,12 +804,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.1, t_save=1,
           effortOut_dt[i_time+1, ]<-Effort_itime_next
           
           # # but if the fishery has been inactive for the previous e.g. 4 runs, and effort is sill negative or zero, then set effort for next time step to a minimum value to allow for a fleet to start fishing again. this time depends on dt (if dt=0.25 fishing restarts every 2 years)
-          # 
-          # if(i_time>5){
-          # for(i in 1:length(fleet)){
-          #   effortOut_dt[i_time+1, i]<- ifelse(sum(effortOut_dt[i_time-5,i],effortOut_dt[i_time-4,i],effortOut_dt[i_time-3,i],effortOut_dt[i_time-2,i],effortOut_dt[i_time-1,i],effortOut_dt[i_time,i],Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
-          # }}
-
           # # need to test this...
           nYear = 4
           back <- seq(i_time, i_time-(nYear/dt)) # from i_time to 4 years back
