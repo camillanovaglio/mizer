@@ -1203,17 +1203,6 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   # start from community at equilibrium (sim_calibrated) and fish each spp for 10 time steps effort (as in sim_calibrated). BUT change effort for each spp one at the time
   for(i in 1:ncol(effort_y)){
     
-    # # other option
-    # comb<-seq(from = 0.001, to = 1, length.out = 10)
-    # for(j in comb){
-    #   prova <- effort_y
-    #   prova[,i]<-j # effort 
-    #   # sim chec....
-    #   
-    # }
-    # 
-    # # end other option 
-    
     # i = 9
     prova <- effort_y
     prova[,i]<-seq(from = 0.01, to = 1, length.out = dim(effort_y)[1])
@@ -1269,24 +1258,33 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   eql_effort$species<-rownames(eql_effort)
   
   # for plotting 
+  a = df_param[,2]
+  
+  levels(eql_effort$spCommon)
+  
   check_yield_plot<- check_yield %>% 
     gather(variable, value, -c(species,effort,time)) %>% 
-    filter(species != "myctophids")
+    filter(species != "myctophids") %>% 
+    mutate(value = (value/1000000)*areaEco) %>% 
+    left_join(df_param[,c(1,2)]) %>% 
+    mutate(spCommon = factor(spCommon, level = a))
   
   msy<-msy %>% 
-    filter(species != "myctophids")
+    filter(species != "myctophids")%>% 
+    left_join(df_param[,c(1,2)])%>% 
+    mutate(spCommon = factor(spCommon, level = a))
   
   eql_effort<-eql_effort %>% 
-    filter(species != "myctophids")
+    filter(species != "myctophids")%>% 
+    left_join(df_param[,c(1,2)])%>% 
+    mutate(spCommon = factor(spCommon, level = a))
   
   # plot 
   p<-ggplot()+ 
     geom_line(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable), size =1)+
-    # geom_smooth(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable))+
-    # geom_point(data = filter(check_yield_plot, variable == "yield"), aes(y = value, x = effort, group = variable, color = variable))+
     geom_vline(data = msy, mapping = aes(xintercept = Fmort))+
     geom_vline(data = eql_effort, mapping = aes(xintercept = eql_effort), color = "red")+
-    scale_y_continuous(name = "Yield") +
+    scale_y_continuous(name = "Yield [tonnes]") +
     scale_x_continuous(name = "Effort") +
     scale_color_manual(values = c("blue"))+
     theme_bw() +
@@ -1299,7 +1297,7 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
           axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
           panel.grid.major = element_blank(),
           strip.background = element_rect(colour="black", fill= NA))+
-    facet_wrap(~species, scale="free")
+    facet_wrap(~spCommon, scale="free")
   
   # caclualte *Bhist* 
   hist_y<-getYield(sim_fitted)
@@ -1731,6 +1729,10 @@ plotIndicators<-function(a,b,df_plot, col_values){
   
   return(list(plot_bar = plot_bar, plot_bar_reduced = plot_bar_reduced, list_plot_bar = list_plot_bar))
 }
+
+
+
+
 
 
 
