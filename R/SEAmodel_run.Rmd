@@ -40,7 +40,7 @@ library(reshape2)
 library(inline)
 library(ggplot2)
 library(vegan)
-# library(mizer) # if inner_loop error, you need to upload mizer: 
+library(mizer) # if inner_loop error, you need to upload mizer:
 # Error in .Call("_mizer_inner_project_loop", PACKAGE = "mizer", no_sp,  : 
   # "_mizer_inner_project_loop" not available for .Call() for package "mizer"
 # but if you do: 'more than one object in chache...'
@@ -1228,7 +1228,7 @@ diet_predator<-diet %>%
   group_by(prey) %>% 
   dplyr::summarise(value = sum(value)) %>% 
   mutate(contribution = (value/sum(value))*100)
-view(diet_predator)
+# view(diet_predator)
 
 # galoe, mustelus, pristoph OK with 90% of diet being benthos 
 # ling (76% benthos), gamefish (85%), granadier (90%), or (97 - need to exclude trachurus and platy from diet), zeus (81% lots of micto), platy (90%), squalus (94% - should eat 80% of mackarel) are fish eaters
@@ -1249,6 +1249,13 @@ diet_comp <- diet %>%
 #----------------------------------------------
 
 ```{r}
+
+#### FIG 3 
+# to do : change colors and do point for modelled
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+tiff("Fig3_May2020.tiff", height=6, width=10, units ='in', res=300)
+plotYield3
+dev.off()
 
 df_param<-df_param3 # already in calibration section, but can repeat here  
 theta<-theta3 # already in calibration section, but can repeat here 
