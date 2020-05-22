@@ -42,6 +42,13 @@
 #' @export
 upgradeParams <- function(params) {
     
+    if ("interaction_p" %in% names(params@species_params)) {
+        params@species_params$interaction_resource <- 
+            params@species_params$interaction_p
+        params@species_params$interaction_p <- NULL
+        message("The 'interaction_p' column has been renamed to 'interaction_resource'.")
+    }
+    
     if (!.hasSlot(params, "gear_params")) {
         gear_params <- validGearParams(data.frame(), params@species_params)
     } else {
@@ -155,8 +162,8 @@ upgradeParams <- function(params) {
         max_w = params@w[length(params@w)],
         min_w_pp = params@w_full[1] + 1e-16, # To make
         # sure that we don't add an extra bracket.
-        r_resource = params@rr_pp,
-        K_resource = params@cc_pp,
+        resource_rate = params@rr_pp,
+        resource_capacity = params@cc_pp,
         pred_kernel = pred_kernel,
         search_vol = params@search_vol,
         intake_max = params@intake_max,
@@ -245,10 +252,6 @@ upgradeParams <- function(params) {
     
     if (.hasSlot(params, "A")) {
         pnew@A <- params@A
-    }
-    
-    if (.hasSlot(params, "rates_func")) {
-        pnew@rates_funcs$getRates <- params@rates_func
     }
     
     # Copy over all comments

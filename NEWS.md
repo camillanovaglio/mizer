@@ -1,6 +1,39 @@
+# mizer 2.0.1.9000
+
+## Bug fixes
+
+* `upgradeParams()` works also on params objects that were created with a
+  development version of mizer
+
+
+
+# mizer 2.0.1
+
+## Bug fixes
+
+* `summary()` now also works with non-default feeding kernels. #159
+* `validSpeciesParams()` no longer fails when `w_mat25` is not specified. #160
+* `setInitialValues()` also works in a model with only a single species. #161
+* `resource_params()<-` now works and has unit tests.
+
+## Naming changes
+
+Some inconsistencies in the choice of names for parameters was removed by
+renaming
+
+* `interaction_p` -> `interaction_resource`
+* `r_resource` -> `resource_rate`
+* `K_resource` -> `resource_capacity`
+
+## New functionality
+
+* New functions `other_params()<-` and `other_params()` for setting and 
+  getting other parameters, for example to be used in user-defined rate
+  functions.
+* `setInitialValues()` also sets `initial_effort`. #157
+
 
 # mizer 2.0.0 
-
 
 This is a major new release with many new features, an internal refactoring of
 the code and a new extension mechanism. 
@@ -186,7 +219,7 @@ species. The information is set up via a new `gear_params()` data frame. See
 * Users can now set their own resource dynamics instead of the default
   `resource_semichemostat()`.
 * Different species can interact with resource with different strengths, or not
-  feed on resource at all, controlled by an `interaction_p` column in the
+  feed on resource at all, controlled by an `interaction_resource` column in the
   species parameter data frame.
 * The steepness of the maturity ogive can now be controlled via a `w_mat25`
   column in the species parameter dataframe, which gives the size at which

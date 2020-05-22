@@ -4,27 +4,6 @@ no_sp <- nrow(NS_species_params)
 params <- MizerParams(NS_species_params, inter)
 
 
-## set_species_param_default ----
-test_that("set_species_param_default sets default correctly", {
-    # creates new column correctly
-    expect_message(p2 <- set_species_param_default(params, "hype", 2, "hi"),
-                   "hi")
-    expect_identical(p2@species_params$hype, rep(2, no_sp))
-    expect_message(sp2 <- set_species_param_default(params@species_params, "hype", 2), NA)
-    expect_identical(sp2$hype, rep(2, no_sp))
-    # does not change existing colunn
-    p2 <- set_species_param_default(params, "species", "a")
-    expect_identical(p2, params)
-    # changes NA's correctly
-    sp1 <- params@species_params$species[1]
-    params@species_params$species[1] <- NA
-    params <- set_species_param_default(params, "species", sp1)
-    expect_identical(p2, params)
-    # Should throw errors
-    expect_error(set_species_param_default(params, 1, "a"),
-                 "parname is not a string")
-})
-
 ## get_phi ----
 test_that("get_phi works", {
     NS_species_params$pred_kernel_type <- "box"
@@ -59,7 +38,7 @@ test_that("setInteraction works", {
                             prey = params@species_params$species)
     expect_message(setInteraction(params, inter),
                    "Dimnames of interaction matrix do not match")
-    params@species_params$interaction_p <- -1
+    params@species_params$interaction_resource <- -1
     expect_error(setInteraction(params),
                  "Values in the resource interaction vector should be between 0 and 1")
 })
