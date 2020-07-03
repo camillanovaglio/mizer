@@ -805,12 +805,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
           
           # # but if the fishery has been inactive for the previous e.g. 4 runs, and effort is sill negative or zero, then set effort for next time step to a minimum value to allow for a fleet to start fishing again. this time depends on dt (if dt=0.25 fishing restarts every 2 years)
           # # need to test this...
-          nYear = 4
-          back <- seq(i_time, i_time-(nYear/dt)) # from i_time to 4 years back
-          if(i_time > (nYear/dt)){
-            for(i in 1:length(fleet)){
-              effortOut_dt[i_time+1, i]<- ifelse(sum(sum(effortOut_dt[back[1]:back[length(back)],i]),Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
-              }}
+          # nYear = 4
+          # back <- seq(i_time, i_time-(nYear/dt)) # from i_time to 4 years back
+          # if(i_time > (nYear/dt)){
+          #   for(i in 1:length(fleet)){
+          #     effortOut_dt[i_time+1, i]<- ifelse(sum(sum(effortOut_dt[back[1]:back[length(back)],i]),Effort_itime_next[[i]]) <= 0, 0.01, Effort_itime_next[[i]])
+          #     }}
 
           # yield, revenue and profits in df format - important when saving these data below 
           yield_dt[i_time,,,]<-yield_itime
