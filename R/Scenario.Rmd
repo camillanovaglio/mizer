@@ -3,6 +3,8 @@ title: "Scenario"
 author: "Camilla Novaglio"
 date: "05/11/2019"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 #-----------------------------------------
@@ -16,9 +18,18 @@ rm(list=ls())
 # load data 
 # load("/Users/nov017/Dropbox/Mizer-fleet/R/model/FDData_Nov.RData") # FDData_opn3.RData or FDData_opn2.RData (was FDData_Nov.RData)
 # new folder
-load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May.RData") # this is too heavy - the below should be done in the previous script - not working 
+# load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May.RData") # this is too heavy - remove items 
+# 
+# ls()
+# rm(list=ls()[c(1:8, 10:31, 33:35, 37, 39:40, 42:43, 45:101, 111:117, 118:172, 177:181, 186:193, 195:198 ,201:205)])
+# 
+# # rm(list=setdiff(ls(), c(sim_FD_bmsy, df_param2, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, df_selParam_new, df_target_bmsy2, df_price_new, df_cost3, ke_fleet, scaling_price, initial_n, initial_n_bb, initial_n_pp, initial_effort2)))
+# 
+# save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_reduced.RData")
 
-# rm(list=setdiff(ls(), c(sim_FD_bmsy, df_param2, theta, kappa, kappa_ben, kappa_alg,w_pp_cutoff, min_w_bb, w_bb_cutoff, df_selParam_new, df_target_bmsy2, df_price_new, df_cost3, ke_fleet, scaling_price, initial_n, initial_n_bb, initial_n_pp, initial_effort2)))
+# the above data was too big - need to reduce 
+
+load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_reduced.RData")
 
 library(plyr)
 library(tidyverse)
@@ -49,7 +60,7 @@ kappa = kappa
 kappa_ben = kappa_ben
 kappa_alg = kappa_alg
 w_pp_cutoff = w_pp_cutoff
-min_w_bb = min_w_bb
+min_w_bb = 1e-7 # min_w_bb # from SEAmodel_run.R - accidentally removed from the list above 
 w_bb_cutoff = w_bb_cutoff
 fleetDynamics = TRUE
 selectivity_params = df_selParam_new
@@ -72,7 +83,7 @@ initial_effort = initial_effort2
 ```
 
 #-----------------------------------------
-# fleet strucutres and scenarios
+# target matrix for each scenario
 #----------------------------------------------
 
 ```{r}
@@ -117,7 +128,7 @@ cost_forward <-array(c(cost_forward1,cost_forward2),dim = c(dim(cost_forward1)[1
 
 ####### TRIAL change erepro back to original values to check for collapses? 
 df_param2<-df_param
-# just  to stop collapsing 
+# just to stop collapsing 
 # df_param2$erepro<-40
 # df_param2[3, "erepro"]<-0.01 # squid back to before erepro calibration 
 # df_param2[6, "erepro"]<-0.01 # centroberix # SH 
@@ -132,8 +143,6 @@ df_param2<-df_param
 # df_param2[15, "erepro"]<-0.01 # rexea for US
 # df_param2[11, "erepro"]<-0.01 # seio b (blue) - for SH and US but just to fix the species 
 # df_param2[8, "erepro"]<-0.01 # t
-
-
 
 ####### interaction matrix options
 
@@ -152,54 +161,36 @@ df_param2<-df_param
 
 ######## trial model to understand things - status quo (initial community and fleets as per sim_FD_bmsy)
 
-params_trial <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=TRUE, selectivity_params = selectivity_params, catchability = catchability, target = target)
-
-sim_trial <- project(params_trial, effort = 0, dt = dt, fleetDynamics = TRUE, management = TRUE, multiFleet = FALSE, price = price_forward, cost = cost_forward, diet_steps = 0, ke = ke, initial_effort = initial_effort_scenario, scaling_price = scaling_price, Blevel_management = Blevel_management, initial_n = initial_n_scenario, initial_n_pp = initial_n_pp_scenario , initial_n_bb = initial_n_bb_scenario)
-
-plotFleet(sim_trial)
-sim_trial@effortOut
-
-length(sim_trial@BioOut) # 100*4
-# but lots of NULLs
-sim_trial@BioOut[[390]] %>% # year ~75
-  filter(bioLim == "bio20check", fleet == "SED")
-
-# do species recover? no squid collapses - see line 510 in other file  
-plotBiomass(sim_trial)$plot + facet_wrap(~Species)
-
-# plot_CN(sim)
-# plotFleet(sim)
-
-
-
-
-# # try understand 
-# # 1 why effort = 0 even if less than 5 spp are below 20? becasue 0s are due to platy being below 40 and the main catch, also some decreases are due to profits; all good  
-# # 2 why effort = 0 for less than 4 years before becoming 0.01... OK WHEN RUNNING INSIDE PROJECT!! this should be fixed now - sometimes it jumps the 0.01 and go to either a close number (0.009 if effort is formced to decrease) or to 0 again (if effort is forced to stop). this happens when the 0.01 time step is not saved - CHECKED 
+# params_trial <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=TRUE, selectivity_params = selectivity_params, catchability = catchability, target = target)
 # 
-# params_trial <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=TRUE, selectivity_params = selectivity_params, catchability = df_target_NoCompetition, target = df_target_NoCompetition)
+# source("project.R")
 # 
-# sim_trial <- project(params_trial, effort = 0, dt = 0.25, fleetDynamics = TRUE, management = TRUE, multiFleet = FALSE, price = price_forward, cost = cost_forward, diet_steps = 0, ke = ke, initial_effort = initial_effort_scenario, scaling_price = scaling_price, Blevel_management = Blevel_management, initial_n = initial_n_scenario, initial_n_pp = initial_n_pp_scenario, initial_n_bb = initial_n_bb_scenario, initial_n_aa = params_trial@initial_n_aa,t_save = 1, t_max = 13,temperature = rep(params_trial@t_ref, times = t_max),shiny_progress = NULL)
+# sim_trial <- project(params_trial, effort = 0, dt = dt, fleetDynamics = TRUE, management = TRUE, multiFleet = FALSE, price = price_forward, cost = cost_forward, diet_steps = 0, ke = ke, initial_effort = initial_effort_scenario, scaling_price = scaling_price, Blevel_management = Blevel_management, initial_n = initial_n_scenario, initial_n_pp = initial_n_pp_scenario , initial_n_bb = initial_n_bb_scenario)
+# 
+# # see print functions inside projects and turn them on/off: 
+# # i_time n48, n40, n20 
+# # i_time effort_next time step 
+# # effort DS becomes 0 at i_time == 75 (in 74 for next step) but only 2 spp are below 20 meaning that effort is low, profits are highly negative and effort becomes negative too so it's set to 0. 
 # 
 # plotFleet(sim_trial)
-# # sim_trial@effortOut
-# # sim_trial@effortOut_dt
+# sim_trial@effortOut 
+# 2036-2018 
+# 18*4
+# # it should happen between i_time 72 and 76
+# 
+# sim_trial@BioOut[[18]] %>% #
+#   filter(bioLim == "bio20check") #fleet == "SED")
+# 
+# # do species recover? no squid collapses - see line 510 in other file
+# plotBiomass(sim_trial)$plot + facet_wrap(~Species)
+#
+# # 1 why effort = 0 even if less than 5 spp are below 20? because 0s can be due to negative profits - see above and EffortExplanation doc 
 
-
-####### should recovery speceis not being caought in any of these scenario?! using recent data does not change the target matrix as it details how much of the whatever catch is split into teh main fleet, but may change the list of main fleet - i.f. deep slope may be togethr with eth upper slope 
+####### should recovery species not being caught in any of these scenario?! using recent data does not change the target matrix as it details how much of the whatever catch is split into the main fleet, but may change the list of main fleet - i.e. deep slope may be merged to upper slope 
 
 ######## target unfished 
 df_target_unfished<-target
 df_target_unfished[]<-0
-
-# params_unfished <- MizerParams(df_param, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics=TRUE, selectivity_params = selectivity_params, catchability = df_target_unfished, target = df_target_unfished)
-
-# params_unfished@selectivity
- 
-# sim_unfished <- project(params_unfished, effort = 0, dt = dt, fleetDynamics = TRUE, management = TRUE, multiFleet = FALSE, price = price_forward, cost = cost_forward, diet_steps = 0, ke = ke, initial_effort = initial_effort_scenario, scaling_price = scaling_price, Blevel_management = Blevel_management, initial_n = initial_n_scenario, initial_n_pp = initial_n_pp_scenario , initial_n_bb = initial_n_bb_scenario )
-
-# plotFleet(sim_unfished) # effort and profits are calcualted anyway - it's OK fixed below   
-# plotBiomass(sim_unfished)$plot + facet_wrap(~Species)
 
 ######## no competition
 df_target_NoCompetition<-target
@@ -213,8 +204,8 @@ div<-colSums(df_target_NoCompetition*initial_effort_scenario)/colSums(target*ini
 df_target_NoCompetition<-sweep(df_target_NoCompetition, 2, div, FUN = '/')
 df_target_NoCompetition[, "myctophids"]<-0  
 
-colSums(df_target_NoCompetition*initial_effort_scenario)
-colSums(target*initial_effort_scenario)
+# colSums(df_target_NoCompetition*initial_effort_scenario)
+# colSums(target*initial_effort_scenario)
 
 ######## full competition 
 df_target_FullCompetition<-target
@@ -223,30 +214,26 @@ df_target_FullCompetition[, "myctophids"]<-0
 # df_target_FullCompetition[, "trachurus declivis"]<-0
 # df_target_FullCompetition[, "nototodarus gouldi"]<-0
 # df_target_FullCompetition[, "helicolenus barathri"]<-0
-# df_target_FullCompetition[df_target_FullCompetition!=0]<-1 # this would be the best, but results are difficult to interpret....
 
-# trial 2 - as above
+# trial 2 - as above you are keeping Fmort constant across scenarios 
 div<-colSums(df_target_FullCompetition*initial_effort_scenario)/colSums(target*initial_effort_scenario)
 df_target_FullCompetition<-sweep(df_target_FullCompetition, 2, div, FUN = '/')
 df_target_FullCompetition[, "myctophids"]<-0  
 
-# colSums(df_target_FullCompetition*initial_effort_scenario)
-# colSums(target*initial_effort_scenario)
-
-######## no bycatch (and spp under rebilding strategies) 
+######## no bycatch (and spp under recovery strategies) 
 # NOTE: 2 fisheries are based on spp under recovery strategies - OR and school shark
 df_target_NoBycatch<-target
-# what's bycatch? the 2 fleets with lowest proportion of catches should not catch the spp? 
 
+# bycatch defined as: the 2 fleets with lowest proportion of catches should not catch the spp 
 df<-target
 for(i in 1:ncol(df)){
   df<-df[order(df[,i]),]
-  df[c(1,2),i]<-0
+  df[c(1,2,3),i]<-0
 }
-df<-df[c(2,1,3,4,5),]
+df<-df[c(2,1,4,3,5),]
 df_target_NoBycatch<-df
 
-# trial 2 - as above
+# trial 2 - as above resdcale according to Fmort
 div<-colSums(df_target_NoBycatch*initial_effort_scenario)/colSums(target*initial_effort_scenario)
 df_target_NoBycatch<-sweep(df_target_NoBycatch, 2, div, FUN = '/')
 df_target_NoBycatch[, "myctophids"]<-0  
@@ -257,12 +244,9 @@ df_target_NoBycatch[, "myctophids"]<-0
 # df_target_NoBycatch[, "hoplostethus atlanticus"] <- 0 # rebuilding or not really?
 # df_target_NoBycatch[, "galeorhinus galeus"] <- 0 # rebuilding
 
-colSums(df_target_NoBycatch*initial_effort_scenario)
-colSums(target*initial_effort_scenario)
-
-######## target more target - see options    
-# define (main target and?) most valuable spp and increase fishing on these by the fleets that already catch them - by 50% - working, set to 1 - not working 
-# yes I have checked prices according to data and they match with sharks being the higehst value spp. 
+######## more valuable     
+# define most valuable spp and increase fishing by 50% 
+# prices checked according to data, sharks have highest values 
 valuable<-sort(-df_price_new[nrow(df_price_new),])
 valuable<-names(valuable)[1:6]
 
@@ -273,20 +257,16 @@ valuable<-names(valuable)[1:6]
 #   mutate(interaction = ifelse(species %in% valuable & interaction > 0, interaction*2, interaction))
 # df_target_MoreTarget<-acast(df_target_MoreTarget, fleet ~ species) 
 
-# option 2 - increase Fmort of valuable by 50% of current Fmort adn spread taht  increase across fleets proportionally
+# option 2 - increase Fmort of valuable by 50% of current Fmort and spread that increase across fleets proportionally
 df_target_MoreTarget<-target
 a<-colSums(target[,valuable]*initial_effort_scenario) 
-a<-a + (a*0.5) # plus 50% ? 
+a<-a + (a*0.5) 
 div<-colSums(df_target_MoreTarget[,valuable]*initial_effort_scenario)/a
 df_target_MoreTarget[,valuable]<-sweep(df_target_MoreTarget[,valuable], 2, div, FUN = '/')
 
-colSums(df_target_MoreTarget*initial_effort_scenario)
-colSums(target*initial_effort_scenario)
-
-######## target more underquota   
-# define under quota spp and increase fishing on these. https://www.afma.gov.au/sites/default/files/semac_tac_recommendations_2019-20.pdf
-# undercaught TAC is a performance indicator of the fishery - can be added to the socio-economic ones? 
-under<-c("macruronus novaezelandiae","nemadactylus macropterus","zeus faber","pristiophorus cirratus") # Jackass morwong is a bit funny as it's declining and there are no data for assessment. redfish?! recovery or undercaught? shawshrk is low values, not overfished 
+######## target more under-quota   
+# define under quota spp and increase fishing on these by 50%. https://www.afma.gov.au/sites/default/files/semac_tac_recommendations_2019-20.pdf
+under<-c("macruronus novaezelandiae","nemadactylus macropterus","zeus faber","pristiophorus cirratus") # Jackass is a bit strange as it's declining and there are no data for assessment. redfish - recovery or under-quota? 
 
 # # option 1 
 # df_target_MoreUnderQuota<-as.data.frame(target) %>% 
@@ -295,46 +275,52 @@ under<-c("macruronus novaezelandiae","nemadactylus macropterus","zeus faber","pr
 #   mutate(interaction = ifelse(species %in% under & interaction > 0, interaction*2, interaction))
 # df_target_MoreUnderQuota<-acast(df_target_MoreUnderQuota, fleet ~ species) 
 
-# option 2 - increase Fmort of valuable by 50% of current Fmort adn spread taht  increase across fleets proportionally
+# option 2 - increase Fmort of valuable by 50% of current Fmort and spread that increase across fleets proportionally
 df_target_MoreUnderQuota<-target
 a<-colSums(target[,under]*initial_effort_scenario) 
-a<-a + (a*0.5) # plus 50% ? 
+a<-a + (a*0.5)
 div<-colSums(df_target_MoreUnderQuota[,under]*initial_effort_scenario)/a
 df_target_MoreUnderQuota[,under]<-sweep(df_target_MoreUnderQuota[,under], 2, div, FUN = '/')
 
-colSums(df_target_MoreUnderQuota*initial_effort_scenario)
-colSums(target*initial_effort_scenario)
+```
 
-####### runs 
+#-----------------------------------------
+# run scenarios and save data 
+#----------------------------------------------
+
+```{r}
+
 target_scenario = list(unfished = df_target_unfished, noCompetition = df_target_NoCompetition, fullCompetition = df_target_FullCompetition, statusQuo = target, noBycatch = df_target_NoBycatch, MoreTarget = df_target_MoreTarget, MoreUnderQuota = df_target_MoreUnderQuota) # best = df_target_best)
 
-# new scenarios 
+# add new set of scenarios (NOT  worked as expected - skyp): 
+# for each new scenario, I considered the ‘status quo’ interaction matrix but used the ‘no competition’ interaction values for one species. This way we can access which species-fleet interactions is most influential and thus which species should be  targeted by one fleet only (no interactions). 
 
-new_inter<-list()
-
-for (i in 1:ncol(target)){
-  
-  new_inter[[i]]<-target
-  new_inter[[i]][,i]<-df_target_NoCompetition[,i]
-  names(new_inter)[i]<-colnames(target)[i]
-  
-  }
-
-new_inter$myctophids<-NULL
-
-
-# add new scenarios to old list 
-
-target_scenario<-c(target_scenario,new_inter)
+# new_inter<-list()
+# 
+# for (i in 1:ncol(target)){
+#   
+#   new_inter[[i]]<-target
+#   new_inter[[i]][,i]<-df_target_NoCompetition[,i]
+#   names(new_inter)[i]<-colnames(target)[i]
+#   
+#   }
+# 
+# new_inter$myctophids<-NULL
+# 
+# # add new scenarios to old list 
+# 
+# target_scenario<-c(target_scenario,new_inter)
 
 # run scenarios 
-params_scenario<-list()
-sim_scenario<-list()
 
-for(i in 1:length(target_scenario)){
+runModel<-function(target_scenario){
   
-  # i = 4
-  params_scenario[[i]] <- MizerParams(df_param2,
+  params_scenario<-list()
+  sim_scenario<-list()
+
+  for(i in 1:length(target_scenario)){
+  
+    params_scenario[[i]] <- MizerParams(df_param2,
                             interaction = theta, 
                             kappa = kappa,
                             kappa_ben = kappa_ben, 
@@ -347,7 +333,7 @@ for(i in 1:length(target_scenario)){
                             catchability = target_scenario[[i]],
                             target = target_scenario[[i]])
 
-  sim_scenario[[i]] <- project(params_scenario[[i]], 
+    sim_scenario[[i]] <- project(params_scenario[[i]], 
                       effort = 0, 
                       dt = dt, 
                       fleetDynamics = TRUE, 
@@ -364,45 +350,255 @@ for(i in 1:length(target_scenario)){
                       initial_n_pp = initial_n_pp_scenario, 
                       initial_n_bb = initial_n_bb_scenario)
   
-  names(sim_scenario)[i]<-names(target_scenario)[i]
+    names(sim_scenario)[i]<-names(target_scenario)[i]
   
+  } 
+  
+  return(sim_scenario)
 }
 
-# check one by one
+sim_scenario<-runModel(target_scenario)
 
-# # plotFleet(sim_scenario$unfished)
-# plotFleet(sim_scenario$noCompetition) # declines in effort and yield despite increases in abundance - why? are declines driven by profits instead of management? when decreases are weigthed by contribution to cacthes they are multiplied by 1 instead of e.g. 0.01 and thus are bigger... (i.e. if a spp contributes a little than the decrease is small, if it contributes a lot - Q=1 - then decreases are bigger). this is the problem with SH, which is forced to steeply decrease because platy has a Q of 1 and is below 20. when platy recovers, changes in effort are less steep.
-# plotFleet(sim_scenario$fullCompetition) # collapses
+save(df_param, areaEco, t_max, scaling_cost_area, sim_FD_bmsy, sim_scenario, target_scenario, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_original.RData")
+
+```
+
+#-----------------------------------------
+# add new set of scenarios and run all - save data 
+#----------------------------------------------
+
+#-----------------------------------------
+# Option 1  & 2 - *skyp*  
+#----------------------------------------------
+
+```{r}
+
+# calculate indicators (biomass, yield, profits)
+library("purrr")
+indi<-indicators(sim_scenario, management =TRUE )
+df_plot = indi$df_plot
+
+# How do I identify spp (e.g. flatheads) that steeply improve either biomass, or yield and profits? 
+# just by plotting? 
+ggplot(filter(df_plot), aes(x = profit, y = biomassB))+ 
+    geom_label(aes(label = scenario))+
+    geom_point() 
+
+toDelete<-df_plot$scenario[1:7]
+df_plot<-df_plot[!df_plot$scenario %in% toDelete, ]
+
+# because flethead increase biomass performace withhout decreasing yield and profit much, in all following scenarios I will use target values for flatheads as per the flathead scenario (no competition). Options are:  
+
+# option 1 - as per ranking 
+# option 2 - isolate species that increase biomass, or yield or effort when interactions are set to zero 
+# option 3 - no management (not worth.... not considered)
+
+new_statusQuo<-target_scenario$statusQuo # option 1 and 3
+new_statusQuo<-target_scenario$`platycephalus richardsoni` # option 2
+
+new_df_plot<-df_plot # option 1
+new_df_plot<-df_plot %>% filter(scenario!="platycephalus richardsoni") # option 2 `
+
+# NOTE: save these options as scenarios.RData (first) or scenarios_noFlathead.RData (second) or scenarios_noManagement.RData
+
+# rank the scenarios above by biomass and considered the two scenarios that resulted in the highest community biomass. Create a new interaction matrix where you replace the ‘status quo’ interaction values with the ‘no competition’ ones for both species targeted by one fleet only in one of these two scenarios. Repeated this step but considering the 3, 4, 5 (and so on) scenarios that resulted in the highest community biomass. These results in 17 new target matrices and thus scenarios (19 species and two extreme scenarios already considered). 
+# do the same with profits and  yield 
+
+# by yelds
+
+new_df_plot<-new_df_plot[order(-new_df_plot$yield),]
+ranking<-new_df_plot$scenario
+
+# option 1 and 3 to repeat below if using this as per above 
+vector_yield = list(ranking[c(1:2)],ranking[c(1:3)],ranking[c(1:4)],ranking[c(1:5)],ranking[c(1:6)],ranking[c(1:7)],ranking[c(1:8)],ranking[c(1:9)],ranking[c(1:10)],ranking[c(1:11)],ranking[c(1:12)],ranking[c(1:13)],ranking[c(1:14)],ranking[c(1:15)],ranking[c(1:16)],ranking[c(1:17)], ranking[c(1:18)]) 
+
+# option 2 
+vector_yield = list(ranking[c(1:2)],ranking[c(1:3)],ranking[c(1:4)],ranking[c(1:5)],ranking[c(1:6)],ranking[c(1:7)],ranking[c(1:8)],ranking[c(1:9)],ranking[c(1:10)],ranking[c(1:11)],ranking[c(1:12)],ranking[c(1:13)],ranking[c(1:14)],ranking[c(1:15)],ranking[c(1:16)],ranking[c(1:17)]) 
+
+new_inter2<-list()
+
+for(i in 1:(length(vector_yield)-1)){
+
+  new_inter2[[i]]<-new_statusQuo
+  new_inter2[[i]][,c(vector_yield[[i]])]<-target_scenario$noCompetition[,c(vector_yield[[i]])] 
+  names(new_inter2)[i]<-paste("yield", i+1, sep = "")
+}
+
+# by profits
+
+new_df_plot<-new_df_plot[order(-new_df_plot$profit),]
+ranking<-new_df_plot$scenario
+
+vector_yield = list(ranking[c(1:2)],ranking[c(1:3)],ranking[c(1:4)],ranking[c(1:5)],ranking[c(1:6)],ranking[c(1:7)],ranking[c(1:8)],ranking[c(1:9)],ranking[c(1:10)],ranking[c(1:11)],ranking[c(1:12)],ranking[c(1:13)],ranking[c(1:14)],ranking[c(1:15)],ranking[c(1:16)],ranking[c(1:17)]) 
+
+new_inter3<-list()
+
+for(i in 1:(length(vector_yield)-1)){
+
+  new_inter3[[i]]<-new_statusQuo
+  new_inter3[[i]][,c(vector_yield[[i]])]<-target_scenario$noCompetition[,c(vector_yield[[i]])] 
+  names(new_inter3)[i]<-paste("profit", i+1, sep = "")
+}
+
+# by biomass
+
+new_df_plot<-new_df_plot[order(-new_df_plot$biomassB),]
+ranking<-new_df_plot$scenario
+
+vector_yield = list(ranking[c(1:2)],ranking[c(1:3)],ranking[c(1:4)],ranking[c(1:5)],ranking[c(1:6)],ranking[c(1:7)],ranking[c(1:8)],ranking[c(1:9)],ranking[c(1:10)],ranking[c(1:11)],ranking[c(1:12)],ranking[c(1:13)],ranking[c(1:14)],ranking[c(1:15)],ranking[c(1:16)],ranking[c(1:17)]) 
+
+new_inter4<-list()
+
+for(i in 1:(length(vector_yield)-1)){
+  
+  new_inter4[[i]]<-new_statusQuo
+  new_inter4[[i]][,c(vector_yield[[i]])]<-target_scenario$noCompetition[,c(vector_yield[[i]])] 
+  names(new_inter4)[i]<-paste("biomass", i+1, sep = "")
+}
+
+# combine the new target matrix
+target_scenario2<-c(new_inter2, new_inter3, new_inter4)
+
+# run models
+sim_scenario2<-runModel(target_scenario2)
+
+# combine all scenarios
+sim_scenario<-c(sim_scenario,sim_scenario2)
+
+# save scenarios  
+# save(df_param, areaEco, t_max, sim_scenario, target_scenario, target_scenario2, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_noManagement.RData")
+```
+
+#-----------------------------------------
+# Option 4 - *skyp*  
+#----------------------------------------------
+
+```{r}
+
+# calculate indicators (biomass, yield, profits)
+library("purrr")
+indi<-indicators(sim_scenario, management =TRUE )
+df_plot = indi$df_plot
+
+# repeate the above for option 2 but then skyp the  ranking and try other options 
+# How do I identify spp (e.g. flatheads) that steeply improve either biomass, or yield and profits? 
+# just by plotting? 
+ggplot(filter(df_plot), aes(x = profit, y = biomassB))+ 
+    geom_label(aes(label = scenario))+
+    geom_point() 
+
+toDelete<-df_plot$scenario[1:7]
+df_plot<-df_plot[!df_plot$scenario %in% toDelete, ]
+
+# because flethead increase biomass performace withhout decreasing yield and profit much, in all following scenarios I will use target values for flatheads as per the flathead scenario (no competition). Options are:  
+new_statusQuo<-target_scenario$`platycephalus richardsoni` # option 2
+new_df_plot<-df_plot %>% filter(scenario!="platycephalus richardsoni") # option 2 `
+
+# run all combination of flathead 0 and otehr spp 0 
+
+new_inter2<-list()
+
+for(i in 1:(ncol(new_statusQuo)-1)){
+
+  new_inter2[[i]]<-new_statusQuo
+  new_inter2[[i]][,i]<-df_target_NoCompetition[,i]
+  names(new_inter2)[i]<-paste("2", colnames(new_statusQuo)[i], sep = "")
+}
+
+names(new_inter2)
+new_inter2<-new_inter2[-which(names(new_inter2) == "2platycephalus richardsoni")]
+
+target_scenario2<-new_inter2
+
+sim_scenario2<-runModel(target_scenario2)
+
+# combine all scenarios
+sim_scenario<-c(sim_scenario,sim_scenario2)
+
+# plot scenarios - arrivata qui....
+indi<-indicators(sim_scenario, management =TRUE )
+df_plot = indi$df_plot
+ggplot(filter(df_plot), aes(x = profit, y = biomassB))+ 
+    geom_label(aes(label = scenario))+
+    geom_point() 
+
+df_plot[order(-df_plot$biomassB),]
+df_plot[order(-df_plot$profit),]
+# save scenarios  
+# save(df_param, areaEco, t_max, sim_scenario, target_scenario, target_scenario2, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_noManagement.RData")
+
+```
+
+
+#-----------------------------------------
+# Load scenarios and check results   
+#----------------------------------------------
+
+```{r}
+
+rm(list=ls())
+
+# load scenarios 
+# options: scenarios.Rdata & scenarios_noFlathead.RData (where scenarios ranked by biomass,  profits and yield all have flethead interactions set to 0), scenarios_noManagement.RData; scenarios_original.RData if you just keep the 6 origila scenarios 
+
+# load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios.RData")
+# load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_noFlathead.RData")
+load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_original.RData")
+
+library(plyr)
+library(tidyverse)
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+library(matrixStats)
+# library(purrr) # in tidyverse? 
+# library(tidyr) # possibly in tidyverse? 
+
+setwd("/Users/nov017/R-projects/Mizer-fleet/R")
+source("data.R") 
+source("help.R") 
+source("MizerParams-class.R") 
+source("MizerSim-class.R")
+source("plots.R")
+source("project_methods.R")
+source("project.R")
+source("RcppExports.R") 
+source("selectivity_funcs.R")
+source("summary_methods.R")
+source("wrapper_functions.R")
+source("DataFunction.R") 
+
+# # check one by one
+# plotFleet(sim_scenario$noCompetition) # declines in effort and yield despite increases in abundance. Most likely due to negative profits resulting in either 0 or lower effort. also note that decreases are weighed by each decreasing species' contribution to caches, they are high if the declining species contribute a lot to the cathc and low vice versa. This is typical with SH, which is forced to steeply decrease because platy has an interaction term of 1 (or higher) and is below 20. when platy recovers, changes in effort are less steep. 
+# plotBiomass(sim_scenario$noCompetition)$plot+facet_wrap(~Species)
+# plotFleet(sim_scenario$fullCompetition) # collapses, the 5 years rule is still funny but could be due to theh time steps (?)
+# sim_scenario$fullCompetition@effortOut
 # plotFleet(sim_scenario$statusQuo) # some recoveries and increases
 # plotFleet(sim_scenario$noBycatch) # recoveries and increases in trends
-# plotFleet(sim_scenario$MoreTarget) # collapses
-# plotFleet(sim_scenario$MoreUnderQuota) # collapses
-
-# why collapses? because more than 4 spp are below 20! fleet collapses mean spp recoveries....
-a<-sim_scenario$MoreUnderQuota
+# plotFleet(sim_scenario$MoreTarget) # recoveries and increases in trends
+# plotFleet(sim_scenario$MoreUnderQuota) # recoveries and increases in trends
+# 
+# # why collapses? because more than 4 spp are below 20 or because profits are negative - see EffortExplanation doc.
+# a<-sim_scenario$fullCompetition
+# a@effortOut
+# a@profit
 # plotFleet(a)
 # plotBiomass(a)$plot + facet_wrap(~Species)
-# managemtn
-pr <- a@BioOut[[24]] %>%
-  filter(bioLim == "bio20check", fleet == "SET-SH")
-unique(pr$species)
-
-a@effortOut
-a@profit
-
-# catchComp(sim_FD = sim_scenario$statusQuo, df_log_spp)
-trial<-a@yield
-trial<-rowSums(aperm(trial,c(1,2,4,3)),dims=3) # sum over size
-trial<-as.data.frame.table(trial, responseName = "yield")
-colnames(trial)<-c("year", "species","fleet", "yield")
-trial<-trial%>%
-  left_join(df_param[,c(1,2)]) %>% 
-  filter(fleet == "SET-SH", yield >0)
-
-ggplot(filter(trial),aes(x=year, y = yield, fill=species)) +
-  geom_bar(position = "stack", stat = "identity") +
-  theme_bw() +
-  facet_wrap(~fleet, scale = "free")
+# pr <- a@BioOut[[8]] %>%
+#   filter(bioLim == "bio20check", fleet == "SET-SH")
+# 
+# trial<-a@yield
+# trial<-rowSums(aperm(trial,c(1,2,4,3)),dims=3) # sum over size
+# trial<-as.data.frame.table(trial, responseName = "yield")
+# colnames(trial)<-c("year", "species","fleet", "yield")
+# trial<-trial%>%
+#   left_join(df_param[,c(1,2)]) %>% 
+#   filter(fleet == "SET-SH", yield >0)
+# 
+# ggplot(filter(trial),aes(x=year, y = yield, fill=species)) +
+#   geom_bar(position = "stack", stat = "identity") +
+#   theme_bw() +
+#   facet_wrap(~fleet, scale = "free")
 
 ```
 
@@ -592,22 +788,51 @@ indicators:
 
 
 #-----------------------------------------
-# plots of comparison 
+# plots of comparison *trial considering scenarios.RData or scenarios_noFlathead.RData - skyp* 
 #----------------------------------------------
-
 
 ```{r}
 
-# quick plots - copy and paste from below or plot inside DataFunction.R 
+# add biomass1, yield1 adn  profit1 scenarios - where no interaction for 1 spp (which one depends on theh order below) leads to higher biomass, yield, profits. These scenarios are repetitions of the 'species' scenarios, which at this point I am not sure are important 
+
+# missing information from the saving comment above 
+
+t_max = 23
+areaEco = 5.121076e+14
+
+# part of other options - skyp
 library("purrr")
-indi<-indicators(sim_scenario)
+indi<-indicators(sim_scenario, management = TRUE)
 df_plot = indi$df_plot
 
+toDelete<-df_plot$scenario[c(1:7, 26:73)] # keep only the single spp scenarios!!!! 73 or 72 depending on options above
+df_plot2<-df_plot[!df_plot$scenario %in% toDelete, ]
 
-  # or not - if you are using plot type 2 - TRIAL! 
-  df_plot2<-df_plot
-  
+# if using option 2 above - whould this change as now yield1 is the one that includes platy + the highest spp in yeild? probably no, that would start from yield2 onwards...
+
+b<-df_plot2[order(-df_plot2$biomassB),"scenario"][1]
+y<-df_plot2[order(-df_plot2$yield),"scenario"][1]
+p<-df_plot2[order(-df_plot2$profit),"scenario"][1]
+
+trial<-sim_scenario
+b<-trial[b]
+names(b)<-"biomass1"
+y<-trial[y]
+names(y)<-"yield1"
+p<-trial[p]
+names(p)<-"profit1"
+
+sim_scenario<-c(sim_scenario,b,y,p)
+
+# quick plots - copy and paste from below or from plots inside DataFunction.R 
+indi<-indicators(sim_scenario, management = TRUE)
+df_plot2 = indi$df_plot
+
   # calculate sp below re limits adn N of active vessels for each scenario
+
+# should we also look at these indicators??? spp below ref and active vessels are an important part as well adn decreasing interactions leads to more active fleets .... 
+sim_scenario$statusQuo@BioOut # the calculation below does not seem right !!!!!!!! 
+
   Ntext<-df_plot2 %>% 
     select(c(scenario, Nref)) #%>%
   Ntext$Nref<-paste("Below Bmsy = ", Ntext$Nref)
@@ -640,7 +865,7 @@ df_plot = indi$df_plot
     mutate(yield = (yield/1000000)*areaEco, 
            biomassB = (biomassB/1000000)*areaEco,
            biomassA = (biomassA/1000000)*areaEco, 
-           profit = (profit*areaEco)/1000000) # need to re-think and check this one... it is now million $ per ecosystems and teh starting value should be $ per m3 
+           profit = (profit*areaEco)/1000000) # need to re-think and check this one... it is now million $ per ecosystems and the starting value should be $ per m3 
 
 
   # create a dummy variable for legend 
@@ -649,122 +874,175 @@ df_plot = indi$df_plot
   
   # are these values matching at the fishery scale? - to check: tonnes sounds about right, profits are too high (but it's the relative difference that  matters... )
   
-  df_plot7<-df_plot6 %>%
-    filter(!scenario %in% c("fullCompetition", "noCompetition", "unfished","noBycatch","MoreUnderQuota","MoreTarget"))
-
-  trial<-ggplot(data = df_plot7, aes(x = yield, y = profit, color = scenario))+ 
+  # set color based on profit or yield 
+  df_plot6<-df_plot6 %>% 
+    mutate(indicator = case_when(str_detect(df_plot6$scenario, "profit")==TRUE~"Profit",
+                                 str_detect(df_plot6$scenario, "yield")==TRUE~"Yield", 
+                                 str_detect(df_plot6$scenario, "biomass")==TRUE~"Biomasss", 
+                                 df_plot6$scenario %in% c("fullCompetition","noCompetition", "statusQuo")~"Reference", 
+                                 TRUE ~ "Species")) %>% 
+    filter(!scenario == "unfished")
+  
+  trial<-ggplot(filter(df_plot6), aes(x = yield, y = biomassB, color = indicator))+ 
     geom_label(aes(label = scenario))+
-    geom_point(aes(size=biomassB))+
+    geom_point()+ # aes(size=biomassB)
     # scale_size_continuous(range = c(10, 15))+
     # geom_text(aes(label = round(biomassB)))+
 
     scale_fill_manual(values = , name = "Scenario", guide=FALSE)+
-    # expand_limits(x = c(min(df_plot6$yield, na.rm = TRUE)-1000, max(df_plot6$yield,na.rm = TRUE)+1000), y = c(min(df_plot6$profit)-5, max(df_plot6$profit)+5))+
+    expand_limits(x = c(min(df_plot6$yield, na.rm = TRUE)-5000, max(df_plot6$yield,na.rm = TRUE)+5000), y = c(min(df_plot6$biomassB)-10000, max(df_plot6$biomassB)+10000))+
     theme_bw()+
-    ylab ("Profits [million $]")+
-    xlab ("Yield [tonnes]")+
+    # ylab ("Profits [million $]")+
+    # xlab ("Yield [tonnes]")+
     theme(text = element_text(size=18),
           axis.title.y = element_text(vjust=0.4, size = 16),
           axis.title.x = element_text(vjust=0.3, size = 16),
           axis.text.x = element_text(angle=90, hjust=0.5),
           panel.grid.major = element_blank(), 
-          strip.background = element_blank(),
-          panel.border = element_rect(colour = "black"),
-          strip.text.x = element_text(face = "bold"),
+          # strip.background = element_blank(),
+          # panel.border = element_rect(colour = "black"),
+          # strip.text.x = element_text(face = "bold"),
           # legend.position = c(0.9, 0.3))
-          legend.position = "none") # strip.text.x = element_blank())
+          legend.position = "none")+
+    facet_wrap(~indicator)# strip.text.x = element_blank())
 trial
 
-# NEXT STEP
-
-# how to rank scenarios?
-# first by yield 
-# the by profits 
-# the by biomass 
-
-# when you rank by yield: add the the first 2 spp together and run a new sceanrio, then the 3 spp and runa  new scenario etc... you will get to the  no competition one 
-# do the same with profits and  with biomass. Are the pathways to get to the no competition one different? this is a prioritization scheme these type of analysis are done for foodwebs - e.g. remove weak links and see what happens.   
-
-
-# plot scenarios
-plotFleet(sim_scenario$`platycephalus richardsoni`)
-plot_CN(plotFleet(sim_scenario$`platycephalus richardsoni`))
-plotFleet(sim_scenario$`trachurus declivis`)
+setwd("/Users/nov017/Desktop")
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+jpeg("trial2.jpeg", height=8, width=10, units ='in', res=300)
+trial
+dev.off()
 
 
 
+# in depth exploration....
+# the above are not all possible combinations, they are combinations based on ranking profits etc exercise. when ranking by biomass, the best combination in terms of profits and  yield come up. this is because ... platy
+# try explaining platy: 
 
+# OPTION 1
+plotFleet(sim_scenario$noCompetition) # SET-SH steeply collapses, fl (below20 at fist ), serio and macrurus recover and SH targets them again with no constrains from otehr species.  
+plotFleet(sim_scenario$statusQuo) # SET-SH does not collapse becasue it's not as dependent on fl, but as such, fl recovers less and SH does not steeply increase in yield. also SH here is constrined by managemtn on other species (pretty much all...)
+plotFleet(sim_scenario$`platycephalus richardsoni`) # SH is as dependent on fl as in no competition but it is management is as constrained by other species as in status quo  - the trends is a sper status quo.
 
+# the key is to relax management
 
+target_scenario$noCompetition[3,]
+target_scenario$statusQuo[3,] 
+target_scenario$`platycephalus richardsoni`[3,]
 
+sim_scenario$noCompetition@BioOut[[13]]
+sim_scenario$statusQuo@BioOut[[13]]
+sim_scenario$`platycephalus richardsoni`@BioOut[[13]]
 
+# to compare and understand what's happening  
+plotFleet(sim_scenario$biomass16)
+plotFleet(sim_scenario$biomass15) # 15 here is as per option 1, it becomes 14 in option 2 
+sim_scenario$biomass16@BioOut[[13]]
+sim_scenario$biomass15@BioOut[[13]]
 
+# OPTION 2 
+# increased biomass and yield (besides the biomass ones above)
+df_plot6[order(-df_plot6$yield),] 
 
+# very similar to no competition 
+plotFleet(sim_scenario$noCompetition)
+plotFleet(sim_scenario$profit15)
+plotFleet(sim_scenario$profit16)
+plotFleet(sim_scenario$yield15)
 
+target_scenario2$profit15[3,] # quite a few 
+sim_scenario$profit15@BioOut[[13]] # none stopping SH 
+target_scenario2$profit16[3,]
+sim_scenario$profit16@BioOut[[13]] # same 
+target_scenario2$yield16 
+sim_scenario$yield16@BioOut[[13]] # same 
+target_scenario2$yield15 
+sim_scenario$yield15@BioOut[[13]] # same but stopped by squid and that's why yields are lower 
 
+# previous.... explanations 
 
+# is yield increasing compared to status quo when I decrease interactions? Not until the noCompetition is reached. 
+ 
+plotBiomass(sim_scenario$yield14)$plot+facet_wrap(~Species) # biomass are the same
+# fleet management? 
+sim_scenario$yield14@effortOut
+sim_scenario$yield14@BioOut # declines in effort are generally  due to management but collapses are due to negative profits and low effort - see doc
 
+```
 
+#-----------------------------------------
+# plots of comparison 
+#----------------------------------------------
 
+```{r}
 
-
-
-
-
-
-
-
-
-
-
-# save and upload data here 
-# you might need just these: target_scenario, params_scenario, sim_scenario... the one you saved is big!
-# save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDScenarios.RData") 
-# load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDScenarios.RData")
+##### fleet dynamics plot ----
 
 ### delete unfished as not used
-sim_scenario$unfished<-NULL
+# sim_scenario$unfished<-NULL
 # some fixes: 
-# sim_scenario[["unfished"]]@effortOut[]<-0 # beaause initial_effort was still 0.1 though catches are 0 due to df_target
-# sim_scenario[["unfished"]]@profit[]<-0 # because fixed costs were still there 
-# sim_scenario[["unfished"]]@revenue[]<-0 # becasue of the above 
+sim_scenario[["unfished"]]@effortOut[]<-0 # beaause initial_effort was still 0.1 though catches are 0 due to df_target
+# sim_scenario[["unfished"]]@profit[]<-0 # because fixed costs were still there
+sim_scenario[["unfished"]]@revenue[]<-0 # becasue of the above
 
-# Calculate indicators at last run of scenarios - whole fishery level 
-library("purrr")
-indi<-indicators(sim_scenario)
-df_plot = indi$df_plot
-
-# order of scenarios
+# order scenarios
 a = c("statusQuo","noCompetition","fullCompetition","noBycatch","MoreTarget","MoreUnderQuota")
 b = c("Status Quo","No Competition","Full Competition", "Less Bycatch","More Valuable","More Under-Quota")
-# col_values<-c("#084594", "#2171b5", "#eff3ff", "#c6dbef", "#9ecae1", "#6baed6", "#4292c6") # https://colorbrewer2.org/#type=sequential&scheme=Blues&n=7
-col_values<-c("#08589e", "#2b8cbe", "#4eb3d3", "#7bccc4", "#a8ddb5", "#ccebc5", "#f0f9e8") # https://colorbrewer2.org/#type=sequential&scheme=Blues&n=7
 
-col_values2<-c("#cb181d")
-col_values3<-c("#7fbf7b","#af8dc3")
-
-# plot fishing effort by fleet
-plot_effort = plotFleetEffort(a,b, sim_scenario, sim_FD_bmsy, col_values[1:5])$plot_effort
-plot_effort
+#### fig 4 - scenarios and model dynamics  ----
 
 # plot interaction matrix
-# problems - differences between interactions matrices are not very visible. See proposed solutions inside function
-# problem with  calcualtion of Q (see inside function): cumulative Fmort across fleet set as per status quo (Q*initial_effort). Effort is dynamic but Q is not (e.g. high Q for fatheads in full competition, if effort increases for some fleets, pressure increases a lot for this spp). Need to revisit?
-library("tidyr")
-plot_matrix = plotFleetMatrix(a,b,target_scenario, col_values2)$plot_matrix # new plot with different colors 
+# problem with calcualtion of Q (see inside function): cumulative Fmort across fleet set as per status quo (Q*initial_effort). Effort is dynamic but Q is not (e.g. high Q for fatheads in full competition, if effort increases for some fleets, pressure increases a lot for this spp). Need to revisit?
+col_values2<-c("#cb181d")
+plot_matrix = plotFleetMatrix(a,b,target_scenario, col_values2)$plot_matrix 
 
-# plot indicators - fishery level 
-plot_bar_reduced = plotIndicators(a,b,df_plot, col_values3)$plot_bar_reduced # this one 
-plot_bar_reduced
-plot_trial = plotIndicators(a,b,df_plot, col_values3)$trial # NEW ONE to be fixed  
+# plot fleet effort 
+col_values<-c("#b2182b", "#ef8a62", "#d1e5f0","#67a9cf", "#2166ac")
+plot_effort = plotFleetEffort(a,b, sim_scenario, sim_FD_bmsy, col_values[1:5])$plot_effort
+
+# plot trends in idicators 
+col_values<-c("#7b3294","#c2a5cf","#a6dba0","#008837")
+plot_indiTrend<-indicatorsTrend(a,b, sim_scenario, col_values) # biomass is biomass of target
+plot_all<-plot_indiTrend$plot_indiTrend
 
 # all plots 
 library(patchwork)
+# option 1
 # setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-# tiff("Fig6_May2020C.tiff", height=13, width=16, units ='in', res=300)
-# plot_matrix / plot_bar + plot_layout (nrow = 2, heights = c(2,2))
-plot_matrix / plot_effort / plot_bar_reduced + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
+setwd("/Users/nov017/Desktop")
+tiff("Fig4_op1.tiff", height=13, width=16, units ='in', res=300)
+plot_matrix / plot_effort / plot_all + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
+dev.off()
+
+# # setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# setwd("/Users/nov017/Desktop")
+# tiff("Fig4_op2.tiff", height=18, width=16, units ='in', res=300)
+# plot_matrix / plot_effort / plot_bio / plot_y / plot_pr + plot_layout (nrow = 5, heights = c(2.2,1.5,1, 1,1))
 # dev.off()
+
+##### fig 5 - trade-off plot -----
+
+indi<-indicators(sim_scenario, management = TRUE) 
+df_plot = indi$df_plot
+col_values3<-c("#7fbf7b","#af8dc3")
+plot_bar = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$plot_bar 
+dot_plot = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$dot_plot 
+lolliScenario = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$lolliScenario 
+lolliIndicator = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$lolliIndicator 
+
+# if need to patch a blank space 
+blank<-ggplot()+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+setwd("/Users/nov017/Desktop")
+tiff("Fig5_indicator.tiff", height=7, width=8, units ='in', res=300) # rescale all indicators 0-1??!  
+lolliIndicator
+dev.off()
+
+setwd("/Users/nov017/Desktop")
+tiff("Fig5_scenario.tiff", height=6, width=7, units ='in', res=300)
+lolliScenario 
+dev.off()
 
 
 ```
@@ -803,108 +1081,60 @@ do not consider MTL as it has many problems.... change with others
 
 ```{r}
 
-# function to plot model runs - species with biomass limits 
-plot_limits<-function(temp_sim){
-  
-  BioLim<-temp_sim@BioLimits[[4]]$SED # limits don't change across fleet, time and scenarios 
-  BioLim<-BioLim %>% 
-    left_join(df_param[,c(1,2)]) 
-  
-  BioData<-plotBiomass(temp_sim)$BioData
-  colnames(BioData)<-c("time","species","value")
-  BioData<-BioData %>% 
-    left_join(df_param[,c(1,2)])
-  
-  # order factors 
-  a = unique(BioData$spCommon)
-  BioData<-BioData %>% 
-    mutate(spCommon = factor(spCommon, level = a))
-  BioLim<-BioLim %>% 
-    mutate(spCommon = factor(spCommon, level = a))
-  
-  x_label <- "Year"
-  y_label <- "Biomass [g]"
-  
-  p <- ggplot(BioData, aes(x = time, y = value)) +
-    scale_y_continuous(trans = "log10", name = y_label) +
-    scale_x_continuous(name = x_label) +
-    geom_line() + 
-    geom_hline(data = BioLim, aes(yintercept = bio20), linetype = "dotdash", color = "red")+
-    geom_hline(data = BioLim, aes(yintercept = bio40), linetype = "dashed", color = "green")+
-    geom_hline(data = BioLim, aes(yintercept = bio48), linetype = "dotted", color = "blue")+
-    theme_bw()+
-    theme(text = element_text(size=18),
-          axis.title.y = element_text(vjust=0.4, size = 16),
-          axis.title.x = element_text(vjust=0.3, size = 16),
-          axis.text.x = element_text(angle=90, hjust=0.5),
-          panel.grid.major = element_blank(), 
-          strip.background =element_rect(fill="white"),
-          legend.position = "none")+
-    facet_wrap(~spCommon)
-  
-  return(p)
-}
 
-# function to plot model runs - fleets effort, profits, yield etc.  
+setwd("/Users/nov017/R-projects/Mizer-fleet/R")
+source("DataFunction.R") 
 
-plot_fleet<-function(temp_sim){
+# NOTE add 1. before projection data for all species and fleet (from sim_FD_bmsy)
+# rescale abundance and trends from 0 to 1 as per fig.2 in SEAmodel_run_timevariant_shiny
+# add legend for Blim, bmsy and bmey
+# add line to 0 profit
   
-  eData<-plotEffort_CN(temp_sim)$eData
-  colnames(eData)<-c("time","fleet","Effort [m]")
-  yData<-plotYield_CN(temp_sim)$yData
-  colnames(yData)<-c("time","fleet","Yield [g]")
-  prData<-plotProfit_CN(temp_sim)$prData
-  colnames(prData)<-c("time","fleet","Profit [$]")
-
-  fleetData<-merge(eData, yData, all = TRUE)
-  fleetData<-merge(fleetData, prData, all = TRUE)
-  fleetData<-fleetData %>%
-    gather(key, value, -time, -fleet)
-
-  x_label <- "Year"
-  p <- ggplot(fleetData, aes(x = time, y = value)) +
-    scale_x_continuous(name = x_label) +
-    geom_line() +
-    theme_bw()+
-    theme(text = element_text(size=18),
-          axis.title.y = element_blank(), 
-          axis.title.x = element_text(vjust=0.3, size = 16),
-          axis.text.x = element_text(angle=90, hjust=0.5),
-          panel.grid.major = element_blank(),
-          strip.background =element_rect(fill="white"),
-          legend.position = "none")+
-    facet_grid(key~fleet, scale = "free")
-  
-  return(p)
-}
-
-# run function over each scenario 
-
-plot_SI_sim_scenario<-list()
+plot_list<-list()
 
 for(i in 1:length(sim_scenario)){
+  plot_list[[i]]<-plotSppTrends(sim_scenario[[i]])
+  names(plot_list)[i] <- names(sim_scenario)[i]
+}
+
+#"unfished"        "noCompetition"   "fullCompetition" "statusQuo"       "noBycatch"       "MoreTarget"      "MoreUnderQuota" 
+# plot_list[[4]] # status quo
+# plot_list[[5]] # no bycatch 
   
-  # i = 1
-  a<-plot_limits(sim_scenario[[i]])
-  b<-plot_fleet(sim_scenario[[i]])
-  # library(patchwork)
-  plot_SI_sim_scenario [[i]]<- a / b + plot_layout (nrow = 2, heights = c(1.5,1))
+setwd("/Users/nov017/Desktop")
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+
+for(i in 1:length(plot_list)){
   
-  names(plot_SI_sim_scenario)[i]<-names(sim_scenario)[i]
+  # i =2
+  # tiff("Fig4_op1.tiff", height=13, width=16, units ='in', res=300)
+  # plot_matrix / plot_effort / plot_all + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
+  tiff(paste("FigS3_",names(plot_list)[i],".tiff", sep = "" ), height=13, width=13, units ='in', res=300)
+  print(plot_list[[i]])
+  dev.off()
   
 }
 
-# not working! only manually.... 
+# explore details 
+# why decreases in effort for teh SET-SH in less bycatch?
+a<-sim_scenario$statusQuo
+b<-sim_scenario$noBycatch
 
-for(i in 1:length(plot_SI_sim_scenario)){
- 
-  i = 6
-  # setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-  # tiff(paste("FigS3_",names(plot_SI_sim_scenario)[i],".tiff", sep = "" ), height=10, width=10, units ='in', res=300)
-  plot_SI_sim_scenario[[i]]
-  # dev.off()
+# species below 40 - same
+spa<-filter(a@BioOut[[2]], fleet == "SET-SH", bioLim == "bio40check")
+spb<-filter(b@BioOut[[2]], fleet == "SET-SH", bioLim == "bio40check")
+
+trial<-a@params@target 
+trial<-as_data_frame(trial) %>% 
+  select(spa$species)
+
+trial2<-b@params@target 
+trial2<-as_data_frame(trial2) %>% 
+  select(spa$species)
+
+trial[4,] # status
+trial2[4,] # no bycatch: more  
+
   
-}
-
 ```
 

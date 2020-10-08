@@ -701,13 +701,13 @@ compareEql<-function(areaEco, df_param, sim, matrix_effort, df_log_spp, calibrat
 compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbObs,rescale,areaEco){
   
   # # trial 
-  # sim = sim_fitted
-  # sim_FD = sim_FD_bmsy
-  # fleetDynamics = TRUE
+  # sim = sim_fitted3
+  # sim_FD = NA
+  # fleetDynamics = FALSE
   # type = "yield"
   # yieldObs_timeVariant = yieldObs_timeVariant
   # ssbObs = ssbObs
-  # rescale = 0
+  # rescale = 3
   # areaEco = areaEco
   
   # need to fix for the FD part: 
@@ -914,11 +914,16 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
   
   # plot trends in modelled and observed catches 
   plot_trends<-function(df){
+    df<-plot_y
+    # lines of differnet color
     p <- ggplot(df) + 
-      geom_line(aes(x=year, y = yield, colour=color), size=1) +
+      geom_line(aes(x=year, y = yield, color = color), size=1) +
+      # geom_point(filter(df, color == "observed"), aes(x=year, y = yield), size=1) +
       scale_x_continuous(name = "Year") +
       theme_bw() +
-      theme(legend.title = element_blank(),
+      theme(
+        # legend.position =="none", 
+            legend.title = element_blank(),
             text = element_text(size=12),
             legend.text=element_text(size=12),
             axis.title.y = element_text(size=15, vjust=0.4),
@@ -926,7 +931,37 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
             axis.text.y = element_text(size=10, hjust=0.5),
             axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
             panel.grid.major = element_blank(),
-            strip.background = element_rect(colour="black", fill= NA)) 
+            strip.background = element_rect(colour="black", fill= NA))
+    
+    if(fleetDynamics == FALSE){
+      # lines and dot plot - final version for paper FIG2 - It should still work  
+      
+      df<-droplevels(df)
+      sp.labs <- levels(df$spCommon)
+      spNames<-c("Whiting","Squid","Mackerel","Redfish","Deep shark","Morwong","Flathead","Dories","Blue warehou","Orange roughy","Blue granadier","Silver warehou","Gemfish","Pink ling","Sawshark","Gummy shark","School shark")
+      
+      df<-df %>% 
+        mutate(spCommon = factor(spCommon, level = sp.labs)) 
+      levels(df$spCommon) <- spNames
+      
+      a<-df %>% spread(color, yield)
+      p <- ggplot(a) + 
+        geom_line(aes(x=year, y = modelled), size=0.5) +
+        geom_point(aes(x=year, y = observed), size=1, shape = 1) +
+        scale_x_continuous(name = "Year") +
+        theme_bw()+
+        theme(text = element_text(size=14),
+              axis.title.y = element_text(vjust=0.4, size = 15),
+              axis.title.x = element_text(vjust=0.3, size = 15),
+              axis.text.y = element_text(size=10, hjust=0.5),
+              axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
+              panel.grid.major = element_blank(),
+              strip.background = element_blank(),
+              panel.border = element_rect(colour = "black"),
+              strip.text.x = element_text(face = "bold"))+
+        facet_wrap(~spCommon)
+      p
+    }
     
     if(type == "yield"){
       p<-p+scale_y_continuous(name = "Yield [tonnes]") 
@@ -938,7 +973,10 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
   # call the plotting function
   # plot_y$year<- as.factor(plot_y$year)
   plotYield<-plot_trends(plot_y)
-  plotYield<-plotYield+facet_wrap(~spCommon)
+  if(fleetDynamics==TRUE){
+    plotYield<-plotYield+facet_wrap(~spCommon)
+  }
+
   
   ######## comparison option 2
   
@@ -1203,7 +1241,7 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   # start from community at equilibrium (sim_calibrated) and fish each spp for 10 time steps effort (as in sim_calibrated). BUT change effort for each spp one at the time
   for(i in 1:ncol(effort_y)){
     
-    # i = 9
+    #i = 9
     prova <- effort_y
     prova[,i]<-seq(from = 0.01, to = 1, length.out = dim(effort_y)[1])
 
@@ -1212,7 +1250,7 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
     check_y<-getYield(sim_check)
     check_b<-getBiomass(sim_check)
     
-    out_y<-rbind(out_y, check_y[,i])
+    out_y<-rbind(out_y, check_y[,i]) # something wrong here!! 
     out_b<-rbind(out_b, check_b[,i])
     out_e<-rbind(out_e, prova[,i])
   }
@@ -1484,26 +1522,25 @@ plotFleetEffort<-function(a,b, sim_scenario, sim_FD_bmsy,col_values){
     left_join(e_before_add, all=TRUE)
   
   e<-rbind(e, e_before)
-
+  
   e_mean<-e %>% 
     group_by(Scenario, Year) %>% 
     dplyr::summarise(Effort = mean(Effort))
   
   # plot only simulations? 
-  e<-e %>% 
-    filter(Year>2017)
-  e_mean<-e_mean %>% 
-    filter(Year>2017)
+  # e<-e %>% 
+  #   filter(Year>2017)
+  # e_mean<-e_mean %>% 
+  #   filter(Year>2017)
   
   # version 1 
   plot_effort <- ggplot(e) + 
     geom_line(aes(x = Year, y = Effort, group = Fleet, color = Fleet), size = 1.2) +
     # geom_point(aes(x = Year, y = Effort, group = Fleet, color = Fleet, shape = Fleet), size = 2)+
-    # geom_line(data = e_mean, aes(x = Year, y = Effort), color = "black", size = 1.2)+
     scale_y_continuous(name = "Effort [opn]") +
     scale_x_continuous(name = "Year")+
     scale_color_manual(values = col_values)+
-    # scale_color_brewer(type='div', palette=2)+ # palette="Set1" or "Spectral"
+    annotate("rect", xmin = min(e$Year), xmax = 2017, ymin = 0, ymax = max(e$Effort), alpha = .1, fill = "purple")+ 
     facet_wrap(~Scenario, nrow =1)+
     theme_bw()+
     theme(text = element_text(size=18),
@@ -1543,130 +1580,54 @@ plotFleetEffort<-function(a,b, sim_scenario, sim_FD_bmsy,col_values){
   
 }
 
-########### final plot - fleets trends  TO DO ----
+########### indicators ----
 
-plotFleetTrends<-function(a,b, sim_scenario, sim_FD_bmsy,col_values){
+indicators<-function(sim_scenario, management){
   
-  # alternative to your plot: trends at the fishery level? 
-  # trends in biomass
-  # trends in biomass of species under recovery strategies (e.g. sensitive)
-  # trends in yield (of fleets?)
-  # trends in profit (or fleets?)
-  
-  sim_scenario2 <- sim_scenario[a]
-  
-  e<-lapply(sim_scenario2, function(x) x@effortOut)
-  e<-melt(e) %>% 
-    mutate(L1 = factor(L1, level = a)) %>% 
-    mutate(value = (value/scaling_cost_area)*areaEco) # plot real numbers 
-  levels(e$L1) <- b
-  colnames(e)<-c("Year","Fleet","Effort","Scenario")
-  
-  # effort before simulations 
-  e_before<-sim_FD_bmsy@effortOut
-  e_before<-melt(e_before) %>% 
-    mutate(value = (value/scaling_cost_area)*areaEco) 
-  colnames(e_before)<-c("Year","Fleet","Effort")
-  e_before_add<-expand.grid(unique(e_before$Fleet), unique(e$Scenario))
-  colnames(e_before_add)<-c("Fleet", "Scenario")
-  e_before<-e_before %>% 
-    left_join(e_before_add, all=TRUE)
-  
-  e<-rbind(e, e_before)
-  
-  e_mean<-e %>% 
-    group_by(Scenario, Year) %>% 
-    dplyr::summarise(Effort = mean(Effort))
-  
-  # plot only simulations? 
-  e<-e %>% 
-    filter(Year>2017)
-  e_mean<-e_mean %>% 
-    filter(Year>2017)
-  
-  # version 1 
-  plot_effort <- ggplot(e) + 
-    geom_line(aes(x = Year, y = Effort, group = Fleet, color = Fleet), size = 1.2) +
-    # geom_point(aes(x = Year, y = Effort, group = Fleet, color = Fleet, shape = Fleet), size = 2)+
-    # geom_line(data = e_mean, aes(x = Year, y = Effort), color = "black", size = 1.2)+
-    scale_y_continuous(name = "Effort [opn]") +
-    scale_x_continuous(name = "Year")+
-    scale_color_manual(values = col_values)+
-    # scale_color_brewer(type='div', palette=2)+ # palette="Set1" or "Spectral"
-    facet_wrap(~Scenario, nrow =1)+
-    theme_bw()+
-    theme(text = element_text(size=18),
-          axis.title.y = element_text(vjust=0.4, size = 16),
-          axis.title.x = element_text(vjust=0.3, size = 16),
-          axis.text.x = element_text(angle=90, hjust=0.5),
-          panel.grid.major = element_blank(),
-          strip.background = element_blank(),
-          panel.border = element_rect(colour = "black"),
-          strip.text.x = element_text(face = "bold"))
-  
-  # version 2 - list of plots 
-  plot_effort_list<-list()
-  for (i in 1:length(sim_scenario2)){
-    
-    e<-sim_scenario2[[i]]@effortOut
-    e<-as.data.frame.table(e) %>% 
-      mutate(time = as.numeric(as.character(time)))
-    
-    plot_effort_list[[i]] <- ggplot(e, aes(x = time, y = Freq, group = gear, color = gear)) + 
-      geom_line() +
-      scale_y_continuous(name = "Effort [m]") +
-      scale_x_continuous(name = "Year")+
-      # facet_wrap(~gear,ncol = length(unique(e$gear)))+  
-      theme_bw()+
-      theme(text = element_text(size=18),
-            axis.title.y = element_text(vjust=0.4, size = 16),
-            axis.title.x = element_text(vjust=0.3, size = 16),
-            panel.grid.major = element_blank(), 
-            strip.background =element_rect(fill="white"))
-    # legend.position = "none")
-    
-    names(plot_effort_list)[i]<-names(sim_scenario2)[i]
-  }
-  
-  return(list(plot_effort = plot_effort, plot_effort_list = plot_effort_list))
-  
-}
+  # management = TRUE
 
-########### final plot - calcualte indicators ----
-
-indicators<-function(sim_scenario){
-  
-  # BOIMASS recoveries 
-  
-  biomass_scenario <- sim_scenario %>%
+  # BOIMASS total 
+  biomassTot_scenario <- sim_scenario %>%
     map(~getBiomass(.)) %>% 
     map(~as.data.frame(.)) %>% 
     map(~slice(., n())) %>% # Here you decide which value to consider, either the last one or a sum over the hole runs 
+    map(~sum(.)) 
+    
+  # BOIMASS species unders recovery strategy - sensistive 
+  biomassSesns_scenario <- sim_scenario %>%
+    map(~getBiomass(.)) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~slice(., n())) %>%
     map(~select(., c("squalus spp.","seriolella brama","rexea solandri", "galeorhinus galeus"))) %>% # biomass of sensitive (squalus) + recovery species  
     map(~sum(.)) 
   
   # BOIMASS target
-  
-  biomass_scenario_B <- sim_scenario %>%
+  # see below in trends on why these spp selection
+  biomassTarget_scenario <- sim_scenario %>%
     map(~getBiomass(.)) %>% 
     map(~as.data.frame(.)) %>% 
     map(~slice(., n())) %>% 
-    # map(~select(., -c("myctophids","nototodarus gouldi","helicolenus barathri","trachurus declivis","squalus spp.","pristiophorus cirratus"))) %>% 
+    map(~select(., c("sillago flindersi", "centroberyx affinis", "nemadactylus macropterus","platycephalus richardsoni","zeus faber", "hoplostethus atlanticus","macruronus novaezelandiae", "seriolella punctata", "genypterus blacodes", "mustelus antarcticus"))) %>% 
     map(~sum(.))
   
   # N spp below Bmsy - i.e. driving management  (this does not account for depletion during the time of simulations)
   
-  Nref_scenario<-sim_scenario %>% 
-    map(~do.call("rbind", .@BioOut)) %>% 
-    map(~filter(., bioLim == "bio40check", timestep == t_max)) %>% 
-    map(~length(unique(.$species)))
-  
-  # number of spp below 20% thus stopping fishing from happening (as above)
-  
-  Nref20_scenario<-sim_scenario %>% 
-    map(~do.call("rbind", .@BioOut)) %>% 
-    map(~filter(., bioLim == "bio20check", timestep == t_max)) %>% 
-    map(~length(unique(.$species)))
+  if (management == TRUE) {
+    
+    x1 = lapply(sim_scenario, function(l) l@BioOut[[t_max]])
+    
+    Nref48_scenario<-x1 %>% 
+      map(~filter(., bioLim == "bio48check")) %>% 
+      map(~length(unique(.$species)))
+    
+    Nref40_scenario<-x1 %>% 
+      map(~filter(., bioLim == "bio40check")) %>% 
+      map(~length(unique(.$species)))
+    
+    Nref20_scenario<-x1 %>% 
+      map(~filter(., bioLim == "bio20check")) %>% 
+      map(~length(unique(.$species))) 
+  }
   
   # N active fleets (as above - better shown as effort dynamics)
   
@@ -1723,51 +1684,322 @@ indicators<-function(sim_scenario){
     map(~slice(., n())) %>% 
     map(~sum(.))
   
-  df_plot<-do.call("rbind", biomass_scenario) %>%
-    cbind(do.call("rbind", biomass_scenario_B)) %>%
-    cbind(do.call("rbind", Nref_scenario)) %>%
-    cbind(do.call("rbind", Nref20_scenario)) %>%
-    cbind(do.call("rbind", Fref_scenario)) %>%
-    cbind(do.call("rbind", slope_scenario)) %>%
-    cbind(do.call("rbind", yield_scenario)) %>% 
-    cbind(do.call("rbind", effort_scenario)) %>% 
-    cbind(do.call("rbind", profit_scenario)) %>% 
-    `colnames<-`(c("biomassA","biomassB","Nref","Nref20","Fref","slope","yield","effort","profit")) %>% 
-    as.data.frame() %>% 
-    tibble::rownames_to_column(var = "scenario") 
+  if (management ==TRUE){
+    df_plot<-do.call("rbind", biomassTot_scenario) %>%
+      cbind(do.call("rbind", biomassSesns_scenario)) %>%
+      cbind(do.call("rbind", biomassTarget_scenario)) %>%
+      cbind(do.call("rbind", Nref48_scenario)) %>%
+      cbind(do.call("rbind", Nref40_scenario)) %>%
+      cbind(do.call("rbind", Nref20_scenario)) %>%
+      cbind(do.call("rbind", Fref_scenario)) %>%
+      cbind(do.call("rbind", slope_scenario)) %>%
+      cbind(do.call("rbind", yield_scenario)) %>% 
+      cbind(do.call("rbind", effort_scenario)) %>% 
+      cbind(do.call("rbind", profit_scenario)) %>% 
+      `colnames<-`(c("biomass","biomassSens","biomassTarget","Nref48","Nref40","Nref20","Fref","slope","yield","effort","profit")) %>% 
+      as.data.frame() %>% 
+      tibble::rownames_to_column(var = "scenario")
+  } else{
+    df_plot<-do.call("rbind", biomassTot_scenario) %>%
+      cbind(do.call("rbind", biomassSesns_scenario)) %>%
+      cbind(do.call("rbind", biomassTarget_scenario)) %>%
+      cbind(do.call("rbind", Fref_scenario)) %>%
+      cbind(do.call("rbind", slope_scenario)) %>%
+      cbind(do.call("rbind", yield_scenario)) %>% 
+      cbind(do.call("rbind", effort_scenario)) %>% 
+      cbind(do.call("rbind", profit_scenario)) %>% 
+      `colnames<-`(c("biomassA","biomassB","Fref","slope","yield","effort","profit")) %>% 
+      as.data.frame() %>% 
+      tibble::rownames_to_column(var = "scenario")
+  }
   
   return(list(df_plot = df_plot))
   
 }
 
-########### final plot - bar plot of trade-offs ----
+########### indicators trends ----
 
-plotIndicators<-function(a,b,df_plot, col_values){
+indicatorsTrend<-function(a,b, sim_scenario, col_values){
   
+  # BOIMASS recoveries - not plotted in the end 
+  biomass_scenario <- sim_scenario %>%
+    map(~getBiomass(.)) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~select(., c("squalus spp.","seriolella brama","rexea solandri", "galeorhinus galeus"))) %>%
+    map(~rowSums(.))
+  
+  names<-names(biomass_scenario$noCompetition)
+  
+  biomass_scenario<-do.call("rbind", biomass_scenario)
+  biomass_scenario<-as.data.frame(biomass_scenario)
+  biomass_scenario$scenario<-rownames(biomass_scenario)
+  biomass_scenario<- biomass_scenario%>% 
+    gather(year, biomassSensitive, - scenario)
+  
+  # biomass before simulations 
+  biomass_before <- getBiomass(sim_FD_bmsy) %>% 
+    as.data.frame(.) %>% 
+    select(c("squalus spp.","seriolella brama","rexea solandri", "galeorhinus galeus")) %>%
+    rowSums(.)
+    
+  biomass_before<-melt(biomass_before)
+  biomass_before$year<-rownames(biomass_before)
+  bio_before_add<-expand.grid(unique(biomass_before$year), unique(biomass_scenario$scenario))
+  colnames(bio_before_add)<-c("year", "scenario")
+  biomass_before<-biomass_before %>% 
+    left_join(bio_before_add, all=TRUE) %>% 
+    `colnames<-`(c("biomassSensitive","year","scenario"))
+  biomass_before<-biomass_before[,c("scenario","year","biomassSensitive")]
+  
+  biomass_scenario<-rbind(biomass_scenario, biomass_before)
+  
+  # BOIMASS target
+  # if target only - removed food items and mostly  pelagic or inshore, remove sensitive, remove pristo as not main target
+  biomass_scenario_B <- sim_scenario %>%
+    map(~getBiomass(.)) %>% 
+    map(~as.data.frame(.)) %>% 
+    map(~select(., c("sillago flindersi", "centroberyx affinis", "nemadactylus macropterus","platycephalus richardsoni","zeus faber", "hoplostethus atlanticus","macruronus novaezelandiae", "seriolella punctata", "genypterus blacodes", "mustelus antarcticus"))) %>% 
+    map(~rowSums(.))
+  
+  biomass_scenario_B<-do.call("rbind", biomass_scenario_B)
+  biomass_scenario_B<-as.data.frame(biomass_scenario_B)
+  biomass_scenario_B$scenario<-rownames(biomass_scenario_B)
+  biomass_scenario_B<- biomass_scenario_B%>% 
+    gather(year, biomass, - scenario)
+  
+  # biomass before simulations 
+  biomass_before <- getBiomass(sim_FD_bmsy) %>% 
+    as.data.frame(.) %>%
+    select(c("sillago flindersi", "centroberyx affinis", "nemadactylus macropterus","platycephalus richardsoni","zeus faber", "hoplostethus atlanticus","macruronus novaezelandiae", "seriolella punctata", "genypterus blacodes", "mustelus antarcticus")) %>%
+    rowSums(.)
+  
+  biomass_before<-melt(biomass_before)
+  biomass_before$year<-rownames(biomass_before)
+  bio_before_add<-expand.grid(unique(biomass_before$year), unique(biomass_scenario$scenario))
+  colnames(bio_before_add)<-c("year", "scenario")
+  biomass_before<-biomass_before %>% 
+    left_join(bio_before_add, all=TRUE) %>% 
+    `colnames<-`(c("biomass","year","scenario"))
+  biomass_before<-biomass_before[,c("scenario","year","biomass")]
+  
+  biomass_scenario_B<-rbind(biomass_scenario_B, biomass_before)
+  
+  # YIELD
+  yield_scenario <- sim_scenario %>%
+    map(~getYield_CN(.)) %>% 
+    map(~rowSums(.))
+    
+  yield_scenario<-do.call("rbind", yield_scenario)
+  colnames(yield_scenario)<-names
+  yield_scenario<-as.data.frame(yield_scenario)
+  yield_scenario$scenario<-rownames(yield_scenario)
+  yield_scenario<- yield_scenario%>% 
+    gather(year, yield, - scenario)
+  
+  # yield before simulations 
+  yield_before <- getYield_CN(sim_FD_bmsy) %>% 
+    as.data.frame(.) %>%
+    rowSums(.)
+  
+  yield_before<-melt(yield_before)
+  yield_before$year<-unique(biomass_before$year)
+  yield_before_add<-expand.grid(unique(yield_before$year), unique(yield_scenario$scenario))
+  colnames(yield_before_add)<-c("year", "scenario")
+  yield_before<-yield_before %>% 
+    left_join(yield_before_add, all=TRUE) %>% 
+    `colnames<-`(c("yield","year","scenario"))
+  yield_before<-yield_before[,c("scenario","year","yield")]
+  yield_scenario<-rbind(yield_scenario, yield_before)
+    
+  # PROFIT
+  profit_scenario<-sim_scenario %>% 
+    map(~.@profit) %>% 
+    map(~as.data.frame(.)) %>%
+    map(~rowSums(.))
+
+  profit_scenario<-do.call("rbind", profit_scenario)
+  profit_scenario<-as.data.frame(profit_scenario)
+  profit_scenario$scenario<-rownames(profit_scenario)
+  profit_scenario<- profit_scenario %>% 
+    gather(year, profit, - scenario)
+  
+  # profit before simulations 
+  pr_before <- sim_FD_bmsy@profit %>% 
+    as.data.frame(.) %>%
+    rowSums(.)
+  
+  pr_before<-melt(pr_before)
+  pr_before$year<-rownames(pr_before)
+  pr_before_add<-expand.grid(unique(pr_before$year), unique(profit_scenario$scenario))
+  colnames(pr_before_add)<-c("year", "scenario")
+  pr_before<-pr_before %>% 
+    left_join(pr_before_add, all=TRUE) %>% 
+    `colnames<-`(c("profit","year","scenario"))
+  pr_before<-pr_before[,c("scenario","year","profit")]
+  
+  profit_scenario<-rbind(profit_scenario, pr_before)
+  
+  # merge all data 
+  df_plot<-biomass_scenario %>% 
+    full_join(biomass_scenario_B) %>% 
+    full_join(yield_scenario) %>% 
+    full_join(profit_scenario)
+  
+  # scale values to teh system# see plotting function below too... 
+  df_plot <- df_plot %>% 
+    mutate(biomassSensitive = (biomassSensitive/1000000)*areaEco, 
+           biomass = (biomass/1000000)*areaEco,
+           yield = (yield/1000000)*areaEco, 
+           profit = (profit*areaEco)/1000000)
+  
+  # order scenarios 
+  df_plot <- df_plot %>% 
+    mutate(scenario = factor(scenario, level = a))
+  levels(df_plot$scenario) <- b
+  colnames(df_plot)<-c("Scenario","Year","Biomass Sensitive","Biomass","Yield","Profit")
+
+  # plot   
+  # here values are rescaled across scenarios (not for each scenario independently) and trends are exactly the same as for row data 
+  df_plot<-df_plot[!is.na(df_plot$Scenario),] # this is the unfished - it's NA because you have not specified a name for this scenarios when changing the scenario to factor  
+  
+  trial<-df_plot %>%
+    select(-c("Year","Scenario")) %>%
+    as.matrix()
+    
+  library(matrixStats)
+  max = colMaxs(trial, na.rm =TRUE)
+  min = colMins(trial, na.rm =TRUE)
+  ratio = max-min
+  trial2 <- sweep(trial,2,min,"-")
+  trial2 <- sweep(trial2,2,ratio,"/")
+  trial3<-cbind(df_plot[,c(1,2)], as.data.frame(trial2))
+    
+  trial<-trial3 %>% 
+    gather(Indicator, value, -c(Scenario, Year))
+    
+  trial<-trial %>% 
+    mutate(Year= as.numeric(Year)) %>% 
+    filter(Indicator != "Biomass Sensitive")
+    
+  plot_indiTrend <- ggplot(trial) + 
+    geom_line(aes(x = Year, y = value, group = Indicator, color = Indicator),size = 1.2) +
+    scale_y_continuous(name = "Indicator") +
+    scale_x_continuous(name = "Year")+
+    scale_color_manual(values = col_values[2:4])+
+    annotate("rect", xmin = min(trial$Year), xmax = 2017, ymin = 0, ymax = max(trial$value), alpha = .1, fill = "purple")+ 
+    facet_wrap(~Scenario, nrow = 1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+            axis.title.y = element_text(vjust=0.4, size = 16),
+            axis.title.x = element_text(vjust=0.3, size = 16),
+            axis.text.x = element_text(angle=90, hjust=0.5),
+            panel.grid.major = element_blank(),
+            strip.background = element_blank(),
+            panel.border = element_rect(colour = "black"),
+            strip.text.x = element_text(face = "bold"))
+  
+  
+  df_plot2<-df_plot %>% 
+    gather(Indicator, value, -c(Scenario, Year))
+  
+  bio<-df_plot2 %>% 
+    filter(Indicator %in% c("Biomass")) %>%
+    mutate(Year = as.numeric(Year))
+  
+  plot_bio <- ggplot(bio, aes(x = Year, y = value, group = Indicator)) + 
+    geom_line(size = 1.2, color = col_values[4]) +
+    scale_y_continuous(name = "Biomass [tonnes]") +
+    scale_x_continuous(name = "Year")+
+    annotate("rect", xmin = min(bio$Year), xmax = 2017, ymin = min(bio$value), ymax = max(bio$value), alpha = .1, fill = "purple")+
+    facet_wrap(~Scenario, nrow = 1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  y<-df_plot2 %>% 
+    filter(Indicator %in% c("Yield")) %>%
+    mutate(Year = as.numeric(Year)) 
+  
+  plot_y <- ggplot(y, aes(x = Year, y = value, group = Indicator)) + 
+    geom_line(size = 1.2,color = col_values[4]) +
+    scale_y_continuous(name = "Yield [tonnes]") +
+    scale_x_continuous(name = "Year")+
+    # scale_color_manual(values = col_values[1:4])+
+    annotate("rect", xmin = min(y$Year), xmax = 2017, ymin = min(y$value), ymax = max(y$value), alpha = .1, fill = "purple")+
+    facet_wrap(~Scenario, nrow = 1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  pr<-df_plot2 %>% 
+    filter(Indicator %in% c("Profit")) %>%
+    mutate(Year = as.numeric(Year)) 
+  
+  plot_pr <- ggplot(pr, aes(x = Year, y = value, group = Indicator)) + 
+    geom_line(size = 1.2,color = col_values[4]) +
+    scale_y_continuous(name = "Profit [million AUD]") +
+    scale_x_continuous(name = "Year")+
+    geom_hline(yintercept = 0, linetype = "dashed")+
+    # scale_color_manual(values = col_values[1:4])+
+    annotate("rect", xmin = min(pr$Year), xmax = 2017, ymin = min(pr$value), ymax = max(pr$value), alpha = .1, fill = "purple")+
+    facet_wrap(~Scenario, nrow = 1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  return(list(df_plot = df_plot, plot_indiTrend = plot_indiTrend, plot_bio = plot_bio, plot_y = plot_y, plot_pr = plot_pr))
+    
+  }
+
+########### indicator plot ----
+
+plotIndicators<-function(a,b,df_plot, col_values, scenarios){
+  
+  
+  ###### trial -----
   # rescale indicators 
   ref<-df_plot[which(df_plot$scenario == "statusQuo"),]  
   
+  # after chat with Julia - thsi is not the right way to rescale values - see below for a better way 
   df_plot2<-df_plot %>% 
-    mutate(biomassA = biomassA-ref$biomassA) %>% 
-    mutate(biomassA = (biomassA-min(abs(biomassA)))/(max(abs(biomassA))-min(abs(biomassA)))) %>% 
-    mutate(biomassB = biomassB-ref$biomassB) %>% 
-    mutate(biomassB = (biomassB-min(abs(biomassB)))/(max(abs(biomassB))-min(abs(biomassB)))) %>% 
+    filter(scenario != "unfished") %>% 
+    mutate(biomass = biomass-ref$biomass) %>% 
+    mutate(biomass = (biomass-min(abs(biomass)))/(max(abs(biomass))-min(abs(biomass)))) %>%
+    mutate(biomassSens = biomassSens-ref$biomassSens) %>% 
+    mutate(biomassSens = (biomassSens-min(abs(biomassSens)))/(max(abs(biomassSens))-min(abs(biomassSens)))) %>%
+    mutate(biomassTarget = biomassTarget-ref$biomassTarget) %>% 
+    mutate(biomassTarget = (biomassTarget-min(abs(biomassTarget)))/(max(abs(biomassTarget))-min(abs(biomassTarget)))) %>%
     mutate(slope = slope-ref$slope) %>% 
-    mutate(slope = (slope-min(abs(slope)))/(max(abs(slope))-min(abs(slope)))) %>% 
+    mutate(slope = (slope-min(abs(slope)))/(max(abs(slope))-min(abs(slope)))) %>%
     mutate(yield = yield-ref$yield) %>% 
-    mutate(yield = (yield-min(abs(yield)))/(max(abs(yield))-min(abs(yield)))) %>% 
+    mutate(yield = (yield-min(abs(yield)))/(max(abs(yield))-min(abs(yield)))) %>%
     mutate(effort = effort-ref$effort) %>% 
-    mutate(effort = (effort-min(abs(effort)))/(max(abs(effort))-min(abs(effort)))) %>% 
+    mutate(effort = (effort-min(abs(effort)))/(max(abs(effort))-min(abs(effort)))) %>%
     mutate(profit = profit-ref$profit) %>% 
     mutate(profit = (profit-min(abs(profit)))/(max(abs(profit))-min(abs(profit))))
-  
-  # or not - if you are using plot type 2 - TRIAL! 
-  df_plot2<-df_plot
-  
+
   # calculate sp below re limits adn N of active vessels for each scenario
   Ntext<-df_plot2 %>% 
-    select(c(scenario, Nref)) #%>%
-  Ntext$Nref<-paste("Below Bmsy = ", Ntext$Nref)
+    select(c(scenario, Nref40)) #%>%
+  Ntext$Nref40<-paste("Below Bmsy = ", Ntext$Nref40)
   
   N20text<-df_plot2 %>% 
     select(c(scenario, Nref20)) #%>%
@@ -1778,12 +2010,14 @@ plotIndicators<-function(a,b,df_plot, col_values){
   Ftext$Fref<-paste("Active = ", Ftext$Fref)
   
   # color, order and rename indicators and scenarios
-  c = c("Nref","Nref20","Fref","biomassB","biomassA","slope","effort","yield","profit")
-  d = c("Nref","Nref20","Fref","Biomass","Bio recovery", "Slope", "Effort", "Yield", "Profit")
+  # unique(df_plot3$indicator)
+  
+  c = c("Nref48","Nref40","Nref20","Fref","biomass","biomassSens","biomassTarget","slope","effort","yield","profit")
+  d = c("Nref48", "Nref40","Nref20","Fref","Biomass","Bio recovery","Bio target", "Slope", "Effort", "Yield", "Profit")
   
   df_plot3<- df_plot2 %>% 
     gather(indicator, value, -scenario) %>% 
-    mutate(type = ifelse(indicator %in% c("biomassA","biomassB","slope"),"ecological","socio-economic")) %>% 
+    mutate(type = ifelse(indicator %in% c("biomass","biomassSens","biomassTarget","slope"),"ecological","socio-economic")) %>%
     mutate(scenario = factor(scenario, level = a)) %>% 
     mutate(indicator = factor(indicator, level = c)) 
   levels(df_plot3$scenario) <- b
@@ -1808,16 +2042,17 @@ plotIndicators<-function(a,b,df_plot, col_values){
   
   FtextAll<-merge(Ftext2, N20text2)
   FtextAll<-merge(FtextAll, Ntext2)
-  FtextAll$all<-paste(FtextAll$Fref, FtextAll$Nref20, FtextAll$Nref)
+  FtextAll$all<-paste(FtextAll$Fref, FtextAll$Nref20, FtextAll$Nref40)
   
-  # version 1 - all info
+  # version 1 - bar plot
+  
   plot_bar<-ggplot()+ 
-    geom_bar(data = filter(df_plot3, !indicator %in% c("Nref","Nref20","Fref", "effort", "slope")), aes(x = indicator, y = value, color = type, fill = type), stat='identity', width=0.8)+
+    geom_bar(data = filter(df_plot3, !indicator %in% c("Nref48", "Nref40","Nref20","Fref")), aes(x = indicator, y = value, color = type, fill = type), stat='identity', width=0.8)+
     scale_color_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
     scale_fill_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
     geom_text(data = Ftext2, aes(x = 2, y = 1.4, label = Fref), color = "black", size = 4)+
     geom_text(data = N20text2, aes(x = 2.6, y = 1.25, label = Nref20), color = "black", size = 4)+
-    geom_text(data = Ntext2, aes(x = 2.7, y = 1.1, label = Nref), color = "black", size = 4)+
+    geom_text(data = Ntext2, aes(x = 2.7, y = 1.1, label = Nref40), color = "black", size = 4)+
     facet_wrap(~scenario, nrow = 1)+
     theme_bw()+
     geom_hline(yintercept = 1, linetype = "dashed")+
@@ -1832,86 +2067,30 @@ plotIndicators<-function(a,b,df_plot, col_values){
           strip.background = element_blank(),
           panel.border = element_rect(colour = "black"),
           strip.text.x = element_text(face = "bold"))
-  
-  # version 2 - reduced
-  df_plot4<-df_plot3 %>% 
-    filter(indicator %in% c("Bio recovery","Biomass","Yield","Profit"))
-  
-  plot_bar_reduced<-ggplot()+ 
-    geom_bar(data = df_plot4, aes(x = indicator, y = value, color = type, fill = type), stat='identity', width=0.8)+
-    scale_color_manual(values = col_values, name = "Indicator type")+ 
-    scale_fill_manual(values = col_values, name = "Indicator type")+ 
-    facet_wrap(~scenario, nrow = 1)+
-    theme_bw()+
-    # geom_hline(yintercept = 0, linetype = "dashed")+
-    ylab ("Changes relative to Status Quo")+
-    xlab ("Indicators")+
-    theme(text = element_text(size=18),
-          axis.title.y = element_text(vjust=0.4, size = 16),
-          axis.title.x = element_text(vjust=0.3, size = 16),
-          axis.text.x = element_text(angle=90, hjust=0.5),
-          panel.grid.major = element_blank(), 
-          strip.background = element_blank(),
-          panel.border = element_rect(colour = "black"),
-          strip.text.x = element_text(face = "bold")) # strip.text.x = element_blank())
 
-  # version 3 - reduced and list 
-  df_plot5<-split(df_plot4, df_plot4$scenario)
+  # version 2 - as per China paper 
   
-  list_plot_bar<-list()
-  for (i in 1:length(df_plot5)){
-    
-    list_plot_bar[[i]] <-ggplot()+ 
-      geom_bar(data = df_plot5[[i]], aes(x = indicator, y = value), stat='identity', width=0.8)+
-      scale_color_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
-      scale_fill_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
-      theme_bw()+
-      geom_hline(yintercept = 0, linetype = "dashed")+
-      ylab ("Changes relative to Status Quo")+
-      xlab ("Indicators")+
-      theme(text = element_text(size=18),
-            axis.title.y = element_text(vjust=0.4, size = 16),
-            axis.title.x = element_text(vjust=0.3, size = 16),
-            axis.text.x = element_text(angle=90, hjust=0.5),
-            panel.grid.major = element_blank(), 
-            strip.background = element_blank(),
-            panel.border = element_rect(colour = "black"),
-            strip.text.x = element_text(face = "bold"))
-    
-    names(list_plot_bar)[i]<-names(df_plot5)[i]
-  }
-  
-  # version as per China paper 
-  df_plot6<-df_plot3
-  df_plot6$indicator<-as.character(df_plot6$indicator)
-  df_plot6$indicator<-ifelse(df_plot6$indicator == "Bio recovery", "Bio_recovery", df_plot6$indicator)
-
-  df_plot6<-df_plot6 %>% 
-    select(!type) %>% 
-    spread(indicator,value) %>% 
+  # are these values matching at the fishery scale? - to check: tonnes sounds about right, profits are too high (but it's the relative difference that  matters)
+  df_plot6<-df_plot %>% 
     mutate(scenario = as.character(scenario)) %>% 
-    mutate(Yield = (Yield/1000000)*areaEco, 
-           Biomass = (Biomass/1000000)*areaEco,
-           Bio_recovery = (Bio_recovery/1000000)*areaEco, 
-           Profit = (Profit*areaEco)/1000000) # need to re-think and check this one... it is now million $ per ecosystems and teh starting value should be $ per m3 
-
-
+    mutate(yield = (yield/1000000)*areaEco, 
+           biomass = (biomass/1000000)*areaEco,
+           biomassSens = (biomassSens/1000000)*areaEco, 
+           biomassTarget = (biomassTarget/1000000)*areaEco, 
+           profit = (profit*areaEco)/1000000) %>% # need to re-think and check this one... it is now million $ per ecosystems and the starting value should be $ per m3 
+    filter(scenario != "unfished")
+  
   # create a dummy variable for legend 
   df_plot6<-df_plot6 %>% 
-    add_row(scenario="Legend", Bio_recovery = NA, Biomass = 900000, Effort = NA, Fref = NA, Nref =NA, Nref20 = NA, Profit = min (df_plot6$Profit), Slope = NA, Yield = max(df_plot6$Yield))
+    add_row(scenario="Legend", biomass = 900000, biomassSens = NA, biomassTarget = NA, Nref48 =NA, Nref40 = NA, Nref20 = NA, profit = min(df_plot6$profit), slope = NA, yield = max(df_plot6$yield))
   
-  # are these values matching at the fishery scale? - to check: tonnes sounds about right, profits are too high (but it's the relative difference that  matters... )
-  
-  # df_plot6<-df_plot6 %>% 
-  #   filter(!scenario %in% c("Full Competition", "No Competition"))
-  
-  trial<-ggplot(data = df_plot6, aes(x = Yield, y = Profit, color = scenario))+ 
-    geom_point(aes(size=Biomass))+
+  dot_plot<-ggplot(data = df_plot6, aes(x = yield, y = profit, color = scenario))+ 
+    geom_point(aes(size=biomass))+
     scale_size_continuous(range = c(20, 40))+
-    geom_text(aes(label = round(Biomass)), color ="black")+
+    geom_text(aes(label = round(biomass)), color ="black")+
     geom_label(aes(label = scenario), color = "black")+
     scale_fill_manual(values = col_values, name = "Scenario", guide=FALSE)+
-    expand_limits(x = c(min(df_plot6$Yield, na.rm = TRUE)-1000, max(df_plot6$Yield,na.rm = TRUE)+1000), y = c(min(df_plot6$Profit)-5, max(df_plot6$Profit)+5))+
+    expand_limits(x = c(min(df_plot6$yield, na.rm = TRUE)-1000, max(df_plot6$yield,na.rm = TRUE)+1000), y = c(min(df_plot6$profit)-5, max(df_plot6$profit)+5))+
     theme_bw()+
     ylab ("Profits [million $]")+
     xlab ("Yield [tonnes]")+
@@ -1926,46 +2105,301 @@ plotIndicators<-function(a,b,df_plot, col_values){
           # legend.position = c(0.9, 0.3),
           legend.position = "none") # strip.text.x = element_blank())
   
-  return(list(plot_bar = plot_bar, plot_bar_reduced = plot_bar_reduced, list_plot_bar = list_plot_bar, trial = trial))
+ 
+  #### final ---- 
+  
+  # version 3 - lollipop (tried radar and circular barplots but not meaningful) 
+
+  ref<-df_plot[which(df_plot$scenario == "statusQuo"),] 
+  ref <- ref %>% 
+    mutate(slope = 1+slope) %>% # increase in (negative) slope -> positive outcome
+    mutate(Nref48 = 19-Nref48) %>% # spp above bmey instead of below 
+    mutate(Nref40 = 19-Nref40) %>% 
+    mutate(Nref20 = 19-Nref20) 
+    
+  df_plot2<-df_plot %>% 
+    filter(scenario != "unfished") %>% 
+    mutate(slope = 1+slope) %>% # same as above 
+    mutate(Nref48 = 19-Nref48) %>%
+    mutate(Nref40 = 19-Nref40) %>%
+    mutate(Nref20 = 19-Nref20)
+  
+  scenarios = "all"
+  
+  if(scenarios == "all"){
+    df_plot2<-df_plot2} else if (scenarios == "extreme"){
+      df_plot2<-df_plot2 %>% filter(scenario %in% c("noCompetition", "fullCompetition", "statusQuo"))} else{
+        df_plot2<-df_plot2 %>% filter(scenario %in% c("noBycatch", "MoreTarget", "statusQuo", "MoreUnderQuota"))
+      }
+
+  # scaling after talking with julia: 
+  # though I still think it would be nice to rescale each indicator from 0 to 1 
+  
+  df_plot2<-df_plot2 %>% 
+    mutate(biomass = biomass/ref$biomass) %>% 
+    mutate(biomassSens = biomassSens/ref$biomassSens) %>% 
+    mutate(biomassTarget = biomassTarget/ref$biomassTarget) %>% 
+    mutate(Nref48 = Nref48/ref$Nref48) %>%
+    mutate(Nref40 = Nref40/ref$Nref40) %>%
+    mutate(Nref20 = Nref20/ref$Nref20) %>% 
+    mutate(Fref = Fref/ref$Fref) %>% 
+    mutate(slope = slope/ref$slope) %>% 
+    mutate(yield = yield/ref$yield) %>% 
+    mutate(effort = effort/ref$effort) %>% 
+    mutate(profit = profit/ref$profit) 
+  
+  # order scenarios (same as outside function)
+  a = c("statusQuo","noCompetition","fullCompetition","noBycatch","MoreTarget","MoreUnderQuota")
+  b = c("Status Quo","No Competition","Full Competition", "Less Bycatch","More Valuable","More Under-Quota")
+  
+  # order indicators 
+  c = c("profit", "yield", "effort", "Fref","Nref48", "Nref40","Nref20","slope", "biomassTarget","biomassSens","biomass")
+  d = c("Profit", "Yield", "Effort", "Active fleets","Spp above Bmey","Spp above Bmsy","Spp above Blim", "Slope","Biomass target", "Biomass sensitive","Biomass")
+  
+  df_plot3<-df_plot2 %>% 
+    gather(indicator, value, -scenario) %>% 
+    mutate(scenario = factor(scenario, level = a)) %>% 
+    mutate(indicator = factor(indicator, level = c)) %>%
+    mutate(color = ifelse(value < 1, "a", "b")) %>% 
+    mutate(value = value -1) # NOTE : to scale values around 0 instead of 1 
+  levels(df_plot3$scenario) <- b
+  levels(df_plot3$indicator) <- d
+  
+  lolliScenario<-ggplot(df_plot3, aes(x= indicator, y = value, color = color))+
+    geom_point(size = 3) + 
+    geom_segment( aes(x=indicator, xend=indicator, y=0, yend=value), size = 1.5)+
+    scale_color_manual(values = c("#fc8d62","#8da0cb"), name = "Scenario", guide=FALSE)+
+    coord_flip()+
+    facet_wrap(~scenario, nrow = 2, scales = "free_x")+
+    theme_bw()+
+    geom_hline(yintercept = 0, linetype = "dashed")+
+    ylab ("Changes relative to Status Quo")+
+    xlab ("Scenario")+
+    theme(text = element_text(size=15),
+          legend.position = "none",
+          axis.title.y = element_text(vjust=0.4, size = 12),
+          axis.title.x = element_text(vjust=0.3, size = 12),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(), 
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold")) 
+  
+  # need opposite order if you do this plot by indicators instead of scenarios
+
+  df_plot4<-df_plot2 %>% 
+    gather(indicator, value, -scenario) %>% 
+    mutate(scenario = factor(scenario, level = rev(a))) %>% 
+    mutate(indicator = factor(indicator, level = rev(c))) %>%
+    mutate(color = ifelse(value < 1, "a", "b")) %>% 
+    mutate(value = value -1) # NOTE : to scale values around 0 instead of 1 
+  levels(df_plot4$scenario) <- rev(b)
+  levels(df_plot4$indicator) <- rev(d)
+  
+  lolliIndicator<-ggplot(df_plot4, aes(x= scenario, y = value, color = color))+
+    geom_point(size = 3) + 
+    geom_segment( aes(x=scenario, xend=scenario, y=0, yend=value), size = 1.5)+
+    scale_color_manual(values = c("#fc8d62","#8da0cb"), name = "Scenario", guide=FALSE)+
+    coord_flip()+
+    facet_wrap(~indicator, nrow = 3, scales = "free_x")+
+    theme_bw()+
+    geom_hline(yintercept = 0, linetype = "dashed")+
+    ylab ("Changes relative to Status Quo")+
+    xlab ("Scenario")+
+    theme(text = element_text(size=15),
+          legend.position = "none",
+          axis.title.y = element_text(vjust=0.4, size = 12),
+          axis.title.x = element_text(vjust=0.3, size = 12),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(), 
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold")) 
+  
+  return(list(plot_bar = plot_bar, dot_plot = dot_plot, lolliIndicator = lolliIndicator, lolliScenario = lolliScenario))
 }
 
+########### single spp and fleet trends ----
 
+plotSppTrends<-function(temp_sim){
+  
+  # temp_sim = sim_scenario[[2]]
+  
+  # sp biomass  
+  biomass <- temp_sim %>%
+    getBiomass(.) %>% 
+    as.data.frame(.) %>% 
+    mutate(year = rownames(.)) %>% 
+    gather(species, biomass, -year)
+  
+  # biomass before simulations 
+  biomass_before <- getBiomass(sim_FD_bmsy) %>% 
+    as.data.frame(.) %>% 
+    mutate(year = rownames(.)) %>% 
+    gather(species, biomass, -year)
+  
+  biomass<-rbind(biomass, biomass_before)%>% 
+    left_join(df_param[,c(1,2)]) %>% 
+    mutate(biomass = (biomass/1000000)*areaEco) # transform in real values 
+  
+  BioLim<-temp_sim@BioLimits$SED # limits don't change across fleet, time and scenarios 
+  BioLim<-BioLim %>% 
+    left_join(df_param[,c(1,2)]) %>% 
+    mutate(bio20 = (bio20/1000000)*areaEco, 
+           bio40 = (bio40/1000000)*areaEco,
+           bio48 = (bio48/1000000)*areaEco)
+  
+  # order factors 
+  a = unique(biomass$spCommon)
+  biomass<-biomass %>% 
+    mutate(spCommon = factor(spCommon, level = a))
+  BioLim<-BioLim %>% 
+    mutate(spCommon = factor(spCommon, level = a))
+  
+  biomass<-filter(biomass, species != "myctophids") %>% 
+    mutate(year = as.numeric(year))
+  BioLim<-filter(BioLim, species != "myctophids")
+    
+  x_label <- "Year"
+  y_label <- "Biomass [log10(tonnes)]"
+  limits = c(1000,250000)
 
+  plot_bio <- ggplot(biomass, aes(x = year, y = biomass)) +
+    scale_y_continuous(trans = "log10", name = y_label, limits = limits) + # log10(min(BioData$value)) for one scenarios the log scale is applied to all y values 
+    scale_x_continuous(name = x_label) +
+    annotate("rect", xmin = min(biomass$year), xmax = 2017, ymin = limits[1] , ymax = max(biomass$biomass), alpha = .1, fill = "purple")+
+    geom_line(size = 0.8, color = "grey50") + 
+    geom_hline(data = BioLim, aes(yintercept = bio20), linetype = "dotdash", color = "red", size = 0.8)+
+    geom_hline(data = BioLim, aes(yintercept = bio40), linetype = "dashed", color = "green", size = 0.8)+
+    geom_hline(data = BioLim, aes(yintercept = bio48), linetype = "dotted", color = "blue", size = 0.8)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+            axis.title.y = element_text(vjust=0.4, size = 16),
+            axis.title.x = element_text(vjust=0.3, size = 16),
+            axis.text.x = element_text(angle=90, hjust=0.5),
+            panel.grid.major = element_blank(), 
+            strip.background =element_rect(fill="white"),
+            legend.position = "none")+
+    facet_wrap(~spCommon, nrow=6)
+  
+  
+  # fleets effort, yield and profits  
 
+  # effort
+  effort <- temp_sim@effortOut %>%
+    as.data.frame(.) %>% 
+    mutate(year = rownames(.)) %>% 
+    gather(fleet, effort, -year)
+  
+  effort_before <-sim_FD_bmsy@effortOut %>% 
+    as.data.frame(.) %>% 
+    mutate(year = rownames(.)) %>% 
+    gather(fleet, effort, -year)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  effort<-rbind(effort, effort_before) %>% 
+    mutate(effort = (effort/scaling_cost_area)*areaEco) %>% 
+    mutate(year = as.numeric(year)) %>% 
+    mutate(effort = effort/1000)
+  
+  # yield
+  yield <- getYield_CN(temp_sim) %>%
+    as.data.frame(.) %>% 
+    mutate(year = rownames(temp_sim@effortOut)) %>% 
+    gather(fleet, yield, -year)
+  
+  yield_before <-getYield_CN(sim_FD_bmsy) %>% 
+    as.data.frame(.) %>% 
+    mutate(year = rownames(sim_FD_bmsy@effortOut)) %>% 
+    gather(fleet, yield, -year)
+  
+  yield<-rbind(yield, yield_before) %>% 
+    mutate(yield = (yield/1000000)*areaEco) %>% 
+    mutate(year = as.numeric(year))%>% 
+    mutate(yield = yield/1000)
+    
+  # PROFIT
+  profit<-temp_sim@profit %>% 
+    as.data.frame(.) %>%
+    mutate(year = rownames(.)) %>% 
+    gather(fleet, profit, -year)
+  
+  profit_before <-sim_FD_bmsy@profit %>% 
+    as.data.frame(.) %>% 
+    mutate(year = rownames(.)) %>% 
+    gather(fleet, profit, -year)
+  
+  profit<-rbind(profit, profit_before) %>% 
+    mutate(profit = (profit*areaEco)/1000000) %>% 
+    mutate(year = as.numeric(year))%>% 
+    mutate(profit = profit/10)
+  
+  max(effort$effort)
+  limitse = c(0,15)
+  plot_effort <- ggplot(effort, aes(x = year, y = effort, color = fleet, group = fleet)) + 
+    geom_line(size = 1) +
+    scale_y_continuous(name = "Effort [opn X 1000]", limits = limitse) +
+    scale_x_continuous(name = "Year")+
+    scale_color_manual(values = col_values)+
+    annotate("rect", xmin = min(effort$year), xmax = 2017, ymin = limitse[1], ymax = limitse[2], alpha = .1, fill = "purple")+
+    # facet_wrap(~fleet, nrow = 1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  max(yield$yield)
+  limitsy = c(0,17)
+  plot_yield <- ggplot(yield, aes(x = year, y = yield, color = fleet, group = fleet)) + 
+    geom_line(size = 1) +
+    scale_y_continuous(name = "Yield [tonnes X 1000]", limits = limitsy) +
+    scale_x_continuous(name = "Year")+
+    scale_color_manual(values = col_values)+
+    annotate("rect", xmin = min(yield$year), xmax = 2017, ymin = limitsy[1], ymax = limitsy[2], alpha = .1, fill = "purple")+
+    #facet_wrap(~fleet, nrow = 1)+
+    theme_bw()+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+  
+  max(profit$profit)
+  limitsp = c(-5,10) #
+  plot_profit <- ggplot(profit, aes(x = year, y = profit, color = fleet, group = fleet)) + 
+    geom_line(size = 1) +
+    scale_y_continuous(name = "Profit [million $ X 10]", limits = limitsp) +
+    scale_x_continuous(name = "Year")+
+    scale_color_manual(values = col_values)+
+    annotate("rect", xmin = min(profit$year), xmax = 2017, ymin = limitsp[1], ymax = limitsp[2], alpha = .1, fill = "purple")+
+    #facet_wrap(~fleet, nrow = 1)+
+    theme_bw()+
+    geom_hline(yintercept = 0, linetype = "dashed")+
+    theme(text = element_text(size=18),
+          axis.title.y = element_text(vjust=0.4, size = 16),
+          axis.title.x = element_text(vjust=0.3, size = 16),
+          axis.text.x = element_text(angle=90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"))
+    
+  plot_profit<-plot_profit+theme(legend.position = "none")
+  plot_effort<-plot_effort+theme(legend.position = "none")
+  # plot = plot_bio/plot_effort/plot_yield/plot_profit + plot_layout (nrow = 4, heights = c(4,1,1,1))  
+  
+  plot = plot_bio +(plot_effort/plot_yield/plot_profit) + plot_layout (nrow = 1, widths = c(3,1.5)) #, heights = c(3,1,1,1)) 
+  
+  return(plot = plot)
+  
+}
 
 
 

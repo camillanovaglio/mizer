@@ -138,9 +138,10 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
   # initial_n_aa = params@initial_n_aa
   # 
   # t_save = 1
-  # t_max = 13
+  # t_max = 23
   # temperature = rep(params@t_ref, times = t_max)
   # shiny_progress = NULL
+  # 
   
   # # trial no FD
   # params = params
@@ -464,8 +465,8 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
     }
     
     for (i_time in 1:t_steps) {
-      # for (i_time in 27:40) {
-      # i_time = 22
+      # for (i_time in 1:73) {
+      # i_time = 74
       
         # Calculate amount E_{a,i}(w) of available food
         avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)
@@ -679,7 +680,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
             
             for(i in 1:length(Bio)){
               
-              # i = 3
+              # i = 4
               
               # try with no seriorella - check the decreases in effort and how it it weighted: 
               # with seriorella (without the fix), decreases in effort is 0.07508566
@@ -726,6 +727,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               
               # option C - simple mean
               # MeanPerc40C<-mean(Perc40$Perc40) 
+              # print(paste(i_time, n48, n40, n20)) # how many species below biomass ref levels 
               
               if(n48<5 & n40==0 & n20==0) # if all these conditions are true at the same time effort changes accoring to profits 
               {
@@ -766,6 +768,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
                   
                 }else{
                   # if more than 5 speceis are below 20% stop the fishery
+                  # print(paste(i_time, "more than 5"))
                   Effort_itime_change[i]<-0
                   Effort_itime_next[i]<-0
                 }
@@ -774,6 +777,8 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
                 names(Effort_itime_next)[i]<-fleet[i]
                 Effort_itime_next[[i]]<-ifelse(is.na(Effort_itime_next[[i]]) | Effort_itime_next[[i]]<0 | is.infinite(Effort_itime_next[[i]]),0, Effort_itime_next[[i]])
               
+                # print(paste(i_time, Effort_itime_next)) # when effort becomes 0 
+                
               } # end of for loop
             }else{ # start of management = FALSE
 
@@ -817,6 +822,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
           revenue_dt[i_time,]<-revenue_itime_tot
           profit_dt[i_time,]<-profit_itime
           F_dt[i_time,,,]<-F_itime
+          # BioOut[i_time]<-BioOut # added here as I want to save all
 
         }else if(multiFleet==TRUE){
           yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
@@ -853,11 +859,12 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
             if (management == TRUE){
               # info on declining spp
               # stop for calibration
-              sim@BioOut[[i_time]]<-BioOut
+              sim@BioOut[[which(store)]]<-BioOut
               # info on Biological limits for each species
-              sim@BioLimits[[i_time]]<-Bio2 
+              # sim@BioLimits[[i_time]]<-Bio2
+              sim@BioLimits<-Bio2
             }
-            
+
             # add values for time step 1. this is because n, n_pp etc and effort are initialised above (before the loop) while these parameters at time step = 1 are calcualted withing the loop. The loop saves from time step 2 leaving 1 at initial values.  
             sim@yield[1,,,]<-yield_dt[1,,,]
             sim@revenue[1,]<-revenue_dt[1,]

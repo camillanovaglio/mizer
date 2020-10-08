@@ -580,11 +580,16 @@ initial_effort2<-initial_effort
 params_FD <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy2, target = df_target_bmsy2)
 
 sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
+plot_CN(sim_FD_bmsy)
+df_target_bmsy2
+sim_FD_bmsy@BioOut[[4]]
 
-# plot_CN(sim_FD_bmsy)
 # plotBiomass(sim_FD_bmsy)$plot+facet_wrap(~Species)
 
 # fast compare catches 
+datValidationYield<-ungroup(datValidationYield)
+datValidationEffort<-ungroup(datValidationEffort)
+
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_fl
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotEffort_fl
@@ -613,6 +618,7 @@ compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yiel
 
 
 ####### forward price and costs - same as in scenario but handy here for checking
+# cannot run if you don't have the scenario matrices 
 
 t_max = 13 # till 2030? if you run it for too long it's going to collaps... 
 price_forward = t(replicate(t_max, df_price_new[nrow(df_price_new),]))
@@ -920,6 +926,8 @@ save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_
 
 catchComp<-function(sim_FD_bmsy, df_log_spp){
 
+  # mearge fig 5 and 4 
+  
   # modelled catch by species AND fleet
   trial<-compareTrends(sim_fitted,sim_FD_bmsy,fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$trial
   trial<-as.data.frame.table(trial, responseName = "yield")
@@ -967,37 +975,53 @@ catchComp<-function(sim_FD_bmsy, df_log_spp){
   yieldData_sp_fl<-yieldData_sp_fl %>% 
     mutate(fleet = factor(fleet, level = a)) %>% 
     mutate(color = factor(color, level = b)) %>% 
-    mutate(yera = factor(year)) %>% 
+    # mutate(yaer = factor(year)) %>%
     mutate(spCommon = factor(spCommon, level = c)) %>% 
+    mutate(color = ifelse(color == "modelled_FD", "Modelled", "Observed")) %>% 
     filter(spCommon != "lanternfish")
 
+  # install.packages("Hmisc")
+  # library(Hmisc)
+  # yieldData_sp_fl$spCommon<- capitalize(as.character(yieldData_sp_fl$spCommon))
+  # yieldData_sp_fl$spCommon<-as.factor(yieldData_sp_fl$spCommon)
+  
+  scaleFUN <- function(x) sprintf("%.0f", x)
+  spNames<-c("Whiting","Squid","Perch","Mackerel","Redfish","Deep shark","Morwong","Flathead","Dories","Blue warehou","Orange roughy","Blue granadier","Silver warehou","Gemfish","Pink ling","Sawshark","Gummy shark","School shark")
+  
+  unique(yieldData_sp_fl$year)
+  
   p <- ggplot(yieldData_sp_fl, aes(x=year, y = yield_tonnes, fill=spCommon)) + 
     geom_bar(position = "stack", stat = "identity") +
-    scale_fill_manual(values=getPalette(colourCount), name= "Species")+
-    facet_grid(fleet~color, scale ="free")+
+    scale_fill_manual(values=getPalette(colourCount), name= "Species", labels = spNames)+
+    facet_grid(color~fleet, scale ="free")+
     scale_y_continuous(name = "Yield [tonnes]") +
-    scale_x_continuous(name = "Year", labels = scales::number_format(accuracy = 1))+
+    scale_x_continuous(labels = scaleFUN, name = "Year") +
+    # scale_x_continuous(name = "Year", labels = scales::number_format(accuracy = 1))+
     theme_bw()+
-    theme(text = element_text(size=16),
-          axis.title.y = element_text(vjust=0.4, size = 16),
-          axis.title.x = element_text(vjust=0.3, size = 16),
-          axis.text.x = element_text(angle=90, hjust=0.5),
+    theme(text = element_text(size=14),
+          axis.title.y = element_text(vjust=0.4, size = 15),
+          axis.title.x = element_text(vjust=0.3, size = 15),
+          axis.text.y = element_text(size=10, hjust=0.5),
+          axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
           panel.grid.major = element_blank(),
-          strip.background = element_rect(fill="white"))
-          # panel.border = element_rect(colour = "black"),
-          # strip.text.x = element_text(face = "bold"))+
-
-  p
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"),
+          # legend.title = element_text(size = 5),
+          # legend.text = element_text(size = 5)) 
+          legend.key.size = unit(0.3, "cm"))
   
   return(p = p)
 }
 
-#### FIG S5 
+fig3b<-catchComp(sim_FD_bmsy, df_log_spp)
+
+#### FIG S5 # this is now combined with  Fig 4 - see below 
 # to do : change color and deside on bar plot or lines 
-setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-tiff("Fig5_May2020.tiff", height=8, width=9, units ='in', res=300)
-catchComp(sim_FD_bmsy, df_log_spp)
-dev.off()
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# tiff("Fig5_May2020.tiff", height=8, width=9, units ='in', res=300)
+# catchComp(sim_FD_bmsy, df_log_spp)
+# dev.off()
 
 ```
 
@@ -1082,6 +1106,34 @@ plotEffortCatch_fl <- ggplot(temp, aes(x=year, y = value, colour=color)) +
   scale_y_continuous(name = "tonnes                    operations")+
   facet_grid(vars(type), vars(fleet), scales="free_y")
 
+# dots and line version 
+head(temp2)
+a = c("SET-SH","SET-US","SSG","SET-DS","SED")
+temp2<-temp %>% 
+  spread(color, value) %>% 
+  filter(type == "EFFORT") %>% 
+  mutate(fleet = factor(fleet, level = a)) 
+
+plotEffortCatch_fl <- ggplot(temp2) + 
+  geom_line(aes(x=year, y= modelled_FD), size=0.5) +
+  geom_point(aes(x=year, y = observed), size = 1, shape = 1)+
+  scale_x_continuous(labels = scaleFUN, name = "Year") +
+  theme_bw() +
+  theme(text = element_text(size=14),
+        axis.title.y = element_text(vjust=0.4, size = 15),
+        axis.title.x = element_text(vjust=0.3, size = 15),
+        axis.text.y = element_text(size=10, hjust=0.5),
+        axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
+        panel.grid.major = element_blank(),
+        strip.background = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        strip.text.x = element_text(face = "bold"))+
+  scale_y_continuous(name = "Effort [opn]")+
+  facet_wrap(~fleet, nrow = 1)
+
+plotEffortCatch_fl
+
+
 ```
 
 #-----------------------------------------
@@ -1123,13 +1175,31 @@ library(patchwork)
 # plotEffort_fl
 # dev.off()
 
-#### FIG 4 
-# to do : change colors and do point for modelled change legend
+# #### FIG 4 - now merged to fig 5
+# # to do : change colors and do point for modelled change legend
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# tiff("Fig4_May2020.tiff", height=4, width=8, units ='in', res=300)
+# plotEffortCatch_fl
+# dev.off()
+
+###### FIG 3
+#install.packages("ggpubr")
+library(cowplot)
+library(ggpubr)
+leg<-get_legend(fig3b)
+leg<-as_ggplot(leg)
+#leg<-leg+theme(text = element_text(size=2))
+fig3b2<-fig3b + theme(legend.position = "none")
+
 setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-tiff("Fig4_May2020.tiff", height=4, width=8, units ='in', res=300)
-plotEffortCatch_fl
+tiff("Fig3_Sept2020.tiff", height=6, width=8, units ='in', res=300)
+((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
 dev.off()
 
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+pdf("Fig3_Sept2020.pdf", height=6, width=8)
+((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
+dev.off()
 
 # tiff("/Users/nov017/Desktop/plot_fleet.tiff", height=4, width=9, units ='in', res=300)
 # plotEffortCatch_fl

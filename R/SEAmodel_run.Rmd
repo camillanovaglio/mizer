@@ -74,6 +74,7 @@ areaEco<-areaEco*1.5 #1e15 - need to ask for the area of the system to SA people
 
 load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SEA_EcolParam.RData")
 load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SEA_FleetParamTemp.RData") 
+all_mortality<-ungroup(all_mortality) # to fix an error .... 
 
 ########### select speceis 
 df_param<-SpSelect(df_param)
@@ -705,7 +706,7 @@ params_calibrated <- MizerParams(df_param, no_w = no_w, interaction = theta, kap
 
 sim_calibrated <- project(params_calibrated, effort = constant_effort, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
 
-plot(sim_calibrated)
+# plot(sim_calibrated)
 
 # test unfished to see if tehre is coexistence and to calcualte Bref below 
 matrix_effort_nofishing<-matrix_effort_nofishing[301:900,]
@@ -1016,7 +1017,7 @@ params_calibrated3 <- MizerParams(df_param3, no_w = no_w, interaction = theta3, 
 
 sim_calibrated3 <- project(params_calibrated3, effort = constant_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2)  
 
-plot(sim_calibrated3)
+# plot(sim_calibrated3)
 # plotFeedingLevel(sim_calibrated3) + facet_wrap(~Species) 
 # plotDietComp(sim_calibrated3)$p
 
@@ -1133,7 +1134,7 @@ params_calibrated3 <- MizerParams(df_param, no_w = no_w, interaction = theta, ka
 
 sim_calibrated3 <- project(params_calibrated3, effort = constant_effort, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0) 
 
-plot(sim_calibrated3)
+# plot(sim_calibrated3)
 
 # compare with calibrated community opn1 
 # compareEql_outputs # calcualted before df_param etc. was overwtirren by df_param3 etc. 
@@ -1169,13 +1170,14 @@ params_calibrated4 <- MizerParams(df_param, no_w = no_w, interaction = theta, ka
 
 sim_fitted3 <- project(params_calibrated4, effort = relative_effort3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 2) 
 
-plot(sim_fitted3)
+# plot(sim_fitted3)
 # plotDietComp(sim_fitted3)
 # plotBiomass(sim_fitted3)$plot + facet_wrap(~Species)
 
 # compare fit before with fit now 
 plotYield<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 plotYield2<-compareTrends(sim_fitted2,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+# option of line or dots and lines 
 plotYield3<-compareTrends(sim_fitted3,sim_FD = NA,fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 
 # problems: 1) arrow squid has high modelled catches; 2) pink ling, blue w and tiger have higher catches in recent years when Fmort for those missing years is calculated given observed cacthes then when Fmore for those years is kept at 0. See options in DataFunction, createFmort() line 182. this only effects the time variant version as the eql and calibration uses 1995-2005 mean values and the FD starts from the time varinat community in 2006. Adjust manually?!  
@@ -1192,8 +1194,8 @@ rownames(matrix_effort_nofishing3)<-seq(1,nrow(matrix_effort_nofishing3))
 
 sim_calibrated_unfished3<- project(params_calibrated3, effort= matrix_effort_nofishing3, dt = dt, fleetDynamics = FALSE, multiFleet = FALSE, management = FALSE, price = NA, cost = NA, diet_steps = 0)
 
-plot(sim_calibrated_unfished3)
-plotBiomass(sim_calibrated_unfished3)$plot + facet_wrap(~Species)
+# plot(sim_calibrated_unfished3)
+# plotBiomass(sim_calibrated_unfished3)$plot + facet_wrap(~Species)
 
 ```
 
@@ -1251,11 +1253,14 @@ diet_comp <- diet %>%
 ```{r}
 
 #### FIG 3 
-# to do : change colors and do point for modelled
 setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-tiff("Fig3_May2020.tiff", height=6, width=10, units ='in', res=300)
+pdf("Fig1_Sept2020.pdf", height=6, width=10)
 plotYield3
 dev.off()
+tiff("Fig1_Sept2020.tiff", height=6, width=10, units ='in', res=300)
+plotYield3
+dev.off()
+getwd()
 
 df_param<-df_param3 # already in calibration section, but can repeat here  
 theta<-theta3 # already in calibration section, but can repeat here 
