@@ -108,7 +108,7 @@ initial_n_bb_scenario  = sim@n_bb[nrow(sim@n_bb),]
 initial_effort_scenario = sim@effortOut[dim(sim@effortOut)[1],]   
 
 ####### forward price and costs
-t_max = 23 # till 2030 (13) or 2040 (23)? till MEY (100 - collapses)?
+t_max = 83 # 23 # till 2040 (23) or 2100 (83)
 # change the 4 years rule to 10 to let stock recovering
 # start with a much smaller amount of effort? 
 price_forward = t(replicate(t_max, price[nrow(price),]))
@@ -359,7 +359,7 @@ runModel<-function(target_scenario){
 
 sim_scenario<-runModel(target_scenario)
 
-save(df_param, areaEco, t_max, scaling_cost_area, sim_FD_bmsy, sim_scenario, target_scenario, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_original.RData")
+save(df_param, areaEco, t_max, scaling_cost_area, sim_FD_bmsy, sim_scenario, target_scenario, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_original_2100.RData") # if original is until 2040, otherwise it's until 2100
 
 ```
 
@@ -543,7 +543,7 @@ rm(list=ls())
 
 # load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios.RData")
 # load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_noFlathead.RData")
-load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_original.RData")
+load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/scenarios_original_2100.RData") # if original is until 2040, otherwise it's until 2100
 
 library(plyr)
 library(tidyverse)
@@ -979,38 +979,58 @@ sim_scenario$yield14@BioOut # declines in effort are generally  due to managemen
 ##### fleet dynamics plot ----
 
 ### delete unfished as not used
-# sim_scenario$unfished<-NULL
+sim_scenario$unfished<-NULL
 # some fixes: 
-sim_scenario[["unfished"]]@effortOut[]<-0 # beaause initial_effort was still 0.1 though catches are 0 due to df_target
+# sim_scenario[["unfished"]]@effortOut[]<-0 # beaause initial_effort was still 0.1 though catches are 0 due to df_target
 # sim_scenario[["unfished"]]@profit[]<-0 # because fixed costs were still there
-sim_scenario[["unfished"]]@revenue[]<-0 # becasue of the above
+# sim_scenario[["unfished"]]@revenue[]<-0 # becasue of the above
 
 # order scenarios
-a = c("statusQuo","noCompetition","fullCompetition","noBycatch","MoreTarget","MoreUnderQuota")
-b = c("Status Quo","No Competition","Full Competition", "Less Bycatch","More Valuable","More Under-Quota")
+a = c("statusQuo","noCompetition","fullCompetition","noBycatch","MoreUnderQuota","MoreTarget")
+b = c("Status Quo","No Comp.","Max Comp.", "Bycatch","Under-utilised", "Valuable")
+
+# order fleets 
+# c = c("SED","SET-DS","SET-SH","SET-US","SSG") # original 
+d = c("SET-SH","SET-US","SSG","SET-DS","SED")
+
+# rename species  
+spNames<-c("Lanternfish","Whiting","Squid","Perch","Mackerel","Redfish","Deep shark","Morwong","Flathead","Dories","Blue warehou","Orange roughy","Blue granadier","Silver warehou","Gemfish","Pink ling","Sawshark","Gummy shark","School shark")
+
+# reorder indicators 
+e = c("profit", "yield", "effort", "Fref","Nref48", "Nref40","Nref20","slope", "biomassTarget","biomassSens","biomass")
+f = c("Profit", "Yield", "Effort", "Active fleets","Spp above Bmey","Spp above Bmsy","Spp above Blim", "Slope","Biomass target", "Biomass sensitive","Biomass")
 
 #### fig 4 - scenarios and model dynamics  ----
 
 # plot interaction matrix
 # problem with calcualtion of Q (see inside function): cumulative Fmort across fleet set as per status quo (Q*initial_effort). Effort is dynamic but Q is not (e.g. high Q for fatheads in full competition, if effort increases for some fleets, pressure increases a lot for this spp). Need to revisit?
-col_values2<-c("#cb181d")
-plot_matrix = plotFleetMatrix(a,b,target_scenario, col_values2)$plot_matrix 
+plot_matrix = plotFleetMatrix(a,b,target_scenario)$plot_matrix 
 
 # plot fleet effort 
 col_values<-c("#b2182b", "#ef8a62", "#d1e5f0","#67a9cf", "#2166ac")
-plot_effort = plotFleetEffort(a,b, sim_scenario, sim_FD_bmsy, col_values[1:5])$plot_effort
+plot_effort = plotFleetEffort(a,b, sim_scenario, sim_FD_bmsy, col_values)
 
-# plot trends in idicators 
+# plot trends in indicators  
 col_values<-c("#7b3294","#c2a5cf","#a6dba0","#008837")
 plot_indiTrend<-indicatorsTrend(a,b, sim_scenario, col_values) # biomass is biomass of target
 plot_all<-plot_indiTrend$plot_indiTrend
+
+# arrivata qui .... run code to 2100 and save plots with diferent name .... 
+
 
 # all plots 
 library(patchwork)
 # option 1
 # setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-setwd("/Users/nov017/Desktop")
-tiff("Fig4_op1.tiff", height=13, width=16, units ='in', res=300)
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# tiff("Fig4.tiff", height=13, width=16, units ='in', res=300)
+tiff("FigS9.tiff", height=13, width=16, units ='in', res=300)
+plot_matrix / plot_effort / plot_all + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
+dev.off()
+
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# pdf("Fig4.pdf", height=13, width=16)
+pdf("FigS9.pdf", height=13, width=16)
 plot_matrix / plot_effort / plot_all + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
 dev.off()
 
@@ -1022,28 +1042,27 @@ dev.off()
 
 ##### fig 5 - trade-off plot -----
 
+# avoid scenarios abbreviation for this fig 
+b = c("Status Quo","No Competition","Max Competition", "Bycatch","Under-utilised", "Valuable")
+
 indi<-indicators(sim_scenario, management = TRUE) 
 df_plot = indi$df_plot
 col_values3<-c("#7fbf7b","#af8dc3")
-plot_bar = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$plot_bar 
-dot_plot = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$dot_plot 
-lolliScenario = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$lolliScenario 
 lolliIndicator = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$lolliIndicator 
 
 # if need to patch a blank space 
 blank<-ggplot()+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 
-# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-setwd("/Users/nov017/Desktop")
-tiff("Fig5_indicator.tiff", height=7, width=8, units ='in', res=300) # rescale all indicators 0-1??!  
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# tiff("Fig5.tiff", height=6, width=7, units ='in', res=300) # rescale all indicators 0-1??!  
+# lolliIndicator
+# dev.off()
+
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# pdf("Fig5.pdf", height=6, width=7) 
+pdf("FigS10.pdf", height=6, width=7) 
 lolliIndicator
 dev.off()
-
-setwd("/Users/nov017/Desktop")
-tiff("Fig5_scenario.tiff", height=6, width=7, units ='in', res=300)
-lolliScenario 
-dev.off()
-
 
 ```
 
@@ -1081,15 +1100,9 @@ do not consider MTL as it has many problems.... change with others
 
 ```{r}
 
+# repeat color for fleets above 
+col_values<-c("#b2182b", "#ef8a62", "#d1e5f0","#67a9cf", "#2166ac")
 
-setwd("/Users/nov017/R-projects/Mizer-fleet/R")
-source("DataFunction.R") 
-
-# NOTE add 1. before projection data for all species and fleet (from sim_FD_bmsy)
-# rescale abundance and trends from 0 to 1 as per fig.2 in SEAmodel_run_timevariant_shiny
-# add legend for Blim, bmsy and bmey
-# add line to 0 profit
-  
 plot_list<-list()
 
 for(i in 1:length(sim_scenario)){
@@ -1097,18 +1110,15 @@ for(i in 1:length(sim_scenario)){
   names(plot_list)[i] <- names(sim_scenario)[i]
 }
 
-#"unfished"        "noCompetition"   "fullCompetition" "statusQuo"       "noBycatch"       "MoreTarget"      "MoreUnderQuota" 
-# plot_list[[4]] # status quo
-# plot_list[[5]] # no bycatch 
+plot_list[[3]]
   
-setwd("/Users/nov017/Desktop")
-# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-
+setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
 for(i in 1:length(plot_list)){
+
+  pdf(paste("FigS3_",names(plot_list)[i],".pdf", sep = "" ), height=13, width=13) #, units ='in', res=300)
+  print(plot_list[[i]])
+  dev.off()
   
-  # i =2
-  # tiff("Fig4_op1.tiff", height=13, width=16, units ='in', res=300)
-  # plot_matrix / plot_effort / plot_all + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
   tiff(paste("FigS3_",names(plot_list)[i],".tiff", sep = "" ), height=13, width=13, units ='in', res=300)
   print(plot_list[[i]])
   dev.off()

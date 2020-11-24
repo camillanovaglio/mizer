@@ -993,7 +993,7 @@ catchComp<-function(sim_FD_bmsy, df_log_spp){
   p <- ggplot(yieldData_sp_fl, aes(x=year, y = yield_tonnes, fill=spCommon)) + 
     geom_bar(position = "stack", stat = "identity") +
     scale_fill_manual(values=getPalette(colourCount), name= "Species", labels = spNames)+
-    facet_grid(color~fleet, scale ="free")+
+    facet_grid(color~fleet)+ # scale ="free"
     scale_y_continuous(name = "Yield [tonnes]") +
     scale_x_continuous(labels = scaleFUN, name = "Year") +
     # scale_x_continuous(name = "Year", labels = scales::number_format(accuracy = 1))+
