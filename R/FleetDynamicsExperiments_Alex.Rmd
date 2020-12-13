@@ -1,0 +1,579 @@
+---
+title: "SEAmodel_run_FD"
+author: "Camilla Novaglio"
+date: "03/12/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# run time variant model (same code as SEAmodel_run_FD_timeVariant_final) but extending the cost and price timeseries and send file to Alex Tid.  
+
+#-----------------------------------------
+# Load code and data produced in SEmodel_run  
+#-----------------------------------------
+
+```{r codes}
+
+rm(list=ls())
+
+load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/SEAmodel_opn3.RData") 
+
+library(tidyverse)
+library(devtools)
+library(plyr) 
+library(Rcpp)
+library(reshape2)
+library(inline)
+library(ggplot2)
+library(vegan)
+library(mizer) # inner_loop error
+
+setwd("/Users/nov017/R-projects/Mizer-fleet/R")
+source("data.R") 
+source("help.R") 
+source("MizerParams-class.R") 
+source("MizerSim-class.R")
+source("plots.R")
+source("project_methods.R")
+source("project.R")
+source("RcppExports.R") 
+source("selectivity_funcs.R")
+source("summary_methods.R")
+source("wrapper_functions.R")
+source("DataFunction.R") 
+
+```
+
+#-----------------------------------------
+# (re)calculate df_target
+#----------------------------------------------
+
+```{r}
+
+# See SEA_FleetParam.Rmd option 3 (calcualte Q from catches) line 634 for ref 
+
+# filter species and metiers before calculating target matrix 
+df_main_metier<-c("GHAT - Southern Shark Gillnet","South East Trawl Fishery - Danish Seine","South East Trawl Fishery - Otter trawl shelf","South East Trawl Fishery - Otter trawl upperSlope", "South East Trawl Fishery - Otter trawl deepSlope") 
+
+catch <- df_log_spp %>%
+  filter(metier %in% df_main_metier) %>% 
+  filter(SPC_NAME %in% df_param$species) %>%  
+  group_by(SPC_NAME, metier) %>%
+  dplyr::summarize(
+    catch_kg = sum(TOT_CATCH_KG, na.rm=TRUE)
+  ) %>% 
+  `colnames<-`(c("species","metier", "catch_kg"))
+
+# add spp missing from catch data
+other_spp<-expand.grid(unique(df_param$species), unique(catch$metier))
+colnames(other_spp)<-c("species","metier")
+catch<-merge(catch, other_spp, all = TRUE)
+catch[is.na(catch$catch_kg),"catch_kg"]<-0
+
+# calculate catch proportions by species
+df_qcatch<-split(catch, catch$species)
+
+for(i in 1:length(df_qcatch)){
+  mi = sum(df_qcatch[[i]]$catch_kg)
+  df_qcatch[[i]]$catch_prop<-(df_qcatch[[i]]$catch_kg/mi)
+}
+
+df_qcatch<-data.frame(do.call("rbind",df_qcatch))
+rownames(df_qcatch)<-NULL
+df_qcatch<-df_qcatch[,-which(colnames(df_qcatch) =="catch_kg")]
+colnames(df_qcatch)<-c("species","subfleet","target") 
+df_qcatch[which(df_qcatch$species %in% c("myctophids")),"target"]<-0 
+
+# change fleet names
+df_qcatch<-df_qcatch %>% 
+  mutate(subfleet = case_when(subfleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              subfleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              subfleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              subfleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              subfleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US"))
+
+# target and Q don't have the spp order right, but are fixed in Mizerparams-class
+df_target = acast(df_qcatch, formula = subfleet ~ species, value.var = "target")
+df_target<-df_target[,colnames(relative_effort)]
+
+# this is what will be used in all function to sort fleets 
+fleet = rownames(df_target)
+
+# plot matrix
+target_plot<-df_qcatch %>%
+  right_join(df_param[c(1,2)])
+
+p_target <- ggplot(target_plot, aes(spCommon,subfleet)) +
+  geom_tile(aes(fill = target)) +
+  scale_fill_gradient(low = "white",high = "blue")+
+  theme_bw()+
+  theme(text = element_text(size=18),
+        axis.text.x = element_text(angle=90, hjust=0.5),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+```
+
+#-----------------------------------------
+# adjust df_selParam_new, df_price_new, df_cost2 *this is what changes for Alex's experiments*
+#----------------------------------------------
+
+```{r}
+
+# keep only spp and fleets specified above
+df_selParam_new<-df_selParam %>% 
+  filter(species %in% df_param$species, 
+         subfleet %in% df_main_metier) %>% 
+  mutate(subfleet = case_when(subfleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              subfleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              subfleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              subfleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              subfleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US"))
+
+df_price_new<-df_price %>% 
+  filter(species %in% df_param$species)
+
+# add values for 2017
+# addPrice2017<-df_price_new %>% 
+#   filter(year == "2016") %>% 
+#   mutate(year = "2017")
+# df_price_new<-rbind(df_price_new, addPrice2017)
+
+# # matrix of prices
+# df_price_new = spread(df_price_new, species, price)
+# rownames(df_price_new)<-df_price_new$year
+# df_price_new<-df_price_new[,-1]
+# df_price_new<-as.matrix(df_price_new)
+# df_price_new<-df_price_new[, df_param$species] # order spp
+
+# for Alex - instead of above - extend the  time series 
+
+df_price_new<-df_price_new %>% 
+  mutate(year = as.numeric(year))
+
+# is there a trend in time? not  clear ones
+ggplot(df_price_new, aes(x = year, y=price, group=species))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~species)
+
+# add price values randomly picked from a normal distribution 
+set.seed(1)
+trial<-df_price_new %>% 
+  group_by(species) %>%
+  dplyr::summarise(price = rnorm(20, mean(price), sd(price))) %>% 
+  mutate(year = rep(seq(2017, 2017+20-1), length(unique(df_price_new$species)))) %>% # forward
+  # mutate(year = rep(seq(2006-20, 2006-1), length(unique(df_price_new$species)))) %>% # backward
+  full_join(df_price_new)
+ 
+ggplot(trial, aes(x = year, y=price, group=species))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~species)
+
+# matrix of prices
+df_price_new = spread(trial, species, price)
+df_price_new<-as.matrix(df_price_new)
+rownames(df_price_new)<-df_price_new[,1]
+df_price_new<-df_price_new[,-1]
+df_price_new<-df_price_new[, df_param$species] # order spp
+
+# cost - can have different units 
+# df_cost_g ($ opn-1 g-1) or df_cost_opn ($ opn-1). here using costs per operation 
+# divide fixed and variable costs 
+
+df_cost2<-df_cost_opn %>% 
+  filter(subfleet %in% df_main_metier) %>% 
+  mutate(cost_type = ifelse(param_type %in% c("Crew","Fuel","Packaging","Freight"), "fixed", "variable")) %>% 
+  group_by(subfleet, year, cost_type) %>%  
+  dplyr::summarise(cost = sum(param_value, na.rm=TRUE)) %>% 
+  mutate(subfleet = case_when(subfleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                              subfleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                              subfleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                              subfleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                              subfleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US"))
+
+# cost need to have the same years as price - temporary values here 
+# addCost2015<-df_cost2 %>% 
+#   filter(year == "2014") %>% 
+#   mutate(year = "2015")
+# addCost2016<-addCost2015 %>% 
+#   mutate(year = "2016")
+# addCost2017<-addCost2015 %>% 
+#   mutate(year = "2017")
+# df_cost2<-rbind(df_cost2,addCost2015,addCost2016, addCost2017)
+
+# # matrix of costs
+# df_cost2<-acast(df_cost2, formula = year ~ subfleet ~ cost_type, value.var = "cost")
+# df_cost2<-df_cost2[,rownames(df_target),] # order cost by fleet
+
+# for Alex - instead of above - extend the  time series 
+df_cost2<-df_cost2 %>% 
+  mutate(year = as.numeric(year))
+
+# # is there a trend in time? not clear ones
+# ggplot(df_cost2, aes(x = year, y=cost, group=subfleet))+
+#   geom_point()+
+#   geom_line()+
+#   facet_grid(subfleet ~ cost_type)
+
+# add cost values randomly picked from a normal distribution 
+set.seed(1)
+trial<-df_cost2 %>% 
+  group_by(subfleet, cost_type) %>%
+  dplyr::summarise(cost = rnorm(23, mean(cost), sd(cost))) %>% 
+  mutate(year = rep(seq(2015, 2015+23-1), length(unique(df_cost2$subfleet))*2)) %>% # backward
+  # mutate(year = rep(seq(2006-23, 2006-1), length(unique(df_cost2$subfleet))*2)) %>% # backward
+  full_join(df_cost2) %>% 
+  ungroup()
+
+View(trial)
+# ggplot(trial, aes(x = year, y=cost, group=subfleet))+
+#   geom_point()+
+#   geom_line()+
+#   facet_grid(subfleet ~ cost_type)
+
+# matrix of costs
+df_cost2<-acast(trial, formula = year ~ subfleet ~ cost_type, value.var = "cost") 
+df_cost2<-df_cost2[,rownames(df_target),] # order cost by fleet
+
+# if you use costs opn-1, you need to re-scale as per Beth's data to make them different across fleets - see email 'price' and file 'costs_from_SESSF_2005' and agenda
+ref<- df_cost2[,3,1] # trawlers on the shelf
+df_cost2[,1,1]<-ref*0.6 # Danish seiners - usually smaller boat
+df_cost2[,2,1]<-ref*3.3 # deep slope
+df_cost2[,4,1]<-ref*3.3 # upper slope - bigger and more expensive boats
+df_cost2[,5,1]<-ref*0.14 # gillnet
+
+ref<- df_cost2[,3,2] # trawlers on the shelf
+df_cost2[,1,2]<-ref*0.6 # Danish seiners
+df_cost2[,2,2]<-ref*2.36 # deep slope
+df_cost2[,4,2]<-ref*2.36 # upper slope
+df_cost2[,5,2]<-ref*0.04 # gillnet
+
+# ggplot(trial, aes(x = year, y=cost, group=subfleet))+
+#   geom_point()+
+#   geom_line()+
+#   facet_grid(subfleet ~ cost_type)
+
+```
+
+#-----------------------------------------
+# Set fixed parameters
+#----------------------------------------------
+
+```{r}
+
+kappa = kappa 
+kappa_ben = kappa_ben 
+kappa_alg = kappa_alg 
+lambda = 2.33 # slope of spectrum - def
+lambda_ben = 2.33 # slope of spectrum - def
+w_pp_cutoff = w_pp_cutoff 
+min_w_bb = min_w_bb
+w_bb_cutoff = w_bb_cutoff  
+n = 2/3 # Exponent for max. food intake - def
+q = 0.8 # Exponent for volumetric search rate - def
+dt = 0.25
+no_w = 100 # def
+
+```
+
+#-----------------------------------------
+# Calculate biomass reference levels using calibrated model at eql.   
+#----------------------------------------------
+
+```{R}
+
+# Calculate biomass reference levels (Bref, Bmsy, Bhist) 
+source("/Users/nov017/R-projects/Mizer-fleet/R/DataFunction.R") 
+Blevel<-getBlevel(sim_calibrated_unfished,matrix_effort_nofishing,constant_effort,sim_calibrated,df_param,sim_fitted)
+bioUnfished = Blevel$bioUnfished 
+msy = Blevel$msy
+plot = Blevel$p
+Bhist = Blevel$Bhist
+
+# add to df_param 
+df_param<-df_param %>% 
+  left_join(select(msy, c(species, Bmsy))) %>% 
+  left_join(select(Bhist, c(species, Bhist))) %>% 
+  left_join(bioUnfished %>% dplyr::rename(Bref = bioUnfished)) %>% 
+  mutate(B0_SA = (getBiomass(sim_calibrated)[200,])*100/df_param$changesSSB)
+
+```
+
+#-----------------------------------------
+# Calculate scaling costs and price  
+#---------------------------------------------- 
+
+```{r}
+
+# scaling cost area - to get units right
+# from costs in opn-1 to costs in m-3
+# m3 fished in a tralwing operation:
+scaling_cost_area = 14000*10*20 # SESSFdataCleaning (trawling+gillnet opn) m trawled*net opening: 20m*10m
+scaling_cost_area = scaling_cost_area*5000 # soaking time for a net (Beth) - this determines cost but also initial effort.  
+df_cost3<-df_cost2
+df_cost3[]<-df_cost3/scaling_cost_area 
+
+# scaling costs - need to make profits positive to start with  otherwise fleets don't fish in this model 
+scaling_costs<-c(0.05,0.03,0.2,0.1,1) # interpretation: subsidies?
+df_cost3[,1,] = df_cost3[,1,]*scaling_costs[1] 
+df_cost3[,2,] = df_cost3[,2,]*scaling_costs[2]
+df_cost3[,3,] = df_cost3[,3,]*scaling_costs[3]
+df_cost3[,4,] = df_cost3[,4,]*scaling_costs[4]
+df_cost3[,5,] = df_cost3[,5,]*scaling_costs[5]
+
+# scaling price - not doing anything 
+scaling_price<-1
+df_price_new[]<-df_price_new*scaling_price
+
+```
+
+#-----------------------------------------
+# Calcualte fleet param (ke_fleet, initial effort, scaling effort) 
+#----------------------------------------------
+
+```{r}
+
+# ke_fleet is effective only if management does not overrules profitability. The lower ke, the lower the rate of change (increasing/decreasing profits).  
+ke_fleet = data.frame(fleet= rownames(df_target), ke = c(100000,100000,100000,100000,100000))
+
+# initial effort (from data)
+# see campareTrends for more info on how effort data is treated and plotted.
+trial<-datValidationEffort %>% 
+  ungroup() %>% 
+  mutate(opn = (opn*scaling_cost_area)/areaEco) %>% # from opn to m3 trawled in m3
+  filter(YEAR == 2006)
+trial<-trial[c(3,4,5,6,1),] # reorder fleets
+initial_effort = trial$opn
+sum(initial_effort) # what is the meaning of this being >1?
+
+# scaling effort - not doing anything 
+scaling_effort<-rep(1,5)
+initial_effort = initial_effort*scaling_effort 
+
+```
+
+#-----------------------------------------
+# tune Q 
+#----------------------------------------------
+
+```{r}
+
+# re-scale df_target*initial_effort using catchability
+div<-relative_effort[212,]/colSums(df_target*initial_effort)
+# what to do with values >1? can these be transferred to other param - e.g. initial effort? 
+
+df_target_bmsy<-df_target
+df_target_bmsy<-sweep(df_target_bmsy, 2, div, FUN = '*')
+df_target_bmsy[,1]<-0 # mycto
+
+# this is the Fmort in 2005 given initial effort and catchability values. Fmort does not exceed 1, but it could if effort was to increase.   
+colSums(df_target_bmsy*initial_effort)
+
+```
+
+#-----------------------------------------
+# First model run
+#----------------------------------------------
+
+```{r}
+
+# start with community in 2006 (sim_fitted) 
+initial_n = sim_fitted@n[212,,]
+initial_n_pp = sim_fitted@n_pp[212,]
+initial_n_bb = sim_fitted@n_bb[212,]
+
+# fix catches and recoveries by changing erepro - see reasoning in next section  
+df_param2<-df_param
+df_param2[6, "erepro"]<-0.0001 # centroberix # SH 
+df_param2[7, "erepro"]<-0.15 # squalus # general
+df_param2[9, "erepro"]<-0.0005 # platy # SH
+df_param2[10, "erepro"]<-0.00005 # zuus # DS
+df_param2[3, "erepro"]<-0.0001 # squid - DS, SH and  US - but this is playing with food...
+df_param2[12, "erepro"]<-0.0000001 # OR (although not high erepro) # DS  
+
+# second round - they all recover as effort declines 
+df_param2[13, "erepro"]<-0.00001 # macrurus for US
+df_param2[14, "erepro"]<-0.000001 # serio p for US (silver)
+df_param2[16, "erepro"]<-0.00001 # genipt for US
+df_param2[15, "erepro"]<-0.00001 # rexea for US
+
+df_param2[11, "erepro"]<-0.00001 # seio b (blue)
+df_param2[8, "erepro"]<-0.0001 # to fix the spp 
+
+# fix catches distribution 
+df_target_bmsy2<-df_target_bmsy
+
+# less catch in SH - might be better to remove these spp from the catches instead of dropping them into a fleet? 
+df_target_bmsy2[3,"trachurus declivis"]<-(sum(df_target_bmsy2[c(1,3),"trachurus declivis"])/10)*1 # moved from SH to SED
+df_target_bmsy2[1,"trachurus declivis"]<-((sum(df_target_bmsy2[c(1,3),"trachurus declivis"])/10)*9)*7 # increased until it reached relative effort values 
+df_target_bmsy2[3,"nototodarus gouldi"]<-(sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)
+df_target_bmsy2[1,"nototodarus gouldi"]<-((sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)*9)*18
+
+# less in SH and US and fix seriorella b plot
+df_target_bmsy2[c(3,4),"seriolella brama"]<-df_target_bmsy2[c(3,4),"seriolella brama"]*0.3
+
+# decrease Fmort for some spp to fix sp plots. 
+df_target_bmsy2[3,"centroberyx affinis"]<-df_target_bmsy2[3,"centroberyx affinis"]*0.3
+df_target_bmsy2[3,"seriolella punctata"]<-df_target_bmsy2[3,"seriolella punctata"]*0.3
+df_target_bmsy2[4,"galeorhinus galeus"]<-df_target_bmsy2[4,"galeorhinus galeus"]*0.3
+
+# NOTE - need to add if(E>1){E==1} and if(E*Q>1){E*Q==1} as effort nor Fmort cannot be >1. not a problem now but will need to fix for next use of this model  
+colSums(df_target_bmsy2)
+colSums(df_target_bmsy2*initial_effort)
+
+# play  with effort instead 
+initial_effort2<-initial_effort
+
+#### run model ----
+
+# with fixes on erepro and Q 
+params_FD <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy2, target = df_target_bmsy2)
+
+sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
+plot_CN(sim_FD_bmsy)
+
+# without fixes on erepro 
+params_FD_no_erepro_fix <- MizerParams(df_param, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy2, target = df_target_bmsy2)
+
+sim_FD_bmsy_no_erepro_fix <- project(params_FD_no_erepro_fix, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
+plot_CN(sim_FD_bmsy_no_erepro_fix)
+
+# fast compare catches 
+datValidationYield<-ungroup(datValidationYield)
+datValidationEffort<-ungroup(datValidationEffort)
+
+compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+compareTrends(sim_fitted,sim_FD = sim_FD_bmsy_no_erepro_fix, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
+
+```
+
+#-----------------------------------------
+# save data
+#----------------------------------------------
+
+```{r}
+
+# modelled data
+cost_opn=df_cost2 # $ opn-1, according to data and Atlantis model
+cost_m=df_cost3 # $ m-3 fished, divided by net opening and scaled (lowered) to allow positive profit and hence fishing at the  beginning of the model runs
+price=df_price_new # already scaled ($ g-1)
+revenue=sim_FD_bmsy@revenue # ($ m-3)
+profit=sim_FD_bmsy@profit # ($ m-3)
+effort=sim_FD_bmsy@effortOut # (area fished within a m-3)
+biomass<-getBiomass(sim_FD_bmsy) # g m-3
+SSB<-getSSB(sim_FD_bmsy) # g m-3
+yield=sim_FD_bmsy@yield # (g m-3) # this is by size so need to aggregate - and by fleet
+volSystem = areaEco # volume of the system - for convertions to e.g. profits in $ vol-1 of system; yields in tonnes vol-1
+scaling_cost_area # m-3 fished in 1 operation (e.g. trawling shot) for convertion to e.g. effort in opn-1
+
+# observation data 
+# plotFleet(sim_FD_bmsy)
+# catchComp(sim_FD_bmsy, df_log_spp)$p
+dataYield<-catchComp(sim_FD_bmsy, df_log_spp)$datValidationYieldSppFl
+dataEffort<-datValidationEffort # effort data in number of fishing operation
+# df_log_spp # this is the original data but don't know if I can share it?!
+
+dataYield<-dataYield %>%
+  filter(year >2005) %>% 
+  select(-color)
+
+dataEffort<-dataEffort %>% 
+    `colnames<-`(c("fleet","year","n_operation")) %>% 
+    mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                             fleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                             fleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                             fleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                             fleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) 
+
+save(cost_opn, cost_m, price, revenue, profit, effort, biomass, SSB, yield, volSystem, scaling_cost_area, dataYield, dataEffort, file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FleetDynamicsExperiments_Alex.RData")
+
+```
+
+#-----------------------------------------
+# plot - catch and effort by species or fleet
+#---------------------------------------------- 
+
+```{r}
+
+# choose to plot sim_FD_bmsy or sim_FD_bmsy_no_erepro_fix
+sim_FD_bmsy<-sim_FD_bmsy_no_erepro_fix
+
+# catch composition 
+fig3b<-catchComp(sim_FD_bmsy, df_log_spp)$p
+
+# spawning stock biomass trends
+plotSSB_sp<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp 
+SSBData<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$DataPlotYield
+colnames(SSBData)<-c("year", "species","ssb_tonnes","type","common")
+
+# trends in spp yields - different options  
+plotYield_sp_rescaled<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp 
+plotYield_sp_rescaled2<-compareTrends(sim_fitted,sim_FD = NA, fleetDynamics = FALSE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp 
+plotYield_sp_raw<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp 
+yieldData<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$DataPlotYield
+colnames(yieldData)<-c("year", "species","yield_tonnes","type","common")
+
+# trends in yield by fleet and effort by fleet - not working but  data is
+plotYield_fl<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_fl
+yieldData_fleet<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$DataPlotYield_fl 
+colnames(yieldData_fleet)<-c("year", "fleet","yield_tonnes","type")
+plotEffort_fl<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotEffort_fl
+effortData<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$DataPlotEffort_fl 
+colnames(effortData)<-c("year", "fleet","effort_opn","type")
+
+#  final plot (FIG  3 below)- effort and catch by fleet together
+a<-effortData
+b<-yieldData_fleet
+
+colnames(a)<-c("year", "fleet", "EFFORT", "color")
+colnames(b)<-c("year", "fleet", "YIELD", "color")
+temp<-merge(a, b, all = TRUE)
+temp<-temp %>% 
+  gather("type", "value", -c(year, fleet, color))
+
+scaleFUN <- function(x) sprintf("%.0f", x)
+
+plotEffortCatch_fl <- ggplot(temp, aes(x=year, y = value, colour=color)) + 
+  geom_line(aes(x=year, y = value, colour=color), size=1) +    
+  scale_x_continuous(labels = scaleFUN, name = "Year") +
+  theme_bw() +
+  theme(legend.title = element_blank(),
+        text = element_text(size=12),
+        legend.text=element_text(size=12),
+        axis.title.y = element_text(size=12, vjust=0.4),
+        axis.title.x = element_text(size=12, vjust=0.3),
+        axis.text.y = element_text(size=10, hjust=0.5),
+        axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
+        panel.grid.major = element_blank(),
+        strip.background = element_rect(colour="black", fill= NA)) +
+  scale_y_continuous(name = "tonnes                    operations")+
+  facet_grid(vars(type), vars(fleet), scales="free_y")
+
+# dots and line version 
+a = c("SET-SH","SET-US","SSG","SET-DS","SED")
+temp2<-temp %>% 
+  spread(color, value) %>% 
+  filter(type == "EFFORT") %>% 
+  mutate(fleet = factor(fleet, level = a)) 
+
+plotEffortCatch_fl <- ggplot(temp2) + 
+  geom_line(aes(x=year, y= modelled_FD), size=0.5) +
+  geom_point(aes(x=year, y = observed), size = 1, shape = 1)+
+  scale_x_continuous(labels = scaleFUN, name = "Year") +
+  theme_bw() +
+  theme(text = element_text(size=14),
+        axis.title.y = element_text(vjust=0.4, size = 15),
+        axis.title.x = element_text(vjust=0.3, size = 15),
+        axis.text.y = element_text(size=10, hjust=0.5),
+        axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
+        panel.grid.major = element_blank(),
+        strip.background = element_blank(),
+        panel.border = element_rect(colour = "black"),
+        strip.text.x = element_text(face = "bold"))+
+  scale_y_continuous(name = "Effort [opn]")+
+  facet_wrap(~fleet, nrow = 1)
+
+```
