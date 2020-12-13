@@ -119,29 +119,27 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
                     diet_steps=10, ...) {
 
   # # trial FD
-  # params = params_trial
+  # params = params_FD
   # effort = 0
   # dt = 0.25
   # fleetDynamics = TRUE
   # management = TRUE
   # multiFleet = FALSE
-  # price = price_forward
-  # cost = cost_forward
+  # price = df_price_new
+  # cost = df_cost3
   # diet_steps = 0
-  # ke = ke
-  # initial_effort = initial_effort_scenario
+  # ke = ke_fleet
+  # initial_effort = initial_effort2
   # scaling_price = scaling_price
-  # Blevel_management = Blevel_management
-  # initial_n = initial_n_scenario
-  # initial_n_pp = initial_n_pp_scenario
-  # initial_n_bb = initial_n_bb_scenario
+  # Blevel_management = "Bmsy"
+  # initial_n = initial_n
+  # initial_n_pp = initial_n_pp
+  # initial_n_bb = initial_n_bb
   # initial_n_aa = params@initial_n_aa
-  # 
   # t_save = 1
   # t_max = 23
   # temperature = rep(params@t_ref, times = t_max)
-  # shiny_progress = NULL
-  # 
+  # # shiny_progress = NULL
   
   # # trial no FD
   # params = params
@@ -466,7 +464,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
     
     for (i_time in 1:t_steps) {
       # for (i_time in 1:73) {
-      # i_time = 74
+      #i_time = 5
       
         # Calculate amount E_{a,i}(w) of available food
         avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)
@@ -680,7 +678,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
             
             for(i in 1:length(Bio)){
               
-              # i = 4
+              #i = 1
               
               # try with no seriorella - check the decreases in effort and how it it weighted: 
               # with seriorella (without the fix), decreases in effort is 0.07508566
@@ -706,10 +704,19 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               # % of decrease in effort
               
               # option A - weighted sum of contributing species: (a*Ba + b*Bb + c*Bc)/(Ba + Bb + Bc)
-              # contribution to the community
+              # contribution to the community # nominator
               Perc40$contribution<-Perc40$bioLevel*Perc40$Perc40 
+              # what does this do? abundant species with steep decreases: squid (fleet 1)
+              # 9.641187e-05*0.3880095 = 3.740872e-05 (important changes) # this gives more weight to abundant species with steep decreases. What about rare species with steep decreases? less important - but as the decreases increases, the species importance in determining changes also increases. this is OK as it mirrors management being omostly focused on most abundant speceis.   
+              
+              
               # contribution to the catch # this can be added to slow decreases 
               Perc40$contribution<-Perc40$contribution*Perc40$target # to comment
+              # what does this do? this gives more weight to main target species of the fleet under consideration. Not all abundant species with steep decreases are ,main  target of each fleet consider and highly contribute to their catch (e.g. squid) - we weight them down (or give more weight to the main target species- e.g. flatheads). Although squid decline steeply, the SDE is not responsable for these declines if it does not target them and should not be reducing its effort much (unless this spp is below 20% in which case the fleet closes). the opposite is for flatheads. 
+              
+              # the above 2 steps reduce decreases because both  biomass levels and target are decimals - they re-scale changes in effort to fit observations.  
+              
+              
 
               # MeanPerc40A<-sum(Perc40$contribution)/sum(Perc40$bioLevel) # problem: less species below target result in lower biolevel (less spp = less abundance) and higher decrease in effort. # to comment 
               
@@ -718,7 +725,14 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               
               # instead: consider sum of biomass of the species that are target of the fisheriy? (basically this needs to be a fixed quantity across the runs as it's the reference level)
               ref<-Bio2[[i]] %>% filter(target>0.005) # consider only target and bycatch # to uncomment
-              # # ref$bioLevel<-ref$bioLevel*ref$target # wait for their importance as target spp
+              # ref<-Bio2[[i]] %>% filter(target>=0)
+              # ref$bioLevel<-ref$bioLevel*ref$target # wait for their importance as target spp
+              
+              
+              # we then do the weighted sum of contributing speceis as defined above but 'contributing' here means contributing in terms of both biomass and catch : (a*Ba*Ca + b*Bb*Cb)/(Ba +Cb) but the denominator only considers main speceis (ref above)
+              # the below increases the decreases in effort (bigger value)
+              
+              
               MeanPerc40A<-sum(Perc40$contribution)/sum(ref$bioLevel)
               # MeanPerc40A<-MeanPerc40A*0.05 # this is to speed/slow decreases in effort up instead of using a cut bigger than 0 on ref.
 
