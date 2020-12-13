@@ -34,7 +34,7 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   names<-df_param[,which(colnames(df_param) %in% c("species","spCommon"))]
   
   # add OR mortality from SA as this one was from coco and included only cascade OR 
-  or_fmort<-read.csv("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/originalData/StockAssessment/OR_Fmort.csv")
+  or_fmort<-read.csv("/Users/camillan/Multispecies_sizebasedmodels/SouthEastAustralia/input/originalData/StockAssessment/OR_Fmort.csv")
   or_fmort$spe<-as.factor("hoplostethus atlanticus")
   all_mortality<-all_mortality[-which(all_mortality$spe=="hoplostethus atlanticus"),]
   all_mortality<-rbind(or_fmort, as.data.frame(all_mortality))
@@ -118,7 +118,7 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   
   Fmort<-relative_Fmort*Fmort
   
-  # write.csv(Fmort, file = "/Users/nov017/Desktop/Fmort.csv",row.names=FALSE)
+  # write.csv(Fmort, file = "/Users/camillan/Desktop/Fmort.csv",row.names=FALSE)
   
   
   
@@ -205,10 +205,10 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
 CalcTheta<-function(df_param, df_ismp_spp){
   
   # Method from old version:
-  # source("/Users/nov017/multispecies_sizebasedmodels/SouthEastAustralia/R/GETtheta.R")
+  # source("/Users/camillan/multispecies_sizebasedmodels/SouthEastAustralia/R/GETtheta.R")
   # res = GETtheta(df_kapCatch, df_param)
   
-  load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SESSF_ISMP_Cleaned_noCanatus.RData")
+  load("/Users/camillan/Multispecies_sizebasedmodels/SouthEastAustralia/input/SESSF_ISMP_Cleaned_noCanatus.RData")
 
   sp_name<-df_param %>%
     select("species","spCommon") %>%
@@ -278,7 +278,7 @@ CalcTheta<-function(df_param, df_ismp_spp){
   # 2 using diet data to inform some spp
 
   # from GETpesciData.R in GETbetaWrap.R in SEA_EcolParam
-  source("/Users/nov017/multispecies_sizebasedmodels/SouthEastAustralia/R/GETpesciData.R")
+  source("/Users/camillan/multispecies_sizebasedmodels/SouthEastAustralia/R/GETpesciData.R")
   res = GETpesciData(df_param)
   df_pesci <- res$df_pesci
   df_pesci2<-df_pesci %>%
@@ -312,7 +312,7 @@ CalcTheta<-function(df_param, df_ismp_spp){
   theta["zeus faber","sillago flindersi"]<-1
   theta["zeus faber","macruronus novaezelandiae"]<-1
   
-  # write.csv(theta,"/Users/nov017/Desktop/feedingTrial/theta_trial.csv")
+  # write.csv(theta,"/Users/camillan/Desktop/feedingTrial/theta_trial.csv")
   
   # explore PPMR
   # i=6  
@@ -538,7 +538,7 @@ compareEql<-function(areaEco, df_param, sim, matrix_effort, df_log_spp, calibrat
   compare_changeSSB<-compare_changeSSB[match(df_param$species, compare_changeSSB$species),]
   
   ### RANK abundance using CPUE from ISMP data 
-  load("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/SESSF_ISMP_Cleaned.RData")
+  load("/Users/camillan/Multispecies_sizebasedmodels/SouthEastAustralia/input/SESSF_ISMP_Cleaned.RData")
   
   sampling<-df_ismp_spp_LF %>% 
     filter(SPC_NAME %in% df_param$species,YEAR >1994 & YEAR <2006) %>%
@@ -580,10 +580,10 @@ compareEql<-function(areaEco, df_param, sim, matrix_effort, df_log_spp, calibrat
 
   # SSB 
   # data from Punt files (coco's folder)
-  ssbObs<-read.csv("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/input/originalData/StockAssessment/corentin/SS_outputs/all_info.csv")
+  ssbObs<-read.csv("/Users/camillan/Multispecies_sizebasedmodels/SouthEastAustralia/input/originalData/StockAssessment/corentin/SS_outputs/all_info.csv")
   
   # what about OR east stock?! need to take values from the recovery chapter as in here values are for cascade only
-  ssbOR<-read.csv("/Users/nov017/Publications/Smith2018_recovery/camilla/data/20170724_SSB2.csv")
+  ssbOR<-read.csv("/Users/camillan/Publications/Smith2018_recovery/camilla/data/20170724_SSB2.csv")
   ssbOR<-ssbOR %>%  filter(sp == "Orange Roughy East")  
   colnames(ssbOR)<-c("Year","Spawning.biomass","spCommon")
   ssbOR$spCommon<-as.factor("orange roughy")
@@ -884,7 +884,7 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
     filter(!is.na(observed),!is.na(modelled)) %>% 
     group_by(species) %>%
     do(model = lm(modelled ~ observed, data = .)) 
-  Coef = glance(r, model)
+  #Coef = glance(r, model)
   
   plot_y<-plot_y %>% 
     right_join(df_param[,c("species","spCommon")]) %>% 
@@ -1257,6 +1257,7 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   
   # Yield by species and time steps
   out_y<-as.data.frame(t(out_y))
+  dim(out_y)
   colnames(out_y)<-df_param$species
   out_y <- out_y %>% 
     gather("species", "yield") %>% 
@@ -1303,7 +1304,7 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
   check_yield_plot<- check_yield %>% 
     gather(variable, value, -c(species,effort,time)) %>% 
     filter(species != "myctophids") %>% 
-    mutate(value = (value/1000000)*areaEco) %>% 
+    dplyr::mutate(value = (value/1000000)*areaEco) %>% 
     left_join(df_param[,c(1,2)]) %>% 
     mutate(spCommon = factor(spCommon, level = a))
   
@@ -1433,7 +1434,7 @@ plotFleetMatrix<-function(a,b,target_scenario){
 
 ########### final plot - fleets trends in effort ----
 
-plotFleetEffort<-function(a,b, sim_scenario, sim_FD_bmsy,col_values){
+plotFleetEffort<-function(a,b, sim_scenario, sim,col_values){
   
   sim_scenario2 <- sim_scenario[a]
   
@@ -1445,7 +1446,7 @@ plotFleetEffort<-function(a,b, sim_scenario, sim_FD_bmsy,col_values){
   colnames(e)<-c("Year","Fleet","Effort","Scenario")
   
   # effort before simulations 
-  e_before<-sim_FD_bmsy@effortOut
+  e_before<-sim@effortOut
   e_before<-melt(e_before) %>% 
     mutate(value = (value/scaling_cost_area)*areaEco) 
   colnames(e_before)<-c("Year","Fleet","Effort")
@@ -1617,7 +1618,7 @@ indicators<-function(sim_scenario, management){
 
 ########### indicators trends ----
 
-indicatorsTrend<-function(a,b, sim_scenario, col_values){
+indicatorsTrend<-function(a,b, sim_scenario, sim, col_values){
   
   # BOIMASS recoveries - not plotted in the end 
   biomass_scenario <- sim_scenario %>%
@@ -1635,7 +1636,7 @@ indicatorsTrend<-function(a,b, sim_scenario, col_values){
     gather(year, biomassSensitive, - scenario)
   
   # biomass before simulations 
-  biomass_before <- getBiomass(sim_FD_bmsy) %>% 
+  biomass_before <- getBiomass(sim) %>% 
     as.data.frame(.) %>% 
     select(c("squalus spp.","seriolella brama","rexea solandri", "galeorhinus galeus")) %>%
     rowSums(.)
@@ -1666,7 +1667,7 @@ indicatorsTrend<-function(a,b, sim_scenario, col_values){
     gather(year, biomass, - scenario)
   
   # biomass before simulations 
-  biomass_before <- getBiomass(sim_FD_bmsy) %>% 
+  biomass_before <- getBiomass(sim) %>% 
     as.data.frame(.) %>%
     select(c("sillago flindersi", "centroberyx affinis", "nemadactylus macropterus","platycephalus richardsoni","zeus faber", "hoplostethus atlanticus","macruronus novaezelandiae", "seriolella punctata", "genypterus blacodes", "mustelus antarcticus")) %>%
     rowSums(.)
@@ -1695,7 +1696,7 @@ indicatorsTrend<-function(a,b, sim_scenario, col_values){
     gather(year, yield, - scenario)
   
   # yield before simulations 
-  yield_before <- getYield_CN(sim_FD_bmsy) %>% 
+  yield_before <- getYield_CN(sim) %>% 
     as.data.frame(.) %>%
     rowSums(.)
   
@@ -1722,7 +1723,7 @@ indicatorsTrend<-function(a,b, sim_scenario, col_values){
     gather(year, profit, - scenario)
   
   # profit before simulations 
-  pr_before <- sim_FD_bmsy@profit %>% 
+  pr_before <- sim@profit %>% 
     as.data.frame(.) %>%
     rowSums(.)
   
@@ -2098,7 +2099,7 @@ plotIndicators<-function(a,b,df_plot, col_values, scenarios){
           panel.border = element_rect(colour = "black"),
           strip.text.x = element_text(face = "bold")) 
   
-  return(list(plot_bar = plot_bar, lolliIndicator = lolliIndicator))
+  return(list(lolliIndicator = lolliIndicator))
 }
 
 ########### single spp and fleet trends ----
@@ -2115,7 +2116,7 @@ plotSppTrends<-function(temp_sim){
     gather(species, biomass, -year)
   
   # biomass before simulations 
-  biomass_before <- getBiomass(sim_FD_bmsy) %>% 
+  biomass_before <- getBiomass(sim) %>% 
     as.data.frame(.) %>% 
     mutate(year = rownames(.)) %>% 
     gather(species, biomass, -year)
@@ -2178,7 +2179,7 @@ plotSppTrends<-function(temp_sim){
     mutate(year = rownames(.)) %>% 
     gather(fleet, effort, -year)
   
-  effort_before <-sim_FD_bmsy@effortOut %>% 
+  effort_before <-sim@effortOut %>% 
     as.data.frame(.) %>% 
     mutate(year = rownames(.)) %>% 
     gather(fleet, effort, -year)
@@ -2194,9 +2195,9 @@ plotSppTrends<-function(temp_sim){
     mutate(year = rownames(temp_sim@effortOut)) %>% 
     gather(fleet, yield, -year)
   
-  yield_before <-getYield_CN(sim_FD_bmsy) %>% 
+  yield_before <-getYield_CN(sim) %>% 
     as.data.frame(.) %>% 
-    mutate(year = rownames(sim_FD_bmsy@effortOut)) %>% 
+    mutate(year = rownames(sim@effortOut)) %>% 
     gather(fleet, yield, -year)
   
   yield<-rbind(yield, yield_before) %>% 
@@ -2210,7 +2211,7 @@ plotSppTrends<-function(temp_sim){
     mutate(year = rownames(.)) %>% 
     gather(fleet, profit, -year)
   
-  profit_before <-sim_FD_bmsy@profit %>% 
+  profit_before <-sim@profit %>% 
     as.data.frame(.) %>% 
     mutate(year = rownames(.)) %>% 
     gather(fleet, profit, -year)
@@ -2298,6 +2299,95 @@ plotSppTrends<-function(temp_sim){
   
 }
 
+catchComp<-function(sim, df_log_spp){
+  
+  # sim = sim_FD_bmsy
+  # mearge fig 5 and 4 
+  
+  # modelled catch by species AND fleet
+  trial<-compareTrends(sim_fitted,sim,fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$trial
+  trial<-as.data.frame.table(trial, responseName = "yield")
+  colnames(trial)<-c("year", "species","fleet", "yield_tonnes")
+  
+  # observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which theh bocame yieldObs_timeVariant in createFmort() in DataFunction.r - thus follwong same protocoll as per all observed data for validation 
+  datValidationYieldSppFl<-df_log_spp %>%
+    filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
+    group_by(SPC_NAME, metier, YEAR) %>% 
+    dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)/1e3) %>% 
+    `colnames<-`(c("species","fleet","year","yield_tonnes")) %>% 
+    mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                             fleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                             fleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                             fleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                             fleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) 
+  
+  # modelled and observed together
+  # NOTE: you added catches and calcualted Fmort according to these catches for trachurus. Here they are missing but Q=1 for tracurus and these fleets.  
+  datValidationYieldSppFl$color<-"observed"
+  trial$color <- "modelled_FD"
+  trial$year<-as.numeric(as.character(trial$year))
+  trial$species<-as.character(trial$species)
+  trial$fleet<-as.character(trial$fleet)
+  yieldData_sp_fl<-merge(trial,datValidationYieldSppFl, all =TRUE ) 
+  yieldData_sp_fl<-yieldData_sp_fl%>% 
+    filter(year >= 2006) %>% 
+    left_join(df_param[,c(1,2)])
+  
+  yieldData_sp_fl %>% 
+    filter(yield_tonnes>50, fleet =="SSG", year == 2006) %>% 
+    arrange(-yield_tonnes)
+  
+  # plot modelled vs observed
+  
+  # choose color
+  library(RColorBrewer)
+  colourCount = length(unique(yieldData_sp_fl$spCommon))
+  getPalette = colorRampPalette(brewer.pal(12, "Set2"))
+  
+  # order factors 
+  a = c("SET-SH","SET-US","SSG","SET-DS","SED")
+  b = c("modelled_FD", "observed")
+  c = df_param[,2]
+  yieldData_sp_fl<-yieldData_sp_fl %>% 
+    mutate(fleet = factor(fleet, level = a)) %>% 
+    mutate(color = factor(color, level = b)) %>% 
+    # mutate(yaer = factor(year)) %>%
+    mutate(spCommon = factor(spCommon, level = c)) %>% 
+    mutate(color = ifelse(color == "modelled_FD", "Modelled", "Observed")) %>% 
+    filter(spCommon != "lanternfish")
+  
+  # install.packages("Hmisc")
+  # library(Hmisc)
+  # yieldData_sp_fl$spCommon<- capitalize(as.character(yieldData_sp_fl$spCommon))
+  # yieldData_sp_fl$spCommon<-as.factor(yieldData_sp_fl$spCommon)
+  
+  scaleFUN <- function(x) sprintf("%.0f", x)
+  spNames<-c("Whiting","Squid","Perch","Mackerel","Redfish","Deep shark","Morwong","Flathead","Dories","Blue warehou","Orange roughy","Blue granadier","Silver warehou","Gemfish","Pink ling","Sawshark","Gummy shark","School shark")
+
+  
+  p <- ggplot(yieldData_sp_fl, aes(x=year, y = yield_tonnes, fill=spCommon)) + 
+    geom_bar(position = "stack", stat = "identity") +
+    scale_fill_manual(values=getPalette(colourCount), name= "Species", labels = spNames)+
+    facet_grid(color~fleet)+ # scale ="free"
+    scale_y_continuous(name = "Yield [tonnes]") +
+    scale_x_continuous(labels = scaleFUN, name = "Year") +
+    # scale_x_continuous(name = "Year", labels = scales::number_format(accuracy = 1))+
+    theme_bw()+
+    theme(text = element_text(size=14),
+          axis.title.y = element_text(vjust=0.4, size = 15),
+          axis.title.x = element_text(vjust=0.3, size = 15),
+          axis.text.y = element_text(size=10, hjust=0.5),
+          axis.text.x = element_text(size=10, angle = 90, hjust=0.5),
+          panel.grid.major = element_blank(),
+          strip.background = element_blank(),
+          panel.border = element_rect(colour = "black"),
+          strip.text.x = element_text(face = "bold"),
+          # legend.title = element_text(size = 5),
+          # legend.text = element_text(size = 5)) 
+          legend.key.size = unit(0.3, "cm"))
+  
+  return(list(p = p, datValidationYieldSppFl = datValidationYieldSppFl))
+}
 
 
 
