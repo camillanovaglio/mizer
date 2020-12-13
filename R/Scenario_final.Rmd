@@ -22,6 +22,7 @@ library(reshape2)
 library(ggplot2)
 library(dplyr)
 library(matrixStats)
+library(mizer)
 
 setwd("/Users/camillan/R-projects/Mizer-fleet/R")
 source("data.R") 
@@ -30,7 +31,7 @@ source("MizerParams-class.R")
 source("MizerSim-class.R")
 source("plots.R")
 source("project_methods.R")
-source("/Users/camillan/Desktop/project.R") ### TEMPORARY 
+source("project.R") 
 source("RcppExports.R") 
 source("selectivity_funcs.R")
 source("summary_methods.R")
@@ -39,7 +40,7 @@ source("DataFunction.R")
 
 #  options are sim_FD_bmsy and df_param2, or sim_FD_bmsy_no_erepro_fix and df_param
 sim = sim_FD_bmsy
-df_param = df_param
+df_param = df_param2
 interaction = theta
 kappa = kappa
 kappa_ben = kappa_ben
