@@ -28,8 +28,10 @@ rm(list=ls())
 # save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_reduced.RData")
 
 # the above data was too big - need to reduce 
+load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_noerepro.RData") 
+# load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_reduced.RData")
 
-load("/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_reduced.RData")
+ls()
 
 library(plyr)
 library(tidyverse)

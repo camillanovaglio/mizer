@@ -603,7 +603,7 @@ plotFleet<-function(sim){ # only for FD - no multiFleet
   c<-c + theme(legend.position="none")
   
   plots <- list(a,b,c)
-  source("/Users/nov017/R_general/FUNplotSize.r")
+  source("/Users/camillan/R_general/FUNplotSize.r")
   res = plotSize(plots)
   
   lay <- rbind(c(1,1),
@@ -614,7 +614,7 @@ plotFleet<-function(sim){ # only for FD - no multiFleet
            res$grobs[[2]],
            res$grobs[[3]])
   
-  # setwd("/Users/nov017/Multispecies_sizebasedmodels/SouthEastAustralia/output/plots")
+  # setwd("/Users/camillan/Multispecies_sizebasedmodels/SouthEastAustralia/output/plots")
   # jpeg("plotResultsFleet.jpeg", width=18, height=22 ,units="cm",res=400) #, width=10)
   grid.arrange(grobs = gs, layout_matrix = lay)
   

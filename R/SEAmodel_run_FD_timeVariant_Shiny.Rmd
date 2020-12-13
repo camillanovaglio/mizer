@@ -913,7 +913,7 @@ sort(-((rowSums(aperm(yield,c(3,2,1)),dims=2)/1000000)*areaEco)[4,]) # US
 
 # save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input and Tune Q opn2 
 
-save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input and Tune Q opn2
+save.image(file = "/Users/nov017/Dropbox/Mizer-fleet_extension/data/FDData_opn3_May_noerepro.RData") # was FDData_Nov2.RData or FDData_Nov.RData if using SEAmodel_opn2.RData as input and Tune Q opn2, noerepro if erepro has not been changed
 
 
 ```
@@ -1191,13 +1191,14 @@ leg<-as_ggplot(leg)
 #leg<-leg+theme(text = element_text(size=2))
 fig3b2<-fig3b + theme(legend.position = "none")
 
-setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-tiff("Fig3_Sept2020.tiff", height=6, width=8, units ='in', res=300)
-((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
-dev.off()
+# setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# tiff("Fig3_Sept2020.tiff", height=6, width=8, units ='in', res=300)
+# ((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
+# dev.off()
 
 setwd("/Users/nov017/Dropbox/Mizer-fleet_extension/plot/FD/Final")
-pdf("Fig3_Sept2020.pdf", height=6, width=8)
+# pdf("Fig3_Sept2020.pdf", height=6, width=8)
+pdf("Fig3_noerepro.pdf", height=6, width=8)
 ((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
 dev.off()
 
