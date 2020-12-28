@@ -364,7 +364,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
         stop("t_save must be a positive multiple of dt")
     t_skip <- round(t_save/dt)
     
-    # CN if fleetdynamics is on, effort is not given and the price matrix gives the dimention instead (it overwrites t_max) 
+    # CN if fleetdynamics is on, effort is not given and the price matrix gives the dimension instead (it overwrites t_max) 
     if(fleetDynamics==TRUE){
       t_dimnames_index <- seq(1, to = length(time_price_dt), by = t_skip)
       t_dimnames <- time_price_dt[t_dimnames_index]
@@ -463,8 +463,6 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
     }
     
     for (i_time in 1:t_steps) {
-      # for (i_time in 1:73) {
-      #i_time = 5
       
         # Calculate amount E_{a,i}(w) of available food
         avail_energy <- getAvailEnergy(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa)
@@ -497,13 +495,13 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
         
         if(fleetDynamics==TRUE){
 
-          # error checking - ask Javi
+          # error checking
           # if(i_time==102)browser()
           
           # calcualte biomass 
           B_itime<-sweep(n, 2, sim@params@w * sim@params@dw, "*")
           
-          # set an intial value of effort also for effortOut_dt and based on initial_effort 
+          # set an initial value of effort also for effortOut_dt and based on initial_effort 
           effortOut_dt[1,]<-sim@effortOut[1,] 
           
           z <- getMort_CN(sim@params, n = n, n_pp = n_pp, n_bb = n_bb, n_aa = n_aa, intakeScalar = sim@intTempScalar[,,i_time], metScalar = sim@metTempScalar[,,i_time], morScalar = sim@morTempScalar[,,i_time], effort = effortOut_dt[i_time,], e = e, m2 = m2)
@@ -600,9 +598,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
 
           # yield (spp X w X fleet) yield by fleet and total
           yield_itime <-sweep(F_itime,c(1,2), B_itime, "*")
-          # dim(yield_itime)
-          # colSums(rowSums(aperm(yield_itime,c(1,3,2)),dims=2))
-
+          
           # price
           price_itime<-price_dt[i_time,]*scaling_price 
           
@@ -674,18 +670,11 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               select(-c(target, bioStatus))
             rownames(BioOut)<-NULL
               
-            # calcualte effort of each fleet for the next time step and based on profits maximisation: whether effort is allowed change based on profits or forced to stabilise or decrease is based on biomass treshold.
+            # calculate effort of each fleet for the next time step and based on profits and management
             
             for(i in 1:length(Bio)){
               
-              #i = 1
-              
-              # try with no seriorella - check the decreases in effort and how it it weighted: 
-              # with seriorella (without the fix), decreases in effort is 0.07508566
-              # without seriorella (with the fix), decreases in effort is 0.1636155 - Bigger!
-              # BioOut<-BioOut %>% filter(species != "seriolella punctata")
-              
-              # calcualte how many species reached tresholds for each fleet 
+              # calculate how many species reached thresholds for each fleet 
               SpBelowLimits<-split(BioOut, BioOut$fleet)
               SpBelowLimits<-SpBelowLimits[[i]]
               n20<-SpBelowLimits[SpBelowLimits$bioLim == "bio20check",]
@@ -695,7 +684,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               n48<-SpBelowLimits[SpBelowLimits$bioLim == "bio48check",]
               n48<-nrow(n48)
               
-              # calcualte by how much each spp is below msy tresholds 
+              # calculate by how much each spp is below msy thresholds 
               Perc40<-SpBelowLimits[SpBelowLimits$bioLim == "bio40check",]
               Perc40<-merge(Perc40,Bio2[[i]], all = FALSE)
               # % of decrease in species abundance
@@ -704,38 +693,22 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               # % of decrease in effort
               
               # option A - weighted sum of contributing species: (a*Ba + b*Bb + c*Bc)/(Ba + Bb + Bc)
-              # contribution to the community # nominator
+              
+              # contribution to the community 
               Perc40$contribution<-Perc40$bioLevel*Perc40$Perc40 
-              # what does this do? abundant species with steep decreases: squid (fleet 1)
-              # 9.641187e-05*0.3880095 = 3.740872e-05 (important changes) # this gives more weight to abundant species with steep decreases. What about rare species with steep decreases? less important - but as the decreases increases, the species importance in determining changes also increases. this is OK as it mirrors management being omostly focused on most abundant speceis.   
               
+              # contribution to the catch  
+              Perc40$contribution<-Perc40$contribution*Perc40$target 
               
-              # contribution to the catch # this can be added to slow decreases 
-              Perc40$contribution<-Perc40$contribution*Perc40$target # to comment
-              # what does this do? this gives more weight to main target species of the fleet under consideration. Not all abundant species with steep decreases are ,main  target of each fleet consider and highly contribute to their catch (e.g. squid) - we weight them down (or give more weight to the main target species- e.g. flatheads). Although squid decline steeply, the SDE is not responsable for these declines if it does not target them and should not be reducing its effort much (unless this spp is below 20% in which case the fleet closes). the opposite is for flatheads. 
-              
-              # the above 2 steps reduce decreases because both  biomass levels and target are decimals - they re-scale changes in effort to fit observations.  
-              
-              
-
-              # MeanPerc40A<-sum(Perc40$contribution)/sum(Perc40$bioLevel) # problem: less species below target result in lower biolevel (less spp = less abundance) and higher decrease in effort. # to comment 
-              
-              # instead: consider sum of biomass in the whole commuity. decreases in effort are too low as here you are considering all spp so dividing by a huge number  
+              # MeanPerc40A<-sum(Perc40$contribution)/sum(Perc40$bioLevel) # problem: less species below target result in lower biolevel (less spp = less abundance) and higher decrease in effort 
+              # instead: consider sum of biomass in the whole community. decreases in effort are too low as here you are considering all spp so dividing by a huge number  
               # MeanPerc40A<-sum(Perc40$contribution)/sum(Blevel$bioLevel)
-              
-              # instead: consider sum of biomass of the species that are target of the fisheriy? (basically this needs to be a fixed quantity across the runs as it's the reference level)
-              ref<-Bio2[[i]] %>% filter(target>0.005) # consider only target and bycatch # to uncomment
-              # ref<-Bio2[[i]] %>% filter(target>=0)
-              # ref$bioLevel<-ref$bioLevel*ref$target # wait for their importance as target spp
-              
-              
-              # we then do the weighted sum of contributing speceis as defined above but 'contributing' here means contributing in terms of both biomass and catch : (a*Ba*Ca + b*Bb*Cb)/(Ba +Cb) but the denominator only considers main speceis (ref above)
-              # the below increases the decreases in effort (bigger value)
-              
-              
+              # instead: consider sum of biomass of the species that are target of the fishery
+              ref<-Bio2[[i]] %>% filter(target>0.005) # consider only target and bycatch
+            
+              # we then do the weighted sum of contributing species as defined above but 'contributing' here means contributing in terms of both biomass and catch
               MeanPerc40A<-sum(Perc40$contribution)/sum(ref$bioLevel)
-              # MeanPerc40A<-MeanPerc40A*0.05 # this is to speed/slow decreases in effort up instead of using a cut bigger than 0 on ref.
-
+              
               # option B - cube root of (a * b * c) 
               # MeanPerc40B<-prod(Perc40$Perc40)^(1/3)
               
@@ -743,13 +716,13 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
               # MeanPerc40C<-mean(Perc40$Perc40) 
               # print(paste(i_time, n48, n40, n20)) # how many species below biomass ref levels 
               
-              if(n48<5 & n40==0 & n20==0) # if all these conditions are true at the same time effort changes accoring to profits 
+              if(n48<5 & n40==0 & n20==0) # if all these conditions are true at the same time effort changes according to profits 
               {
                 # print("all good")
                 Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
                 Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
                   
-              }else if(n48>=5 & n40==0 & n20==0){ # if more than 5 spp are  below 48 but above 40 and 20 .... 
+              }else if(n48>=5 & n40==0 & n20==0){ # if a spp is below 48 but above 40 and 20 .... 
                 # if fishing is profitable, do not allow any increase in effort
                 if(profit_itime[[i]]>0) { 
                   Effort_itime_change[i]<-0
@@ -762,7 +735,7 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
                   }
 
                 }else if(n40!=0 & n20<5){
-                  # if some speceis is below 40 and less then 5 spp are below 20 descrease effort 
+                  # if some species is below 40 and less then 5 spp are below 20 decrease effort 
                   
                   # new effort according to profits 
                   test = effortOut_dt[i_time,][i] + (ke[i,"ke"]*(profit_itime[[i]]) * dt) 
@@ -774,14 +747,14 @@ project <- function(params, effort = 0,  t_max = 100, dt = 0.25, t_save=1,
                     Effort_itime_change[i]<-ke[i,"ke"]*(profit_itime[[i]])
                     Effort_itime_next[i]<-effortOut_dt[i_time,][i] + (Effort_itime_change[[i]] * dt)
                     
-                    # if fishing is profitable or decreasesin effort according to profits are small, force a descrease in effort proportional to the decrease in biomass below tresholds. the old version only had this.
+                    # if fishing is profitable or decreases in effort according to profits are small, force a descrease in effort proportional to the decrease in biomass below tresholds. the old version only had this.
                   }else{ 
                     Effort_itime_change[i]<-NA
                     Effort_itime_next[i]<-effortOut_dt[i_time,][i] * (1 - MeanPerc40A*dt)
                   }
                   
                 }else{
-                  # if more than 5 speceis are below 20% stop the fishery
+                  # if more than 5 species are below 20% stop the fishery
                   # print(paste(i_time, "more than 5"))
                   Effort_itime_change[i]<-0
                   Effort_itime_next[i]<-0

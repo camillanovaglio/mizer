@@ -54,7 +54,7 @@ trawl <- function(w,W25_S,W50_S)
   return(1 / (1 + exp(S1 - S2*w)))
 }
 
-# CN: adding bell-shaped selectivity function weight based. Should you change names of these functions? also check the weight based vs the length based outputs 
+# CN: adding bell-shaped selectivity function weight based. 
 
 gillnet<-function(w,W50_B,sigma_B){
   sel<-exp(-(w-W50_B)^2/sigma_B^2)

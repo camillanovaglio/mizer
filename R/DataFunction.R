@@ -5,7 +5,7 @@
 
 SpSelect<-function(df_param){
   
-  df_param <- as.data.frame(df_param) # colnames are as the one reqiored by mizer
+  df_param <- as.data.frame(df_param) # colnames are as the one required by Mizer
   
   # delete some spp
   all<-c("lanternfish","royal red prawn","blacktip cucumberfish","school whiting","sardine","arrow squid","bigeye ocean perch","mackerel","gurnards and latchet", "redfish","deepwater sharks","jackass morwong", "tiger flathead","dories and oreos","ocean jacket", "sea mullet","bight redfish","ribaldo", "blue warehou","elephantfish","orange roughy", "eastern rock lobster","blue grenadier","gulper sharks","silver warehou","black cardinalfish","southern chimaera","gemfish","silver trevally","sharpnose sevengill shark","eastern angelshark","snapper and breams","pink ling", "common sawshark","gummy shark","school shark","blueye trevalla","bight skate")
@@ -66,20 +66,20 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   Fmort[,"trachurus declivis"]<- rep(0.01, dim(Fmort)[1])
   Fmort[,"helicolenus barathri"]<- rep(0.05, dim(Fmort)[1]) # state fishery? no catches
   
-  # build trends in Fmort for thoses spp that don't have them - use initial values values as given above and relative changes in observed catches to build relative changes in Fmort from initial values  
+  # build trends in Fmort for those spp that don't have them - use initial values values as given above and relative changes in observed catches to calcaulte relative changes in Fmort 
   
   # get OBSERVED YIELD 
   yieldObs_timeVariant<-datValidationYieldSpp %>% 
     filter(species %in% df_param$species) %>% 
-    mutate(catchComm_t = (catchComm_t*1000000)/areaEco) # transfor in g m3
+    mutate(catchComm_t = (catchComm_t*1000000)/areaEco) # transform in g m3
   
-  # add catches for tracurus - these are from reports - 2010 2018 
+  # add catches for trachurus - these are from reports - 2010 2018 
   tr<-data.frame(species = "trachurus declivis", year = seq(1995, 2017), catchComm_t = c(100, 300, 500, 9800, 5000, 1000, 100, 300, 2300, 3800,2000, 800, 700, 200, 300, 200, 50,50,50,300,6000,4000,3000))
   
-  # update mean cathes in df_param for calibration 
+  # update mean catches in df_param for calibration 
   df_param[which(df_param$spCommon == "mackerel"),"catchComm_t"]<-mean(tr[1:11,"catchComm_t"])
   
-  # change units adn add to observed trends in yields
+  # change units and add to observed trends in yields
   tr$catchComm_t<-(tr$catchComm_t*1000000)/areaEco
   tr$species<-as.character(tr$species)
   yieldObs_timeVariant<-yieldObs_timeVariant %>% 
@@ -95,21 +95,16 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   relative_Fmort[is.na(relative_Fmort)]<-0
   ref<-relative_Fmort[1,]
   
-  # OPTION of calibrationna dbefore adjusting r_max etc. 
+  # OPTION of calibrations before adjusting r_max etc. 
   # # ref points a bit low for these spp resulting in unrealistically high Fmort 
   # ref["pristiophorus cirratus"]<-relative_Fmort[5,"pristiophorus cirratus"]
   # ref["mustelus antarcticus"]<-relative_Fmort[6,"mustelus antarcticus"] 
   # ref["galeorhinus galeus"]<-relative_Fmort[3,"galeorhinus galeus"] 
   ref["squalus spp."]<-relative_Fmort[6,"squalus spp."]
   ref["trachurus declivis"]<-relative_Fmort[6,"trachurus declivis"]
-  
-  # to increase fishing mortality
   ref["pristiophorus cirratus"]<-relative_Fmort[18,"pristiophorus cirratus"]
-  # need to change reference level... 
   ref["mustelus antarcticus"]<-relative_Fmort[3,"mustelus antarcticus"]
   ref["galeorhinus galeus"]<-relative_Fmort[18,"galeorhinus galeus"]
-  # ref["squalus spp."]<-relative_Fmort[8,"squalus spp."] 
-  # ref["trachurus declivis"]<-relative_Fmort[1,"trachurus declivis"]
   
   relative_Fmort<-sweep(relative_Fmort,2,ref,"/")
   
@@ -118,10 +113,6 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   
   Fmort<-relative_Fmort*Fmort
   
-  # write.csv(Fmort, file = "/Users/camillan/Desktop/Fmort.csv",row.names=FALSE)
-  
-  
-  
   # CAN DELETE depending on trials in SEAmodel_run.Rmd
 
   # add missing Fmort values for recent years based on catches as above
@@ -129,7 +120,6 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   trial<-trial[-nrow(trial),]
   trial<-trial[,df_param$species]
   trial[is.na(trial)]<-0
-  # dim(trial)
 
   Fmort2<-Fmort
 
@@ -181,10 +171,6 @@ CreateFmort<-function(df_param, all_mortality, t_max, areaEco){
   Fmort<-Fmort2
 
   # end CAN DELETE
-  
-  
-  
-  
   
   # calculate mean Fmort constant across years 
   Fmort_mean<-Fmort[as.character(1995:2005),] 
@@ -288,8 +274,7 @@ CalcTheta<-function(df_param, df_ismp_spp){
     mutate(n = 1) %>%
     select("pred","prey","n") %>%
     group_by(pred,prey) %>%
-    dplyr::summarise(n = sum(n)) # %>%
-    # spread(prey,n) # better 1 by 1
+    dplyr::summarise(n = sum(n)) 
 
   toMatch<-c("myctophids","sillago","flindersi","nototodarus","gouldi","helicolenus","barathri","trachurus","declivis","centroberyx","affinis","squalus","nemadactylus","macropterus","platycephalus","richardsoni","zeus","faber","seriolella","brama","hoplostethus","atlanticus","macruronus","novaezelandiae","punctata","rexea","solandri","genypterus","blacodes","pristiophorus","cirratus","mustelus","antarcticus","galeorhinus","galeus")
 
@@ -342,7 +327,7 @@ modDf_Param<-function(df_param, kappa){
     mutate(ks = ifelse(species == "myctophids", 5, ks)) %>% # however this relationship gives Trachinops (in my case myctophids) very high ks, so I decrease it a bit
     # OPTION 5 
     # mutate(ks = 0.15*h) %>% # closer to mizer h*0.2
-    # h drives everithing - try keeping h as per Asta - problems - see option 5 documentation  
+    # h drives everything - try keeping h as per Asta - problems - see option 5 documentation  
     # select(-c("h","ks")) %>%
     
     # R MAX and Q
@@ -350,7 +335,7 @@ modDf_Param<-function(df_param, kappa){
     
     # BETA and SIGMA
     # OPTION 4 - use your values
-    # mutate(beta = beta/exp((2-2*n+q)/sigma^2)) %>% # using correnction factor in Bluanchard paper but not sure as she divides PPMR by this nnumber instead of beta - nothing changes anyway...
+    # mutate(beta = beta/exp((2-2*n+q)/sigma^2)) %>% # using correction factor in Blanchard paper
     # OPTION 1-3
     mutate(beta = ifelse(species %in% c("nemadactylus macropterus","seriolella brama","seriolella punctata"), 1000,100)) %>%
     mutate(sigma = ifelse(sigma> 2, 2, sigma)) %>%
@@ -359,11 +344,10 @@ modDf_Param<-function(df_param, kappa){
     mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis"),1,0.3)) %>%
     mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis"),0,0.7))
   
-  # according to Beth's
-  df_param <- df_param %>%
-    
+    # according to Beth's - tuning before calibration
+    df_param <- df_param %>%
     # R MAX and Q to fix abundances
-    # to macth catches observed vs modelled catches and to have a Q param that can be calibrated
+    # to match catches observed vs modeled catches and to have a Q param that can be calibrated
     # mutate(scalar_r_max = c(30, 1, 150, 4, 160, 10, 6, 3, 40, 10, 1, 1, 5, 1, 1, 1, 0.1, 0.2, 1)) %>% # OPTION 1
     mutate(scalar_r_max = c(30, 1, 150, 4, 160, 10, 0.5, 3, 40, 20, 1, 10, 15, 10, 1, 10, 0.1, 0.2, 1)) %>% # OPTION 2 # decrease squalus, increase dories, OR, blue granadier and seriorella p. and genypt
     # mutate(scalar_r_max = c(30, 1, 150, 4, 160, 10, 6, 3, 40, 10, 1, 10, 20, 1, 1, 1, 0.1, 0.2, 1)) %>% # OPTION 3 # increase blue gran and OR
@@ -372,16 +356,11 @@ modDf_Param<-function(df_param, kappa){
     mutate(r_max = r_max * scalar_r_max) %>%
     
     # W_MIN
-    # to distribute food over size classes - i.e. incresing w_min increases feeding on other spp rather than squids, because abundances at this size, which are the ones required by other spp, increase
+    # to distribute food over size classes - i.e. increasing w_min increases feeding on other spp rather than squids, because abundances at this size, which are the ones required by other spp, increase
     mutate(w_min = ifelse(species == "myctophids", 0.001, ifelse(w_min < 1, 0.005, w_min))) %>%
     mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis","nototodarus gouldi"),0.6,0.2)) %>%
     mutate(avail_PP = ifelse(species %in% c("myctophids"),1,avail_PP)) %>%
     mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis","nototodarus gouldi"),0,0.4))
-  
-  # erepro? what's the meaning of this param? and what's the def value? mizer guide says 1,
-  # df_param <- df_param %>%
-  #   mutate(erepro = ifelse(species == "nototodarus gouldi", 0.2, ifelse(species %in% c("pristiophorus cirratus","mustelus antarcticus","galeorhinus galeus"), 0.05, 0.1))) # use opposite specification - "squalus spp." very problematic... this changes things... 
-  # df_param$erepro<-1 # thsi does not change things a lot, but for squalus: higher decreases when fished if rerpro = 0.5 instead of 1 - i.e. lower reproduction? no changes for the other sharks  
   
   return(df_param = df_param)
   
@@ -390,24 +369,8 @@ modDf_Param<-function(df_param, kappa){
 ########### modify r_max ----
 
 modQ<-function(df_param){
-  
-  # # use the same catcahbility that you've explore using shiny and when the FD was on... 
-  # df_param[2,"catchability"]<-0.4 # whiting # OK
-  # df_param[3,"catchability"]<-0.5 # squid # great
-  # df_param[6,"catchability"]<-0.3 # redfish # OK
-  # df_param[7,"catchability"]<-0.1 # deepw shark # change effort ?
-  # df_param[8,"catchability"]<-0.3 # morwong # OK
-  # df_param[9,"catchability"]<-0.05 # platy # OK
-  # df_param[11,"catchability"]<-0.02 # b war. # OK
-  # df_param[13,"catchability"]<-0.8 # blue g. # great
-  # df_param[14,"catchability"]<-0.2 # silver w. # great
-  # df_param[18,"catchability"]<-1 # gummy
-  # df_param[19,"catchability"]<-0.1 # school # great
-  
-  # use the r_max that you've explored using shiny
-  # df_param<-df_param %>%
-  #   mutate(r_max = r_max*2)
  
+  # tuning R_max before calibration
   df_param<-df_param %>% 
     mutate(r_max = case_when(spCommon == "lanternfish" ~ r_max,
                              spCommon == "school whiting" ~ r_max,
@@ -437,7 +400,7 @@ modQ<-function(df_param){
 modFmort<-function(matrix_effort){
   
   # option 1
-  # cahnges to effort matrix according to Beth - see comments below. not sure the 2nd group had this combindation
+  # changes to effort matrix according to Beth - see comments below. not sure the 2nd group had this combination
   
   # # essential to crush sharks a bit, also high abundance and low yields after fishing
   # matrix_effort[,"squalus spp."]<-matrix_effort[,"squalus spp."]*3.5
@@ -466,7 +429,7 @@ modFmort<-function(matrix_effort){
 
 modTheta<-function(theta){
   
-  # decrease predation on flathead that is declining a lot after fishing
+  # decrease predation on flatheads that is declining a lot after fishing
   theta["platycephalus richardsoni",]<-theta["platycephalus richardsoni",]*0.3
   
   # improve interaction - increase feeding on forage
@@ -493,9 +456,9 @@ modTheta<-function(theta){
   # theta["hoplostethus atlanticus","hoplostethus atlanticus"]<-0.2
   # theta["galeorhinus galeus","galeorhinus galeus"]<-0.2
   
-  # ALSO! squalus is too dependent on small pelagice - i.e. when they increase due to unfish situation - squalus increases too. 
+  # ALSO! squalus is too dependent on small pelagic - i.e. when they increase due to un-fished situation - squalus increases too. 
   
-  # plot predatro-prey matrix
+  # plot predator-prey matrix
   theta_plot<-as.data.frame(theta)
   theta_plot$predator<-rownames(theta_plot)
   theta_plot<-melt(theta_plot)
@@ -842,7 +805,7 @@ compareTrends<-function(sim,sim_FD,fleetDynamics,type,yieldObs_timeVariant,ssbOb
     observed<-fn_rescale(observed)
   }
   
-  observed[observed==0]<-NA # not sure about this ...
+  observed[observed==0]<-NA 
   observed<-as.data.frame(observed)
   observed$year<-rownames(observed)
   
@@ -1172,7 +1135,7 @@ plotBiomass_CN <- function(sim, sim_FD ,df_param, rescale){
   min_value <- 1e-20
   spec_bm <- bm[bm$value >= min_value, ]
 
-  # common names and trsnform in tonnes per ecosystem 
+  # common names and transform in tonnes per ecosystem 
 
   spec_bm$Species<-as.character(spec_bm$Species)
   df_param2<-df_param
@@ -1250,7 +1213,7 @@ getBlevel<-function(sim_calibrated_unfished,matrix_effort_nofishing,constant_eff
     check_y<-getYield(sim_check)
     check_b<-getBiomass(sim_check)
     
-    out_y<-rbind(out_y, check_y[,i]) # something wrong here!! 
+    out_y<-rbind(out_y, check_y[,i]) 
     out_b<-rbind(out_b, check_b[,i])
     out_e<-rbind(out_e, prova[,i])
   }
@@ -1370,9 +1333,6 @@ plotFleetMatrix<-function(a,b,target_scenario){
   # all target matrix for all scenarios together and in dataframe format to be plotted
   target_scenario$unfished<-NULL
   
-  # multiply by initial effort to get moralities at the beginning of the simulation? even worst ....
-  # trial1<-lapply(target_scenario, function(x) x*initial_effort_scenario)
-  
   trial1<-lapply(target_scenario, function(x) as.data.frame(x))
   trial1<-do.call("rbind", trial1)
   trial1$scenario<-gsub("\\..*","",rownames(trial1))
@@ -1390,20 +1350,6 @@ plotFleetMatrix<-function(a,b,target_scenario){
   
   trial1$spCommon<-as.factor(trial1$spCommon)
   trial1$spCommon<-ordered(trial1$spCommon, levels = c(rev(df_param$spCommon)))
-  
-  # # Solution 1: rescale 0-1 - it does not make any difference 
-  # head(trial1)
-  # min<-min(trial1$target)
-  # max<-max(trial1$target)
-  # trial1<-trial1 %>%
-  #   mutate(target = (target-min)/(max-min))
-  
-  # # increase by 10? - it does not make any difference 
-  # trial1<-trial1 %>% 
-  #   mutate(target = target*100)
-  
-  # solution 2: multiply by initial effort so that values can be mortality instead of Q
-  # see above - even worst. problem with this matrix calculation in general: at the  beginning of the time series Fmort at the spp level are set as per status quo (Q*initial effort), but then fishing effort changes and Q values remain the same (e.g. very high for fatheads in full competition). Need to revisit ?
   
   # solution 4: better color 
   trial2<-trial1 %>% 
@@ -1489,10 +1435,10 @@ indicators<-function(sim_scenario, management){
   biomassTot_scenario <- sim_scenario %>%
     map(~getBiomass(.)) %>% 
     map(~as.data.frame(.)) %>% 
-    map(~slice(., n())) %>% # Here you decide which value to consider, either the last one or a sum over the hole runs 
+    map(~slice(., n())) %>% 
     map(~sum(.)) 
     
-  # BOIMASS species unders recovery strategy - sensistive 
+  # BOIMASS species under recovery strategy - sensitive 
   biomassSesns_scenario <- sim_scenario %>%
     map(~getBiomass(.)) %>% 
     map(~as.data.frame(.)) %>% 
@@ -1798,7 +1744,7 @@ indicatorsTrend<-function(a,b, sim_scenario, sim, col_values){
             panel.border = element_rect(colour = "black"),
             strip.text.x = element_text(face = "bold"))
   
-  # Version 2 - same as above but independent plots for biomass, yield adn profits - can delete  
+  # Version 2 - same as above but independent plots for biomass, yield and profits - can delete  
   df_plot2<-df_plot %>% 
     gather(Indicator, value, -c(Scenario, Year))
   
@@ -1872,134 +1818,6 @@ indicatorsTrend<-function(a,b, sim_scenario, sim, col_values){
 ########### indicator plot ----
 
 plotIndicators<-function(a,b,df_plot, col_values, scenarios){
-  
-  
-  # # rescale indicators 
-  # ref<-df_plot[which(df_plot$scenario == "statusQuo"),]  
-  # 
-  # # after chat with Julia - see below for a how to rescale 
-  # df_plot2<-df_plot %>% 
-  #   filter(scenario != "unfished") %>% 
-  #   mutate(biomass = biomass-ref$biomass) %>% 
-  #   mutate(biomass = (biomass-min(abs(biomass)))/(max(abs(biomass))-min(abs(biomass)))) %>%
-  #   mutate(biomassSens = biomassSens-ref$biomassSens) %>% 
-  #   mutate(biomassSens = (biomassSens-min(abs(biomassSens)))/(max(abs(biomassSens))-min(abs(biomassSens)))) %>%
-  #   mutate(biomassTarget = biomassTarget-ref$biomassTarget) %>% 
-  #   mutate(biomassTarget = (biomassTarget-min(abs(biomassTarget)))/(max(abs(biomassTarget))-min(abs(biomassTarget)))) %>%
-  #   mutate(slope = slope-ref$slope) %>% 
-  #   mutate(slope = (slope-min(abs(slope)))/(max(abs(slope))-min(abs(slope)))) %>%
-  #   mutate(yield = yield-ref$yield) %>% 
-  #   mutate(yield = (yield-min(abs(yield)))/(max(abs(yield))-min(abs(yield)))) %>%
-  #   mutate(effort = effort-ref$effort) %>% 
-  #   mutate(effort = (effort-min(abs(effort)))/(max(abs(effort))-min(abs(effort)))) %>%
-  #   mutate(profit = profit-ref$profit) %>% 
-  #   mutate(profit = (profit-min(abs(profit)))/(max(abs(profit))-min(abs(profit))))
-  # 
-  # # calculate sp below re limits adn N of active vessels for each scenario
-  # Ntext<-df_plot2 %>% 
-  #   select(c(scenario, Nref40)) #%>%
-  # Ntext$Nref40<-paste("Below Bmsy = ", Ntext$Nref40)
-  # 
-  # N20text<-df_plot2 %>% 
-  #   select(c(scenario, Nref20)) #%>%
-  # N20text$Nref20<-paste("Below 20% = ", N20text$Nref20)
-  # 
-  # Ftext<-df_plot2 %>% 
-  #   select(c(scenario, Fref)) #%>%
-  # Ftext$Fref<-paste("Active = ", Ftext$Fref)
-  # 
-  # df_plot3<- df_plot2 %>% 
-  #   gather(indicator, value, -scenario) %>% 
-  #   mutate(type = ifelse(indicator %in% c("biomass","biomassSens","biomassTarget","slope"),"ecological","socio-economic")) %>%
-  #   mutate(scenario = factor(scenario, level = a)) %>% 
-  #   mutate(indicator = factor(indicator, level = e)) 
-  # levels(df_plot3$scenario) <- b
-  # levels(df_plot3$indicator) <- f
-  # df_plot3$scenario<-droplevels(df_plot3$scenario)
-  # df_plot3$indicator<-droplevels(df_plot3$indicator)
-  # 
-  # Ntext2 <- Ntext %>%
-  #   mutate(scenario = factor(scenario, level = a))
-  # levels(Ntext2$scenario)<-b
-  # Ntext2$scenario<-droplevels(Ntext2$scenario)
-  # 
-  # N20text2 <- N20text %>%
-  #   mutate(scenario = factor(scenario, level = a))
-  # levels(N20text2$scenario)<-b
-  # N20text2$scenario<-droplevels(N20text2$scenario)
-  # 
-  # Ftext2 <- Ftext %>%
-  #   mutate(scenario = factor(scenario, level = a))
-  # levels(Ftext2$scenario)<-b
-  # Ftext2$scenario<-droplevels(Ftext2$scenario)
-  # 
-  # FtextAll<-merge(Ftext2, N20text2)
-  # FtextAll<-merge(FtextAll, Ntext2)
-  # FtextAll$all<-paste(FtextAll$Fref, FtextAll$Nref20, FtextAll$Nref40)
-  # 
-  # # version 1 - bar plot
-  # 
-  # plot_bar<-ggplot()+ 
-  #   geom_bar(data = filter(df_plot3, !indicator %in% c("Nref48", "Nref40","Nref20","Fref")), aes(x = indicator, y = value, color = type, fill = type), stat='identity', width=0.8)+
-  #   scale_color_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
-  #   scale_fill_manual(values = c("#a8ddb5","#43a2ca"), name = "Indicator type")+ 
-  #   geom_text(data = Ftext2, aes(x = 2, y = 1.4, label = Fref), color = "black", size = 4)+
-  #   geom_text(data = N20text2, aes(x = 2.6, y = 1.25, label = Nref20), color = "black", size = 4)+
-  #   geom_text(data = Ntext2, aes(x = 2.7, y = 1.1, label = Nref40), color = "black", size = 4)+
-  #   facet_wrap(~scenario, nrow = 1)+
-  #   theme_bw()+
-  #   geom_hline(yintercept = 1, linetype = "dashed")+
-  #   geom_hline(yintercept = -1, linetype = "dashed")+
-  #   ylab ("Changes relative to Status Quo")+
-  #   xlab("Indicators")+
-  #   theme(text = element_text(size=18),
-  #         axis.title.y = element_text(vjust=0.4, size = 16),
-  #         axis.title.x = element_text(vjust=0.3, size = 16),
-  #         axis.text.x = element_text(angle=90, hjust=0.5),
-  #         panel.grid.major = element_blank(), 
-  #         strip.background = element_blank(),
-  #         panel.border = element_rect(colour = "black"),
-  #         strip.text.x = element_text(face = "bold"))
-  # 
-  # # version 2 - as per China paper 
-  # 
-  # # are these values matching at the fishery scale? - to check: tonnes sounds about right, profits are too high (but it's the relative difference that  matters)
-  # df_plot6<-df_plot %>% 
-  #   mutate(scenario = as.character(scenario)) %>% 
-  #   mutate(yield = (yield/1000000)*areaEco, 
-  #          biomass = (biomass/1000000)*areaEco,
-  #          biomassSens = (biomassSens/1000000)*areaEco, 
-  #          biomassTarget = (biomassTarget/1000000)*areaEco, 
-  #          profit = (profit*areaEco)/1000000) %>% # need to re-think and check this one... it is now million $ per ecosystems and the starting value should be $ per m3 
-  #   filter(scenario != "unfished")
-  # 
-  # # create a dummy variable for legend 
-  # df_plot6<-df_plot6 %>% 
-  #   add_row(scenario="Legend", biomass = 900000, biomassSens = NA, biomassTarget = NA, Nref48 =NA, Nref40 = NA, Nref20 = NA, profit = min(df_plot6$profit), slope = NA, yield = max(df_plot6$yield))
-  # 
-  # dot_plot<-ggplot(data = df_plot6, aes(x = yield, y = profit, color = scenario))+ 
-  #   geom_point(aes(size=biomass))+
-  #   scale_size_continuous(range = c(20, 40))+
-  #   geom_text(aes(label = round(biomass)), color ="black")+
-  #   geom_label(aes(label = scenario), color = "black")+
-  #   scale_fill_manual(values = col_values, name = "Scenario", guide=FALSE)+
-  #   expand_limits(x = c(min(df_plot6$yield, na.rm = TRUE)-1000, max(df_plot6$yield,na.rm = TRUE)+1000), y = c(min(df_plot6$profit)-5, max(df_plot6$profit)+5))+
-  #   theme_bw()+
-  #   ylab ("Profits [million $]")+
-  #   xlab ("Yield [tonnes]")+
-  #   theme(text = element_text(size=18),
-  #         axis.title.y = element_text(vjust=0.4, size = 16),
-  #         axis.title.x = element_text(vjust=0.3, size = 16),
-  #         axis.text.x = element_text(angle=90, hjust=0.5),
-  #         panel.grid.major = element_blank(), 
-  #         strip.background = element_blank(),
-  #         panel.border = element_rect(colour = "black"),
-  #         strip.text.x = element_text(face = "bold"),
-  #         # legend.position = c(0.9, 0.3),
-  #         legend.position = "none") # strip.text.x = element_blank())
-  # 
-  
-  # version 3 - lollipop (tried radar and circular barplots but not meaningful) 
 
   ref<-df_plot[which(df_plot$scenario == "statusQuo"),] 
   ref <- ref %>% 
@@ -2024,7 +1842,7 @@ plotIndicators<-function(a,b,df_plot, col_values, scenarios){
       }
 
   # scaling after talking with julia: 
-  # % of these values are caluculated below (you could also use the fishmip map method)
+  # % of these values are calculated below (you could also use the fishmip map method)
   
   df_plot3<-df_plot2 %>% 
     mutate(biomass = biomass/ref$biomass) %>% 
@@ -2038,35 +1856,6 @@ plotIndicators<-function(a,b,df_plot, col_values, scenarios){
     mutate(yield = yield/ref$yield) %>% 
     mutate(effort = effort/ref$effort) %>% 
     mutate(profit = profit/ref$profit) 
-  
-  # df_plot4<-df_plot3 %>% 
-  #   gather(indicator, value, -scenario) %>% 
-  #   mutate(scenario = factor(scenario, level = a)) %>% 
-  #   mutate(indicator = factor(indicator, level = e)) %>%
-  #   mutate(color = ifelse(value < 1, "a", "b")) %>% 
-  #   mutate(value = (value -1)*100) # NOTE : to scale values around 0 instead of 1 
-  # levels(df_plot4$scenario) <- b
-  # levels(df_plot4$indicator) <- f
-  # 
-  # lolliScenario<-ggplot(df_plot4, aes(x= indicator, y = value, color = color))+
-  #   geom_point(size = 3) + 
-  #   geom_segment( aes(x=indicator, xend=indicator, y=0, yend=value), size = 1.5)+
-  #   scale_color_manual(values = c("#fc8d62","#8da0cb"), name = "Scenario", guide=FALSE)+
-  #   coord_flip()+
-  #   facet_wrap(~scenario, nrow = 2, scales = "free_x")+
-  #   theme_bw()+
-  #   geom_hline(yintercept = 0, linetype = "dashed")+
-  #   ylab ("Changes relative to Status Quo")+
-  #   xlab ("Scenario")+
-  #   theme(text = element_text(size=15),
-  #         legend.position = "none",
-  #         axis.title.y = element_text(vjust=0.4, size = 12),
-  #         axis.title.x = element_text(vjust=0.3, size = 12),
-  #         axis.text.x = element_text(angle=90, hjust=0.5),
-  #         panel.grid.major = element_blank(), 
-  #         strip.background = element_blank(),
-  #         panel.border = element_rect(colour = "black"),
-  #         strip.text.x = element_text(face = "bold")) 
   
   # need opposite order if you do this plot by indicators instead of scenarios
 
@@ -2299,7 +2088,7 @@ plotSppTrends<-function(temp_sim){
   
 }
 
-catchComp<-function(sim, df_log_spp){
+catchComp<-function(sim, datValidationYieldSppFl){
   
   # sim = sim_FD_bmsy
   # mearge fig 5 and 4 
@@ -2309,17 +2098,19 @@ catchComp<-function(sim, df_log_spp){
   trial<-as.data.frame.table(trial, responseName = "yield")
   colnames(trial)<-c("year", "species","fleet", "yield_tonnes")
   
-  # observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which theh bocame yieldObs_timeVariant in createFmort() in DataFunction.r - thus follwong same protocoll as per all observed data for validation 
-  datValidationYieldSppFl<-df_log_spp %>%
-    filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
-    group_by(SPC_NAME, metier, YEAR) %>% 
-    dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)/1e3) %>% 
-    `colnames<-`(c("species","fleet","year","yield_tonnes")) %>% 
-    mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
-                             fleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
-                             fleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
-                             fleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
-                             fleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) 
+  # # observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which then becomes yieldObs_timeVariant in createFmort() in DataFunction.r 
+  # - thus following same protocol as per all observed data for validation 
+  # this has been moved outside the function to be able to save lighter data for JAP review. 
+  # datValidationYieldSppFl<-df_log_spp %>%
+  #   filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
+  #   group_by(SPC_NAME, metier, YEAR) %>% 
+  #   dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)/1e3) %>% 
+  #   `colnames<-`(c("species","fleet","year","yield_tonnes")) %>% 
+  #   mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+  #                            fleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+  #                            fleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+  #                            fleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+  #                            fleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) 
   
   # modelled and observed together
   # NOTE: you added catches and calcualted Fmort according to these catches for trachurus. Here they are missing but Q=1 for tracurus and these fleets.  

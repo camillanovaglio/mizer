@@ -698,7 +698,7 @@ getFMortGear <- function(object, effort, time_range) {
 
 getFMortGear_CN <- function(object, effort, time_range) {
   
-  # similar to getFMortGear_CN above but only used in case of fleetDynamics (simplyfied to exclude all alternatives). Might need to work out how to get info for plotting (see function above)
+  # similar to getFMortGear_CN above but only used in case of fleetDynamics (simplified to exclude all alternatives). Might need to work out how to get info for plotting (see function above)
   
   no_gear <- dim(object@catchability)[1]
   # If a single value, just repeat it for all gears
@@ -814,7 +814,7 @@ getFMort <- function(object, effort, time_range, drop=TRUE){
 
 getFMort_CN <- function(object, effort, time_range, drop=TRUE){
   
-  # similar to getFMort above but only used in case of fleetDynamics (simplyfied to exclude all alternatives). Might need to work out how to get info for plotting (see function above). 
+  # similar to getFMort above but only used in case of fleetDynamics (simplified to exclude all alternatives). Might need to work out how to get info for plotting (see function above). 
   # note that this function could actually be skipped as getFMortGear_CN() does it all and here you are just calling outputs
   
   f_mort_gear <- getFMortGear_CN(object, effort)$out # fishing mortality fleet X species X w 
