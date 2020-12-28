@@ -211,24 +211,6 @@ PP and BB
 mutate(avail_PP = ifelse(species %in% c("myctophids","trachurus declivis"),1,ifelse(species %in% c("sillago flindersi","nototodarus gouldi","helicolenus barathri","nemadactylus macropterus","seriolella brama","seriolella punctata"),0.7,0.5))) %>%
 mutate(avail_BB = ifelse(species %in% c("myctophids","trachurus declivis"),0,ifelse(species %in% c("sillago flindersi","nototodarus gouldi","helicolenus barathri","nemadactylus macropterus","seriolella brama","seriolella punctata"),0.3,0.5)))
 
-
-# PROBLEM 
-*problesm with h* (maximum consumption rate) and gamma (search volume)? Asta: gamma should be lower than h otherwise gamma does not constrain feeding. Asta calcualted both h and gamma according to data. you used Asta's relationship to calcualte h, but Mizer def methods to calculate gamma. As a result, gamma is higher than h - I am not sure this is a problem - higher gamma still constrain feeding, feeding also depends on prey biomass - see eqn consumption in mizer guide. can play with values. if E is low then it limits feeding and needs high gamma for the food to be found. gamma is calcualted given kappa, higher kappa gives smaller gamma. E is also indirectly calcuated given kappa as kappa is used to get initial abundance and r_max - what will happen if you'll specify initial abundance?   
-
-
-
-# PROBLEM 
-- School increases when fished. decreasing food available does not change anythings. decreasing r_max only decreases abundance but does not change patterns. increasing fishing mortality to 0.3 makes it work. After calibration the stock is at very low abundances and closed to collapse
-- the problem for this and other species is worst after calibration - their abundance decreases when fishing stops
-- abundances are all very low 
-
-# to do 
-need to calcuate diet composition for specific time steps and compare it 
-
-# note 
-you have a 10 degree temperature by default as you are using the code merged with Asta's codes 
-
-
 #
 #
 #
@@ -294,7 +276,7 @@ plotDietComp(sim2, prey = df_param$species, predator = "platycephalus richardson
 plotDietComp(sim1, prey = "squalus spp.")
 plotDietComp(sim1, prey = df_param$species, predator = "squalus spp.")
 
-4. as a gemneral comment. you can play with r_max to increase/decrease abundances and with Q to play with catches. e.g. if cacthes are too high, it may be because biomass is high but also because you have high Q - you could set a level of Q that decreases catches. Also, if you decrease Q you descrease cacthes and may also increase biomass (more left in the sea) and vice versa. 
+4. as a gemneral comment. you can play with r_max to increase/decrease abundances and with Q to play with catches. e.g. if catches are too high, it may be because biomass is high but also because you have high Q - you could set a level of Q that decreases catches. Also, if you decrease Q you descrease cacthes and may also increase biomass (more left in the sea) and vice versa. 
 
 5. diet composition does not seem to make spp interacting much... 
 check Beth's eamil on contribution of your spp to the diet of your spp according to Atlantis
@@ -303,14 +285,6 @@ may need to add a common predator to make spp interacting
 reduce kappa to lower values (you could say that SE australi is much less productive than the NS) but without reducing r_max -> spp are eating too much of the background. also reduce availability of that background for spp to force interaction. 
 
 6. add a fishery for squid, makarel, perch. considering all catches from squid fishery and trawling. You are not interested in this fishery but you need a background mortality. better would be if you could directly substract the catches from abundances of these spp. quite difficult - you could exttract n individuals after line 698 according to cacthes, but this extraction should be also for each weight class and proportional to selectivity. if you go with the fishing mortality and infer it from cacthes it may be easier but you'd still need selectivity values.   
-
-My notes: 
-7. the lenfest needs a version where fleets are specified with their own Fmort and selectivity and can catch overlapping spp - but where the fleet dynamics is off (?) - is this what Beth thinks my version is? That's what Coco did
-
-8. other note, if you add a Q term, then Fmort = Fmort *sel *Q, becasue you are not using effort here... 
-
-what am I doing here if thei model does not include fleets and their interactions? and If I am not using it for Lenfest or for my paper? 
-
 
 #-----------------------------------------
 # save data for calibration in pearcey *skip if nothing changes above*
@@ -652,7 +626,7 @@ note - folders have been changed
 ```
 
 # PROBLEM 
-there is a problem in running these 'generalised calibrations': e.g. if R=FALSE, optim will pick values for this parameters because this param is in logParams (vactors of param to be calibrated), but new R values won't be incorportated in df_param and tested becasue we are not interested in calibrating them (i.e R+FALSE). So, these will be accounted as calibration trials, but parameters considered in df_param won't change and so the error won't change. These are 'empty runs' that optim may interpret as 'nothing is changing' so the error is minimised. Does it happen in reaslity? check results... 
+there is a problem in running these 'generalised calibrations': e.g. if R=FALSE, optim will pick values for this parameters because this param is in logParams (vactors of param to be calibrated), but new R values won't be incorportated in df_param and tested becasue we are not interested in calibrating them (i.e R+FALSE). So, these will be accounted as calibration trials, but parameters considered in df_param won't change and so the error won't change. These are 'empty runs' that optim may interpret as 'nothing is changing' so the error is minimized. Does it happen in reality? check results... 
 
 
 #-----------------------------------------
@@ -719,13 +693,6 @@ sim_calibrated_unfished <- project(params_unfished, effort= matrix_effort_nofish
 
 ```
 
-# to do 
-*rescale catches before using them for calibration* - rescale by area - using either effort or speceis disribution - or use CPUE - or use SSB too. *ask for bioreg data* to cathy? or Donna? or Mike? -> I tried using CPUE and SSB but calibration is not working as well as with catches
-are *diet dynamics* ok?  
-add *initial abundance* from ISMP? if so, rescale abundance given the same fishing mortatility - e.g. abundance of OR is high becasue fishing mortality for OR is high
-figure out *plotPPMR* and what Jon used as preferred and realised PPMR
-
-
 #-----------------------------------------
 # plot recruitment *can skip* 
 #----------------------------------------------
@@ -751,9 +718,6 @@ a2 <- getRDD(params,sim_calibrated@n[dim(constant_effort)[1],,],sim_calibrated@n
 # also add the new getDiet, which calcualtes food proportion - Ask Asta as the function id in her code (or the gitHub mizer one) 
 
 ```
-
-# PROBLEM
-*calculate or get RDI and RDD* and check the proportion. if RDI (non density dependente recruitment) is much higher than RDD it means that most of eggs (e.g. 0.999 99%) are lots and that the spp is stil there becasue only a very low number of eggs are needed to maintan population - i.e. even few individuals can recover the stock and the stock is hard to crush through fishing. I think it's the case for my spp and in particular spp 12 (OR) to 16 
 
 #-----------------------------------------
 # validate catches and SSB modelled vs observed
@@ -801,10 +765,6 @@ sim_fitted <- project(params_fitted, effort = relative_effort, dt = dt, fleetDyn
 
 ```
 
-# PROBLEMS 
-Abudnances increase if effort decreases in time from 1995, reference value - i.e. they recover. See brama and solandri as clear example. not sure this is a problem...  
-
-
 #-----------------------------------------
 # validate time variant catch and SSB 
 #----------------------------------------------
@@ -827,28 +787,6 @@ plotSSB<-compareTrends(sim_fitted,sim_FD = NA,fleetDynamics = FALSE,type = "SSB"
 # dev.off()
 
 ```
-
-# to do 
-check that: 
-1. mean_fmort is based on 1995-2005 data - OK
-2. observed catcahes for calibration (in df_param) are based on 1995-2005 data (in FleetParam line 1400) - OK 
-3. Fmort (and Fmort_adjuset) based on 1995-2017 data - OK - even befoer if it's possible in the model
-4. observed catches for validation (datValidationYieldSpp) based on 1995-2017 - OK - even before as for Fmort
-
-# PROBLEM 
-- for some species, Fmort does not change in time (no available values). Can we caclualte these values given catch and effort? 
-- for these speceis, modelled yields are changing in time even if Fmort is constant e.g. 0.3 for squalus - trends in yields should match trends in biomass (but they don't)?...  yield = biomass X catchability X effort X selectivity.
--  for the reasons above all sharks have a bed fit 
-
-# to do 
-*validate modelled vs obs length frequency (or growth curve) using ISMP data*
-# PROBLEM 
-- trends in SSB match trends in biomass (the scale in the 2 plots is different)... it makes sense
-- bad fit
-- no values for recent years. I also assumed Fmort as per last year but trends in catches changed for the worst as often Fmort actually decreased. - spp recover too fast when Fmort = 0 ?! though keep in ming that the 2 dataset (modelled and assessed) are rescaled from 0 to 1 independently so recoveries look higher in plots 
-- no values for not assessed spp 
-- if scaled across spp there is more agreement, but OR is way too high and blue granadier is way too low... also flathead adn morwong are too low. Calibration using SSB values does not give better results (error) 
-
 
 #-----------------------------------------
 # save temporary data from steps above *option 1* 

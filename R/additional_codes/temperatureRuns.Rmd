@@ -275,7 +275,3 @@ saveRDS(sim_warming_mort, file = "SEAustralia_warming_mort.RDS")
 
 ```
 
-# to do 
-not much is changing - which plot should you use to check temp effects? 
-plot growth curves to see if they work - if the species argument is specified you get a colored curve which is the one modelled and a black curve which is the vonbertalanffy growth given k_vb, a and b and age (not sure how age is calcualted, but seems easy). the modelled growth is caclaulted given the available energy to grow (instead of reproduce), which depends on food consumption and maturation level. K_vb in the model is only used to calcualte h (maximum consumption rate) if h is not a column of the df_param and to compare modelled growth with von bertalanffy growth in this plot - von bertalanffy growth may have a strance shape because k_vb is often small and growth is slow - but no problem as k_vb is actually not used in the model (to recheck but quite sure).   
-

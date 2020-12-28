@@ -62,7 +62,7 @@ kappa = kappa
 kappa_ben = kappa_ben
 kappa_alg = kappa_alg
 w_pp_cutoff = w_pp_cutoff
-min_w_bb = 1e-7 # min_w_bb # from SEAmodel_run.R - accidentally removed from the list above 
+min_w_bb = 1e-4 # OR 1e-7 - see Scenario_final for more comments. min_w_bb # from SEAmodel_run.R - accidentally removed from the list above
 w_bb_cutoff = w_bb_cutoff
 fleetDynamics = TRUE
 selectivity_params = df_selParam_new
@@ -148,7 +148,7 @@ df_param2<-df_param
 
 ####### interaction matrix options
 
-######## note - be carefull with these values, does this mean that exploitation rate is higher than 1? the values below act as catchability only, but if you add all the Fmort from all the fleets? check that exploitation rate (catch/biomass at t) is lower than 1 
+######## note - be careful with these values, does this mean that exploitation rate is higher than 1? the values below act as catchability only, but if you add all the Fmort from all the fleets? check that exploitation rate (catch/biomass at t) is lower than 1 
 
 # colSums(df_target_bmsy2*initial_effort2)
 # 
@@ -294,7 +294,7 @@ df_target_MoreUnderQuota[,under]<-sweep(df_target_MoreUnderQuota[,under], 2, div
 
 target_scenario = list(unfished = df_target_unfished, noCompetition = df_target_NoCompetition, fullCompetition = df_target_FullCompetition, statusQuo = target, noBycatch = df_target_NoBycatch, MoreTarget = df_target_MoreTarget, MoreUnderQuota = df_target_MoreUnderQuota) # best = df_target_best)
 
-# add new set of scenarios (NOT  worked as expected - skyp): 
+# add new set of scenarios (skip): 
 # for each new scenario, I considered the ‘status quo’ interaction matrix but used the ‘no competition’ interaction values for one species. This way we can access which species-fleet interactions is most influential and thus which species should be  targeted by one fleet only (no interactions). 
 
 # new_inter<-list()
@@ -370,7 +370,7 @@ save(df_param, areaEco, t_max, scaling_cost_area, sim_FD_bmsy, sim_scenario, tar
 #----------------------------------------------
 
 #-----------------------------------------
-# Option 1  & 2 - *skyp*  
+# Option 1  & 2 - *skip*  
 #----------------------------------------------
 
 ```{r}
@@ -389,7 +389,7 @@ ggplot(filter(df_plot), aes(x = profit, y = biomassB))+
 toDelete<-df_plot$scenario[1:7]
 df_plot<-df_plot[!df_plot$scenario %in% toDelete, ]
 
-# because flethead increase biomass performace withhout decreasing yield and profit much, in all following scenarios I will use target values for flatheads as per the flathead scenario (no competition). Options are:  
+# because flethead increase biomass performance without decreasing yield and profit much, in all following scenarios I will use target values for flatheads as per the flathead scenario (no competition). Options are:  
 
 # option 1 - as per ranking 
 # option 2 - isolate species that increase biomass, or yield or effort when interactions are set to zero 
@@ -472,7 +472,7 @@ sim_scenario<-c(sim_scenario,sim_scenario2)
 ```
 
 #-----------------------------------------
-# Option 4 - *skyp*  
+# Option 4 - *skip*  
 #----------------------------------------------
 
 ```{r}
@@ -482,7 +482,7 @@ library("purrr")
 indi<-indicators(sim_scenario, management =TRUE )
 df_plot = indi$df_plot
 
-# repeate the above for option 2 but then skyp the  ranking and try other options 
+# repeat the above for option 2 but then skyp the  ranking and try other options 
 # How do I identify spp (e.g. flatheads) that steeply improve either biomass, or yield and profits? 
 # just by plotting? 
 ggplot(filter(df_plot), aes(x = profit, y = biomassB))+ 
@@ -492,11 +492,11 @@ ggplot(filter(df_plot), aes(x = profit, y = biomassB))+
 toDelete<-df_plot$scenario[1:7]
 df_plot<-df_plot[!df_plot$scenario %in% toDelete, ]
 
-# because flethead increase biomass performace withhout decreasing yield and profit much, in all following scenarios I will use target values for flatheads as per the flathead scenario (no competition). Options are:  
+# because flethead increase biomass performance without decreasing yield and profit much, in all following scenarios I will use target values for flatheads as per the flathead scenario (no competition). Options are:  
 new_statusQuo<-target_scenario$`platycephalus richardsoni` # option 2
 new_df_plot<-df_plot %>% filter(scenario!="platycephalus richardsoni") # option 2 `
 
-# run all combination of flathead 0 and otehr spp 0 
+# run all combination of flathead 0 and other spp 0 
 
 new_inter2<-list()
 
@@ -571,7 +571,7 @@ source("wrapper_functions.R")
 source("DataFunction.R") 
 
 # # check one by one
-# plotFleet(sim_scenario$noCompetition) # declines in effort and yield despite increases in abundance. Most likely due to negative profits resulting in either 0 or lower effort. also note that decreases are weighed by each decreasing species' contribution to caches, they are high if the declining species contribute a lot to the cathc and low vice versa. This is typical with SH, which is forced to steeply decrease because platy has an interaction term of 1 (or higher) and is below 20. when platy recovers, changes in effort are less steep. 
+# plotFleet(sim_scenario$noCompetition) # declines in effort and yield despite increases in abundance. Most likely due to negative profits resulting in either 0 or lower effort. also note that decreases are weighed by each decreasing species' contribution to caches, they are high if the declining species contribute a lot to the catch and low vice versa. This is typical with SH, which is forced to steeply decrease because platy has an interaction term of 1 (or higher) and is below 20. when platy recovers, changes in effort are less steep. 
 # plotBiomass(sim_scenario$noCompetition)$plot+facet_wrap(~Species)
 # plotFleet(sim_scenario$fullCompetition) # collapses, the 5 years rule is still funny but could be due to theh time steps (?)
 # sim_scenario$fullCompetition@effortOut
@@ -605,7 +605,7 @@ source("DataFunction.R")
 ```
 
 #-----------------------------------------
-# scenarios management *skyp*  
+# scenarios management *skip*  
 #----------------------------------------------
 
 ```{r}
@@ -755,47 +755,13 @@ source("DataFunction.R")
 
 ```
 
-# TO DO 
-
-See ecovariability paper 
-objectives (i.e. expressed in managemtn rules): 
-1. blim
-2. yiled lim
-3. profit positive for all fleets
-
-scenarios: 
-1. fleets driven by current effort and managemtn is off
-2. MEY - fleets driven by profits and Blim on
-3. minimise bioeconomic risk of vulnerability - all management rules applied  
-
-indicators:  
-1. net present value (i.e. profits - economic)
-2. meeting objectives (Blim, yiled lim and profit > 0 - ecoviablility only for scenario 3)
-3. richness, trophic index, simpson (ecological)
-
-my model: 
-objectives: 
-1. blim
-2. maximise profits (not care about fleet profitability)
-
-scenario: 
-1. full competition 
-2. no competition ... 
-
-indicators: 
-1. yield (in my case not an objective but an indicators), effort, profit
-2. meeting objectives (n spp above Blim, could aslo do n fleet active but not an objective)
-3. biomass (better not as it's in management)
-4. slope and trophic level  
-
-
 #-----------------------------------------
-# plots of comparison *trial considering scenarios.RData or scenarios_noFlathead.RData - skyp* 
+# plots of comparison *trial considering scenarios.RData or scenarios_noFlathead.RData - skip* 
 #----------------------------------------------
 
 ```{r}
 
-# add biomass1, yield1 adn  profit1 scenarios - where no interaction for 1 spp (which one depends on theh order below) leads to higher biomass, yield, profits. These scenarios are repetitions of the 'species' scenarios, which at this point I am not sure are important 
+# add biomass1, yield1 and  profit1 scenarios - where no interaction for 1 spp (which one depends on the order below) leads to higher biomass, yield, profits. These scenarios are repetitions of the 'species' scenarios, which at this point I am not sure are important 
 
 # missing information from the saving comment above 
 
@@ -810,7 +776,7 @@ df_plot = indi$df_plot
 toDelete<-df_plot$scenario[c(1:7, 26:73)] # keep only the single spp scenarios!!!! 73 or 72 depending on options above
 df_plot2<-df_plot[!df_plot$scenario %in% toDelete, ]
 
-# if using option 2 above - whould this change as now yield1 is the one that includes platy + the highest spp in yeild? probably no, that would start from yield2 onwards...
+# if using option 2 above - would this change as now yield1 is the one that includes platy + the highest spp in yield? probably no, that would start from yield2 onward...
 
 b<-df_plot2[order(-df_plot2$biomassB),"scenario"][1]
 y<-df_plot2[order(-df_plot2$yield),"scenario"][1]
@@ -832,8 +798,8 @@ df_plot2 = indi$df_plot
 
   # calculate sp below re limits adn N of active vessels for each scenario
 
-# should we also look at these indicators??? spp below ref and active vessels are an important part as well adn decreasing interactions leads to more active fleets .... 
-sim_scenario$statusQuo@BioOut # the calculation below does not seem right !!!!!!!! 
+# should we also look at these indicators??? spp below ref and active vessels are an important part as well and decreasing interactions leads to more active fleets .... 
+sim_scenario$statusQuo@BioOut 
 
   Ntext<-df_plot2 %>% 
     select(c(scenario, Nref)) #%>%
@@ -867,14 +833,11 @@ sim_scenario$statusQuo@BioOut # the calculation below does not seem right !!!!!!
     mutate(yield = (yield/1000000)*areaEco, 
            biomassB = (biomassB/1000000)*areaEco,
            biomassA = (biomassA/1000000)*areaEco, 
-           profit = (profit*areaEco)/1000000) # need to re-think and check this one... it is now million $ per ecosystems and the starting value should be $ per m3 
-
+           profit = (profit*areaEco)/1000000)
 
   # create a dummy variable for legend 
   # df_plot6<-df_plot6 %>% 
   #   add_row(scenario="Legend", biomassA = NA, biomassB = 900000, effort = NA, Fref = NA, Nref =NA, Nref20 = NA, profit = min (df_plot6$profit), slope = NA, yield = max(df_plot6$yield))
-  
-  # are these values matching at the fishery scale? - to check: tonnes sounds about right, profits are too high (but it's the relative difference that  matters... )
   
   # set color based on profit or yield 
   df_plot6<-df_plot6 %>% 
@@ -922,9 +885,9 @@ dev.off()
 # try explaining platy: 
 
 # OPTION 1
-plotFleet(sim_scenario$noCompetition) # SET-SH steeply collapses, fl (below20 at fist ), serio and macrurus recover and SH targets them again with no constrains from otehr species.  
-plotFleet(sim_scenario$statusQuo) # SET-SH does not collapse becasue it's not as dependent on fl, but as such, fl recovers less and SH does not steeply increase in yield. also SH here is constrined by managemtn on other species (pretty much all...)
-plotFleet(sim_scenario$`platycephalus richardsoni`) # SH is as dependent on fl as in no competition but it is management is as constrained by other species as in status quo  - the trends is a sper status quo.
+plotFleet(sim_scenario$noCompetition)  
+plotFleet(sim_scenario$statusQuo) 
+plotFleet(sim_scenario$`platycephalus richardsoni`) 
 
 # the key is to relax management
 
@@ -1005,7 +968,6 @@ f = c("Profit", "Yield", "Effort", "Active fleets","Spp above Bmey","Spp above B
 #### fig 4 - scenarios and model dynamics  ----
 
 # plot interaction matrix
-# problem with calcualtion of Q (see inside function): cumulative Fmort across fleet set as per status quo (Q*initial_effort). Effort is dynamic but Q is not (e.g. high Q for fatheads in full competition, if effort increases for some fleets, pressure increases a lot for this spp). Need to revisit?
 plot_matrix = plotFleetMatrix(a,b,target_scenario)$plot_matrix 
 
 # plot fleet effort 
@@ -1016,9 +978,6 @@ plot_effort = plotFleetEffort(a,b, sim_scenario, sim_FD_bmsy, col_values)
 col_values<-c("#7b3294","#c2a5cf","#a6dba0","#008837")
 plot_indiTrend<-indicatorsTrend(a,b, sim_scenario, col_values) # biomass is biomass of target
 plot_all<-plot_indiTrend$plot_indiTrend
-
-# arrivata qui .... run code to 2100 and save plots with diferent name .... 
-
 
 # all plots 
 library(patchwork)
@@ -1067,34 +1026,6 @@ lolliIndicator
 dev.off()
 
 ```
-
-# TO DO BETH
-
-FIRST - OK
-decreases in effort - per broken stick 
-A most limiting spp set effort reduction - reduce effort according to the species that is below msy - reduce by the amount of the depletion (e.g. by 10% is the spp is depleted by 10%)
-B mean (which mean? up to you) of any reduction: 
-effort scaler = 1/3 (a + b + c) - TRIED 
-effort scaler = cube root of (a * b * c) 
-effort scaler = (a*Ba + b*Bb + c*Bc)/(Ba + Bb + Bc) = weighted sum of contributing species
-if B is on, then you don't need the 20% rule 
-
-SECOND OK  
-burning period or stabilzations at the FD level - don't do it as you are missing the dynamics and taking/exploring the system at another level.  
-
-THIRD
-fleet behaviour rule before the managetmn if thinkgs are still not working as expected...
-E ~ profit -> if profit < lower bound, reduce effort by a certain % and vice versa. figure out the bound looking at CPUE and effort. 
-
-FIFTH
-plot of relative biomass vs bmsy and Blim for each stock and scenario
-time series of effort levels - as for plotFleet()
-
-SIXTH
-in the time variant but relevant in genetal, effort might not dcrease even if profits do becasue changes in costs produce a very low change in effort e.g. 0.00000001 that is too low to be reflected in profits. Need to change the price something? need to think about this!!! 
-
-SEVENTH - OK
-do not consider MTL as it has many problems.... change with others
 
 #-----------------------------------------
 # additional plots 

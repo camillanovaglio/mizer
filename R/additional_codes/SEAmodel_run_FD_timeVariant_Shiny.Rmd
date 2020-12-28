@@ -140,14 +140,6 @@ p_target <- ggplot(target_plot, aes(spCommon,subfleet)) +
 
 ```
 
-# TO DO  
-need to change the description of the target matrix in the paper? No difference
-- old option: when considering the proportion of catch by fleet: the total catch of each fleet sums to 1, but the total catch of each spp could be higher than 1; i.e. yield > biomass (yield = biomass X target X effort).
-- when considering the proportion of catch by speceis: the total catch of each speceis sums to 1, but the total catch for each fleet can be higher than 1 (e.g. trawlin cacthes 0.9 of many spp).  
-- BIG EYE is caught here but not in the model above with Fmort - to check and add Fmort based on catches for this spp. 
-
-
-
 #-----------------------------------------
 # adjust df_selParam_new, df_price_new, df_cost2
 #----------------------------------------------
@@ -243,15 +235,6 @@ df_cost2[,5,2]<-ref*0.04 # gillnet
 
 ```
 
-# Problem from previous version (IMBeR version): 
-1. not possible to reproduce observed trends in catches and effort etc. after calibrating ke and scaling price parameters with the FD running - and this is because the calibration forced the model to reach equilibrium, which due to model structure and managemtn constrains is when MEY is reached and effort is stabilised. loosing dynamics. So instead, run the time variant version of the FD model without FD calibraion and tune parameters for a better fit. 
-2. no costs difference between fleets results in fitting problems. Use costs in g (cost of fishing 1 g of fish and different between fleets as bsed on catches) instead of coasts per operation (same for all trawling as based on data at teh fishery level?). Also, could use costs in g calculated for trawlers of the shelf and rescale that using scaling factors from beth (Atlantis)
-3. check for bugs in managemtn as at present fishing steeply declines if only one specis is declining despite the  
-
-# TO DO 
-there are data on profits that can be used for calibration/validation - see xlsx file and ASK INGRID on how to use these data
-
-
 #-----------------------------------------
 # Set fixed parameters
 #----------------------------------------------
@@ -316,13 +299,6 @@ plot
 dev.off()
 
 ```
-
-# TO DO
-1. need to transfor all of this from input (effort) to output (catch) control 
-2. how do we calculate Bmey instead of 1.2*Bmsy (https://www.youtube.com/watch?v=7DNhqtYf47E)? By running the model increasing costs instead of effort?
-3. add compliance term in effort equation? 
-
-
 
 #-----------------------------------------
 # Calculate scaling costs and price  
@@ -539,7 +515,6 @@ df_target_bmsy2[1,"trachurus declivis"]<-((sum(df_target_bmsy2[c(1,3),"trachurus
 df_target_bmsy2[3,"nototodarus gouldi"]<-(sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)
 df_target_bmsy2[1,"nototodarus gouldi"]<-((sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)*9)*18
 
-# arrivata qui.... details ...
 # fixing SED nad Sh given cacth contribution plots 
 # df_target_bmsy2[3,"nototodarus gouldi"]<-(sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)
 # df_target_bmsy2[1,"nototodarus gouldi"]<-((sum(df_target_bmsy2[c(1,3),"nototodarus gouldi"])/10)*7)*5 
@@ -548,7 +523,6 @@ df_target_bmsy2[1,"nototodarus gouldi"]<-((sum(df_target_bmsy2[c(1,3),"nototodar
 # less in SH and US and fix seriorella b plot
 df_target_bmsy2[c(3,4),"seriolella brama"]<-df_target_bmsy2[c(3,4),"seriolella brama"]*0.3
 
-# platy - still a mistery... erepro and Fmort?!
 # increase platy effort in SSG to redirect catches - not working  
 # df_target_bmsy2[5,"platycephalus richardsoni"]<-df_target_bmsy2[1,"platycephalus richardsoni"]*0.5
 # increse in SH to fix species plot - still recovering
@@ -660,9 +634,6 @@ b
 
 #### end checking 
 
-
-
-
 # notes and checks 
 # if using Bref: 
 # genipterus, platy and serior b below 20 - only seriorelle is below 20 in reality 
@@ -747,7 +718,7 @@ sim_FD_bmsy@profit
 ```
 
 #-----------------------------------------
-# recoveries *can skyp*
+# recoveries *can skip*
 #----------------------------------------------
 
 this was initially done with erepro as per def (df_param) and  target matrix as per def or similar (df_target_bmsy) then used the version '2' to check results  
@@ -1024,15 +995,6 @@ fig3b<-catchComp(sim_FD_bmsy, df_log_spp)
 # dev.off()
 
 ```
-
-# last updates: 
-I changed costs from g to opn and nothing changed in term of trends, but they make profits negative - keep g 
-I changed management rule to decrease effort in proportion to biomass of target (fixed a bug) - it improved trends 
-I need to reconsider the scale of ke so that changes in profits are reflected in changes in effort and as per units as discussed with Beth - values of ke ~ 100000 make changes in effort due to profit visible 
-I still need to add profits to the data and plot? 
-
-# Other importnatn notes 
-from SEAmodel_run.Rmd: gummy sharks and OR abudnances are too high?! you have increased them to fix catches. You could have increased Fmort instaed of r_max.
 
 #-----------------------------------------
 # plot - catch and effort by species or fleet

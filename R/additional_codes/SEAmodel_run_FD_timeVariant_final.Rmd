@@ -42,7 +42,7 @@ source("MizerParams-class.R")
 source("MizerSim-class.R")
 source("plots.R")
 source("project_methods.R")
-source("/Users/camillan/Desktop/project.R") ### TEMPORARY 
+source("project.R") 
 source("RcppExports.R") 
 source("selectivity_funcs.R")
 source("summary_methods.R")
@@ -384,18 +384,38 @@ colSums(df_target_bmsy2*initial_effort)
 # play  with effort instead 
 initial_effort2<-initial_effort
 
+# save data to load in NovaglioEtAl_JAEreview and run the model
+
+# clean some data that will need to be used in this script 
+# ungroup data first  
+datValidationYield<-ungroup(datValidationYield)
+datValidationEffort<-ungroup(datValidationEffort)
+
+# observed catch by species and fleet. This is as per code in SEA_FleetParam.Rmd line 1647 to calculate datValidationYieldSpp which then becomes yieldObs_timeVariant in createFmort() in DataFunction.r - thus following same protocol as per all observed data for validation 
+datValidationYieldSppFl<-df_log_spp %>%
+    filter(metier %in% df_main_metier, SPC_NAME %in% df_param$species) %>% 
+    group_by(SPC_NAME, metier, YEAR) %>% 
+    dplyr::summarise(catchComm = sum(TOT_CATCH_KG, na.rm=TRUE)/1e3) %>% 
+    `colnames<-`(c("species","fleet","year","yield_tonnes")) %>% 
+    mutate(fleet = case_when(fleet == "GHAT - Southern Shark Gillnet" ~ "SSG",
+                             fleet == "South East Trawl Fishery - Danish Seine" ~ "SED",
+                             fleet == "South East Trawl Fishery - Otter trawl deepSlope" ~ "SET-DS",
+                             fleet == "South East Trawl Fishery - Otter trawl shelf" ~ "SET-SH",
+                             fleet == "South East Trawl Fishery - Otter trawl upperSlope" ~ "SET-US")) 
+
+save(df_param2, df_param, theta, kappa, kappa_ben, kappa_alg, w_pp_cutoff, min_w_bb, w_bb_cutoff, df_selParam_new, df_target_bmsy2, df_price_new, df_cost3, ke_fleet, scaling_price, initial_n, initial_n_bb, initial_n_pp, initial_effort2, scaling_cost_area, areaEco, datValidationYield, datValidationEffort, yieldObs_timeVariant, sim_fitted, df_main_metier, datValidationYieldSppFl, file = "/Users/camillan/R-projects/Mizer-fleet/data/NovaglioetAl_JAEreview.RData")
+
 #### run model ----
 
 # with fixes on erepro and Q 
 params_FD <- MizerParams(df_param2, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy2, target = df_target_bmsy2)
 
 sim_FD_bmsy <- project(params_FD, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
-# plot_CN(sim_FD_bmsy)
+plot_CN(sim_FD_bmsy)
 plotFleet(sim_FD_bmsy)
 
 #  try management 
 # source("project.R")
-
 
 # without fixes on erepro 
 params_FD_no_erepro_fix <- MizerParams(df_param, interaction = theta, kappa = kappa, kappa_ben = kappa_ben, kappa_alg = kappa_alg, w_pp_cutoff = w_pp_cutoff, min_w_bb = min_w_bb, w_bb_cutoff = w_bb_cutoff, fleetDynamics = TRUE, selectivity_params = df_selParam_new, catchability = df_target_bmsy2, target = df_target_bmsy2)
@@ -403,9 +423,9 @@ params_FD_no_erepro_fix <- MizerParams(df_param, interaction = theta, kappa = ka
 sim_FD_bmsy_no_erepro_fix <- project(params_FD_no_erepro_fix, effort = 0, dt = dt, fleetDynamics = TRUE, multiFleet = FALSE, management = TRUE, price = df_price_new, cost = df_cost3, diet_steps = 0, ke = ke_fleet, initial_n = initial_n, initial_n_pp = initial_n_pp, initial_n_bb = initial_n_bb, initial_effort = initial_effort2, scaling_price = scaling_price, Blevel_management = "Bmsy") 
 plot_CN(sim_FD_bmsy_no_erepro_fix)
 
-# fast compare catches 
-datValidationYield<-ungroup(datValidationYield)
-datValidationEffort<-ungroup(datValidationEffort)
+# # fast compare catches 
+# datValidationYield<-ungroup(datValidationYield)
+# datValidationEffort<-ungroup(datValidationEffort)
 
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
 compareTrends(sim_fitted,sim_FD = sim_FD_bmsy_no_erepro_fix, fleetDynamics = TRUE,type = "yield",yieldObs_timeVariant,ssbObs,rescale=3,areaEco)$plotYield_sp
@@ -437,7 +457,7 @@ bio<-getBiomass(sim_FD_bmsy)
 ```
 
 #-----------------------------------------
-# tuning erepro *can skyp*
+# tuning erepro *can skip*
 #----------------------------------------------
 
 ```{r}
@@ -606,7 +626,8 @@ save(sim_FD_bmsy, df_param2, sim_FD_bmsy_no_erepro_fix, df_param, theta, kappa, 
 sim_FD_bmsy<-sim_FD_bmsy
 
 # catch composition 
-fig3b<-catchComp(sim_FD_bmsy, df_log_spp)$p
+# fig3b<-catchComp(sim_FD_bmsy, df_log_spp)$p
+fig3b<-catchComp(sim_FD_bmsy, datValidationYieldSppFl)$p # use datValidationYieldSppFl instead of df_log_spp (see code above - line 394) 
 
 # spawning stock biomass trends
 plotSSB_sp<-compareTrends(sim_fitted,sim_FD = sim_FD_bmsy, fleetDynamics = TRUE,type = "SSB",yieldObs_timeVariant,ssbObs,rescale=0,areaEco)$plotYield_sp 
@@ -705,7 +726,11 @@ fig3b2<-fig3b + theme(legend.position = "none")
 # ((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
 # dev.off()
 
-pdf("Fig3.pdf", height=6, width=8)
+# add captions 
+plotEffortCatch_fl <- plotEffortCatch_fl + ggtitle("A") + theme(plot.title = element_text(size = 12, face = "bold"))
+fig3b2 <- fig3b2 + ggtitle("B") + theme(plot.title = element_text(size = 12, face = "bold"))
+
+pdf("Fig3.pdf", height=7, width=9)
 ((plotEffortCatch_fl/fig3b2 + plot_layout(nrow=2,height=c(1,2))) | (plot_spacer()/leg + plot_layout(nrow=2,height=c(2,2)))) + plot_layout(ncol=2, widths = c(4,1))
 dev.off()
 

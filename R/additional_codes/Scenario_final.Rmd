@@ -46,7 +46,6 @@ kappa = kappa
 kappa_ben = kappa_ben
 kappa_alg = kappa_alg
 w_pp_cutoff = w_pp_cutoff
-min_w_bb = 1e-7 # min_w_bb # from SEAmodel_run.R - accidentally removed from the list above # added now .... rerun previous stem 
 w_bb_cutoff = w_bb_cutoff
 fleetDynamics = TRUE
 selectivity_params = df_selParam_new
@@ -81,7 +80,7 @@ initial_n_bb_scenario  = sim@n_bb[nrow(sim@n_bb),]
 initial_effort_scenario = sim@effortOut[dim(sim@effortOut)[1],]   
 
 ####### forward price and costs
-t_max = 23 # 23 # till 2040 (23) or 2100 (83) or eql (500?)
+t_max = 83 # 23 # till 2040 (23) or 2100 (83) or eql (500?)
 price_forward = t(replicate(t_max, price[nrow(price),]))
 rownames(price_forward)<-seq(1:t_max) # or...
 rownames(price_forward)<-seq(2018,(2018+t_max-1))
@@ -104,14 +103,7 @@ df_target_unfished<-target
 df_target_unfished[]<-0
 
 ####### status quo 
-#target>0.005 # managemtn only applies to those species - it's a rule within the managemtn component taht was there to avoid fleets collapses and reproduce historical trensds but it does change things a lot and it may be the reason why status quo and no bycatch are the same 
-
-#target>0 & target<0.005 # fished but not managed
-# SSG: sillago, gauldi, tracurus, centroberix, nemadactylus (!), platy (!! but OK as this is the shark hook an dgillnet sector and platy is not a mian spp), faber (!), macrurus, seriorella p, rexea
-# SED helicolenus, centroberix, squalus (!!), macrurus, serio p, rexea, genipt, galeo (!)
-# DS: gauldi, tracurus, squalus, macrurus, rexea
-# SH: gauldi (!), helicolenus, trachurus, 
-# US; trachurus, pristo, mustelus
+#target
 
 ######## no competition
 df_target_NoCompetition<-target
@@ -119,8 +111,6 @@ trial<-colMaxs(df_target_NoCompetition)
 trial<-trial[-which(trial == 0)]
 df_target_NoCompetition[df_target_NoCompetition %in% trial]<-1
 df_target_NoCompetition[df_target_NoCompetition != 1]<-0
-
-#df_target_NoCompetition>0.005 # here it does not apply as none is under management
 
 # keep Fmort constant across scenarios  
 div<-colSums(df_target_NoCompetition*initial_effort_scenario)/colSums(target*initial_effort_scenario)
@@ -142,8 +132,6 @@ df_target_FullCompetition[, "myctophids"]<-0
 
 colSums(df_target_FullCompetition*initial_effort_scenario)
 
-#df_target_FullCompetition>0.005 # here it does not apply as they are all under management
-
 ######## no bycatch (and spp under recovery strategies) 
 # NOTE: 2 fisheries are based on spp under recovery strategies - OR and school shark
 df_target_NoBycatch<-target
@@ -164,12 +152,6 @@ df_target_NoBycatch[, "myctophids"]<-0
 
 colSums(df_target_NoBycatch*initial_effort_scenario)
 
-#df_target_NoBycatch>0.005 # here it  only applies to thracurs because all other target are fished >0.005 and under management  
-
-# what's the difference with target?! 
-#target>0.005 # nemadactylus, platy, zeus, serio, genipterus, pristo, mustelus, galeo are targeted by 3 or more fleets, so it should be OK anyway. But target values for the spp commonly caught in target and bycatch are higher in bycatch because you redistributed effort across the target speies - this means 1) fmort is higher for the target and managed spp in bycatch and if these are depleted managemnt forces steeper decreases; 2) however, more speceis are managed under target which means again steeper decreases.  Alos, this rule applies to managemtn and not Fmort - spp that are <0.005 in target will still be fished.   
-#target<0.005
-
 ######## more valuable     
 # define most valuable spp and increase fishing by 50% 
 # prices checked according to data, sharks have highest values 
@@ -185,10 +167,6 @@ df_target_MoreTarget[,valuable]<-sweep(df_target_MoreTarget[,valuable], 2, div, 
 
 colSums(df_target_MoreTarget*initial_effort_scenario)
 
-#df_target_MoreTarget>0.005 # same as for target but mustelus/US which is not managed in target - effort increase here becasue it's a more valuable speceis 
-
-#target>0.005
-
 ######## target more under-quota   
 # define under quota spp and increase fishing on these by 50%. https://www.afma.gov.au/sites/default/files/semac_tac_recommendations_2019-20.pdf
 under<-c("macruronus novaezelandiae","nemadactylus macropterus","zeus faber","pristiophorus cirratus") 
@@ -202,12 +180,6 @@ df_target_MoreUnderQuota[,under]<-sweep(df_target_MoreUnderQuota[,under], 2, div
 
 colSums(df_target_MoreUnderQuota*initial_effort_scenario)
 
-#df_target_MoreUnderQuota>0.005 # macrurus is managed in DS and prist is managed in US 
-#target>0.005
-
-# does this also influences the number of spp above/below ref limits in my indicators plot?? NO
-
-
 ```
 
 #-----------------------------------------
@@ -218,7 +190,7 @@ colSums(df_target_MoreUnderQuota*initial_effort_scenario)
 
 target_scenario = list(unfished = df_target_unfished, noCompetition = df_target_NoCompetition, fullCompetition = df_target_FullCompetition, statusQuo = target, noBycatch = df_target_NoBycatch, MoreTarget = df_target_MoreTarget, MoreUnderQuota = df_target_MoreUnderQuota) 
 
-# see original code for additional sets of scenarios (e.g pathway tono competition, management scenarios, size-selectivity scenarios)
+# see original code (scenarios.R) for additional sets of scenarios (e.g pathway to no competition, management scenarios, size-selectivity scenarios)
 
 runModel<-function(target_scenario){
   
@@ -319,9 +291,9 @@ setwd("/Users/camillan/Desktop")
 # dev.off()
 
 # pdf("Fig4.pdf", height=13, width=16) # to 2040
-# pdf("FigS9.pdf", height=13, width=16) # to 2100
+pdf("FigS9.pdf", height=13, width=16) # to 2100
 # pdf("EQL_no_erepro_fix.pdf", height=13, width=16) to 2500 when is the system reaching  eql? 
-pdf("Fig4_no_erepro_fix.pdf", height=13, width=16)
+# pdf("Fig4_no_erepro_fix.pdf", height=13, width=16)
 plot_matrix / plot_effort / plot_all + plot_layout (nrow = 3, heights = c(2.2,1.4,1.4))
 dev.off()
 
@@ -339,14 +311,12 @@ lolliIndicator = plotIndicators(a,b,df_plot, col_values3, scenarios = "all")$lol
 blank<-ggplot()+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 
 # pdf("Fig5.pdf", height=6, width=7) # to 2040 
-# pdf("FigS10.pdf", height=6, width=7) # to 2100
-pdf("FigS10_no_erepro_fix.pdf", height=6, width=7) # to 2040
+pdf("FigS10.pdf", height=6, width=7) # to 2100
+# pdf("FigS10_no_erepro_fix.pdf", height=6, width=7) # to 2040
 lolliIndicator
 dev.off()
 
-
 # save until here only if you are running the model to 2100
-
 
 ```
 
@@ -367,12 +337,13 @@ for(i in 1:length(sim_scenario)){
   names(plot_list)[i] <- names(sim_scenario)[i]
 }
 
-plot_list$noCompetition
+plot_list$MoreUnderQuota
   
-setwd("/Users/camillan/Dropbox/Mizer-fleet_extension/plot/FD/Final")
+# setwd("/Users/camillan/Dropbox/Mizer-fleet_extension/plot/FD/Final")
 for(i in 1:length(plot_list)){
 
-  pdf(paste("FigS3_no_erepro_fix",names(plot_list)[i],".pdf", sep = "" ), height=13, width=13) #, units ='in', res=300)
+  # pdf(paste("FigS3_no_erepro_fix",names(plot_list)[i],".pdf", sep = "" ), height=13, width=13) #, units ='in', res=300)
+  pdf(paste("FigS3_",names(plot_list)[i],".pdf", sep = "" ), height=13, width=13) #, units ='in', res=300)
   print(plot_list[[i]])
   dev.off()
   
